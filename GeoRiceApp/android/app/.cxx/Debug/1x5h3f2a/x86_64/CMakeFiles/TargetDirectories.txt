@@ -1,0 +1,15 @@
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/CMakeFiles/appmodules.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/CMakeFiles/edit_cache.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/CMakeFiles/rebuild_cache.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/rnasyncstorage_autolinked_build/CMakeFiles/react_codegen_rnasyncstorage.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/rnasyncstorage_autolinked_build/CMakeFiles/edit_cache.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/rnasyncstorage_autolinked_build/CMakeFiles/rebuild_cache.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/RNCGeolocationSpec_autolinked_build/CMakeFiles/react_codegen_RNCGeolocationSpec.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/RNCGeolocationSpec_autolinked_build/CMakeFiles/edit_cache.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/RNCGeolocationSpec_autolinked_build/CMakeFiles/rebuild_cache.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/rnmapbox_maps_specs_autolinked_build/CMakeFiles/react_codegen_rnmapbox_maps_specs.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/rnmapbox_maps_specs_autolinked_build/CMakeFiles/edit_cache.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/rnmapbox_maps_specs_autolinked_build/CMakeFiles/rebuild_cache.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/safeareacontext_autolinked_build/CMakeFiles/edit_cache.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/x86_64/safeareacontext_autolinked_build/CMakeFiles/rebuild_cache.dir

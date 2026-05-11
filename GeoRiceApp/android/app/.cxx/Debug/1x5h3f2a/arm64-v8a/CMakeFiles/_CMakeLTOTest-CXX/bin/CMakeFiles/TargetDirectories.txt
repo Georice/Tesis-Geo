@@ -1,0 +1,4 @@
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/arm64-v8a/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/foo.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/arm64-v8a/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/boo.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/arm64-v8a/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/edit_cache.dir
+C:/Universidad/Proyecto-Tesis/DESARROLLADOR/GeoRiceApp/android/app/.cxx/Debug/1x5h3f2a/arm64-v8a/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/rebuild_cache.dir

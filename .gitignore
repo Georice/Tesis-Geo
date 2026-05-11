@@ -1,0 +1,15 @@
+node_modules/
+.env
+
+# React Native
+android/.gradle
+android/app/build
+android/build
+
+# Logs
+npm-debug.log
+yarn-error.log
+
+# OS
+.DS_Store
+Thumbs.db

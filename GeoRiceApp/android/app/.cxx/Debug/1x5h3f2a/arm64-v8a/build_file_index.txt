@@ -1,0 +1,5 @@
+C:\Universidad\Proyecto-Tesis\DESARROLLADOR\GeoRiceApp\node_modules\@react-native-async-storage\async-storage\android\build\generated\source\codegen\jni\CMakeLists.txt
+C:\Universidad\Proyecto-Tesis\DESARROLLADOR\GeoRiceApp\node_modules\@react-native-community\geolocation\android\build\generated\source\codegen\jni\CMakeLists.txt
+C:\Universidad\Proyecto-Tesis\DESARROLLADOR\GeoRiceApp\node_modules\@rnmapbox\maps\android\build\generated\source\codegen\jni\CMakeLists.txt
+C:\Universidad\Proyecto-Tesis\DESARROLLADOR\GeoRiceApp\node_modules\react-native-safe-area-context\android\src\main\jni\CMakeLists.txt
+C:\Universidad\Proyecto-Tesis\DESARROLLADOR\GeoRiceApp\node_modules\react-native\ReactAndroid\cmake-utils\default-app-setup\CMakeLists.txt
