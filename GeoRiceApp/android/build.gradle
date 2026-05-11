@@ -1,0 +1,39 @@
+buildscript {
+    ext {
+        buildToolsVersion = "36.0.0"
+        minSdkVersion = 24
+        compileSdkVersion = 36
+        targetSdkVersion = 36
+        ndkVersion = "27.1.12297006"
+        kotlinVersion = "2.1.20"
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.6.0")
+        classpath("com.facebook.react:react-native-gradle-plugin")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.20")
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://www.jitpack.io' }
+        maven {
+            url 'https://api.mapbox.com/downloads/v2/releases/maven'
+            authentication {
+                basic(BasicAuthentication)
+            }
+            credentials {
+    username = "mapbox"
+    password = "sk.eyJ1IjoiYmhlcnJlcmEyOCIsImEiOiJjbW90bnpkNXQwMXY0MnhwdmRrOTgxYXd0In0.ibqGyMcWQEQ2YmZ8g8eHzw"
+}
+        }
+    }
+}
+
+apply plugin: "com.facebook.react.rootproject"
