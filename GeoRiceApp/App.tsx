@@ -26,14 +26,29 @@ const App = () => {
 
   const fetchParcelas = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/parcelas');
+      const response = await fetch('http://192.168.100.6:3000/api/parcelas');
       if (response.ok) {
         const data = await response.json();
-        setParcelas(data);
+//         setParcelas(data);
+        const parcelasFormateadas = data.map((p: any) => ({
+          id: p.p_id,
+          nombre: p.p_nombre,
+          propietario: p.p_propietario,
+          cultivo: p.p_cultivo,
+          area_ha: p.p_area_ha,
+          geometria: JSON.parse(p.p_geometria),
+        }));
+
+        setParcelas(parcelasFormateadas);
         console.log('Parcelas cargadas:', data.length);
-if (data.length > 0) {
-  console.log('Ejemplo de geometría:', JSON.stringify(data[0].geometria));
-}
+    if (data.length > 0) {
+    //   console.log('Ejemplo de geometría:', JSON.stringify(data[0].geometria));
+    // console.log(JSON.stringify(data, null, 2));
+        console.log(
+                'Ejemplo geometría:',
+                JSON.stringify(parcelasFormateadas[0].geometria, null, 2)
+              );
+    }
       }
     } catch (_error) {
       console.error('Error al cargar parcelas:', _error);
@@ -51,7 +66,7 @@ if (data.length > 0) {
       const remaining: any[] = [];
       for (const p of offlineList) {
         try {
-          const response = await fetch('http://localhost:3000/api/parcelas', {
+          const response = await fetch('http://192.168.100.6:3000/api/parcelas', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(p),
@@ -126,7 +141,7 @@ if (data.length > 0) {
       properties: {},
       geometry: {
         type: 'Polygon',
-        coordinates: [vertices],
+        coordinates: [[...vertices, vertices[0]]],
       },
     }],
   } as GeoJSON.FeatureCollection;
@@ -192,7 +207,7 @@ if (data.length > 0) {
     };
 
     try {
-      const response = await fetch('http://localhost:3000/api/parcelas', {
+      const response = await fetch('http://192.168.100.6:3000/api/parcelas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parcelaData),
@@ -204,7 +219,7 @@ if (data.length > 0) {
         setNombre('');
         setPropietario('');
          setEditingGeometry([]);        // ← NUEVO
-  setParcelaEditandoId(null); 
+  setParcelaEditandoId(null);
         fetchParcelas();
       } else {
         Alert.alert('Error', data.error || 'No se pudo guardar');
@@ -228,7 +243,7 @@ if (data.length > 0) {
     if (!editingData) return;
     const { id, nombre: n, propietario: p, cultivo: c } = editingData;
     try {
-      const response = await fetch(`http://localhost:3000/api/parcelas/${id}`, {
+      const response = await fetch(`http://192.168.100.6:3000/api/parcelas/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -263,7 +278,7 @@ if (data.length > 0) {
     }
     const geometria = { type: 'Polygon', coordinates: [editingGeometry] };
     try {
-      const response = await fetch(`http://localhost:3000/api/parcelas/${parcelaEditandoId}/geometry`, {
+      const response = await fetch(`http://192.168.100.6:3000/api/parcelas/${parcelaEditandoId}/geometry`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ geometria }),
@@ -306,7 +321,7 @@ if (data.length > 0) {
           style: 'destructive',
           onPress: async () => {
             try {
-              const response = await fetch(`http://localhost:3000/api/parcelas/${id}`, {
+              const response = await fetch(`http://192.168.100.6:3000/api/parcelas/${id}`, {
                 method: 'DELETE',
               });
               const data = await response.json();
