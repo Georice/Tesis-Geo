@@ -1,5 +1,5 @@
-import { IParcelaRepository } from '../../domain/repositories/IParcelaRepository';
-import { Parcela } from '../../domain/entities/Parcela';
+import { IParcelaRepository } from '../../../domain/repositories/IParcelaRepository';
+import { Parcela } from '../../../domain/entities/Parcela';
 
 export class UpdateParcelaGeometry {
   constructor(private repo: IParcelaRepository) {}

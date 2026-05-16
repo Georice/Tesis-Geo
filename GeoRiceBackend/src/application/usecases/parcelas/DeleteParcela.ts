@@ -1,4 +1,4 @@
-import { IParcelaRepository } from '../../domain/repositories/IParcelaRepository';
+import { IParcelaRepository } from '../../../domain/repositories/IParcelaRepository';
 
 export class DeleteParcela {
   constructor(private repo: IParcelaRepository) {}

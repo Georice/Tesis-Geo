@@ -1,5 +1,6 @@
-import { IParcelaRepository } from '../../domain/repositories/IParcelaRepository';
-import { Parcela } from '../../domain/entities/Parcela';
+// import { IParcelaRepository } from '../../domain/repositories/IParcelaRepository';
+import { IParcelaRepository } from '../../../domain/repositories/IParcelaRepository';
+import { Parcela } from '../../../domain/entities/Parcela';
 
 export class CreateParcela {
   constructor(private repo: IParcelaRepository) {}
