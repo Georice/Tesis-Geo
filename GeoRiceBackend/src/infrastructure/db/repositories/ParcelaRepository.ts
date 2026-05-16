@@ -9,7 +9,8 @@ export class ParcelaRepository implements IParcelaRepository {
     return this.repo
       .createQueryBuilder('p')
       .select([
-        'p.id', 'p.nombre', 'p.propietario', 'p.cultivo', 'p.fechaCreacion',
+        'p.id', 'p.nombre', 'p.propietario', 'p.cultivo',
+        'p.estado', 'p.zonaId', 'p.fechaCreacion',
         'ST_AsGeoJSON(p.geometria) AS p_geometria',
         'ST_Area(p.geometria::geography) / 10000 AS p_area_ha',
       ])
@@ -18,6 +19,10 @@ export class ParcelaRepository implements IParcelaRepository {
 
   async findById(id: number): Promise<Parcela | null> {
     return this.repo.findOneBy({ id });
+  }
+
+  async findByZona(zonaId: number): Promise<Parcela[]> {
+    return this.repo.find({ where: { zonaId } });
   }
 
   async create(data: Partial<Parcela>): Promise<Parcela> {
@@ -38,13 +43,16 @@ export class ParcelaRepository implements IParcelaRepository {
     return this.findById(id);
   }
 
+  async updateEstado(id: number, estado: string): Promise<Parcela | null> {
+    await this.repo.update(id, { estado: estado as any });
+    return this.findById(id);
+  }
+
   async delete(id: number): Promise<boolean> {
     const result = await this.repo.delete(id);
     return (result.affected ?? 0) > 0;
   }
 
-
-    // Calcula el área en hectáreas de una geometría GeoJSON antes de guardarla
   async calculateArea(geometria: object): Promise<number> {
     const result = await AppDataSource.query(
       `SELECT ST_Area(ST_GeomFromGeoJSON($1)::geography) / 10000 AS area_ha`,
@@ -53,7 +61,6 @@ export class ParcelaRepository implements IParcelaRepository {
     return parseFloat(result[0].area_ha);
   }
 
-  // Verifica si la geometría se superpone con alguna parcela existente (excluyendo la parcela con excludeId)
   async hasOverlap(geometria: object, excludeId?: number): Promise<boolean> {
     const query = excludeId
       ? `SELECT COUNT(*) FROM parcelas 
