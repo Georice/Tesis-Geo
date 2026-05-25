@@ -1,31 +1,3 @@
-// import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
-
-// @Entity('parcelas')
-// export class Parcela {
-//   @PrimaryGeneratedColumn()
-//   id!: number;
-
-//   @Column({ type: 'varchar' })
-//   nombre!: string;
-
-//   @Column({ type: 'varchar' })
-//   propietario!: string;
-
-//   @Column({ type: 'varchar' })
-//   cultivo!: string;
-
-//   @Column({
-//     type: 'geometry',
-//     spatialFeatureType: 'Geometry',
-//     srid: 4326,
-//     nullable: true,
-//   })
-//   geometria!: object;
-
-//   @CreateDateColumn({ name: 'fecha_creacion' })
-//   fechaCreacion!: Date;
-//}
-
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Zona } from './Zona';
 
@@ -61,9 +33,32 @@ export class Parcela {
   @Column({
     type: 'varchar',
     length: 20,
-    default: 'activo'
+    default: 'activo',
   })
   estado!: 'activo' | 'descanso' | 'cosechado' | 'preparacion';
+
+  @Column({
+    name: 'ciclo_actual',
+    type: 'varchar',
+    length: 30,
+    default: 'siembra_normal_boleo',
+    nullable: true,
+  })
+  cicloActual!:
+    | 'siembra_normal_boleo'
+    | 'siembra_normal_trasplante'
+    | 'soca'
+    | 'resoca'
+    | 'en_preparacion';
+
+  @Column({
+    name: 'area_ha',
+    type: 'decimal',
+    precision: 10,
+    scale: 4,
+    nullable: true,
+  })
+  areaHa!: number;
 
   @CreateDateColumn({ name: 'fecha_creacion' })
   fechaCreacion!: Date;

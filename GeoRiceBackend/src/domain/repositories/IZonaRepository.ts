@@ -6,4 +6,5 @@ export interface IZonaRepository {
   create(data: Partial<Zona>): Promise<Zona>;
   update(id: number, data: Partial<Zona>): Promise<Zona | null>;
   delete(id: number): Promise<boolean>;
+ assignParcelasInsideZona(zonaId: number): Promise<number>;
 }
