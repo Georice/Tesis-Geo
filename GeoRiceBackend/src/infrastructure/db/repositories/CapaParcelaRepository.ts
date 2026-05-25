@@ -28,19 +28,29 @@ export class CapaParcelaRepository implements ICapaParcelaRepository {
     return this.findById(id);
   }
 
+  async updateGeometry(id: number, parcelaId: number, geometria: object): Promise<CapaParcela | null> {
+    const dentro = await this.isInsideParcela(parcelaId, geometria);
+    if (!dentro) throw new Error('La nueva geometría debe estar dentro de los límites de la parcela');
+    await this.repo.query(
+      `UPDATE capas_parcela SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
+      [JSON.stringify(geometria), id]
+    );
+    return this.findById(id);
+  }
+
   async delete(id: number): Promise<boolean> {
     const result = await this.repo.delete(id);
     return (result.affected ?? 0) > 0;
   }
 
- async isInsideParcela(parcelaId: number, geometria: object): Promise<boolean> {
-  const result = await AppDataSource.query(
-    `SELECT ST_Contains(
-      (SELECT geometria FROM parcelas WHERE id = $1),
-      ST_GeomFromGeoJSON($2)
-    ) AS dentro`,
-    [parcelaId, JSON.stringify(geometria)]
-  );
-  return result[0].dentro;
-}
+  async isInsideParcela(parcelaId: number, geometria: object): Promise<boolean> {
+    const result = await AppDataSource.query(
+      `SELECT ST_Contains(
+        (SELECT geometria FROM parcelas WHERE id = $1),
+        ST_GeomFromGeoJSON($2)
+      ) AS dentro`,
+      [parcelaId, JSON.stringify(geometria)]
+    );
+    return result[0].dentro;
+  }
 }
