@@ -26,8 +26,25 @@ export class ActividadController {
     try {
       const parcelaId = Number(req.params.parcelaId);
       logger.info(`POST /api/parcelas/${parcelaId}/actividades → CreateActividad ejecutado`);
-      const { tipo, fecha, insumo, cantidad, unidad, rendimientoHa, observaciones, capaId } = req.body;
-      const actividad = await new CreateActividad(repo).execute({ parcelaId, tipo, fecha, insumo, cantidad, unidad, rendimientoHa, observaciones, capaId });
+
+      const {
+        tipo, fecha, insumo, cantidad, unidad, metodo,
+        laminaAgua, rendimientoHa, totalSacos, humedad,
+        precioQq, costoCosecha, destino, plagaDetectada,
+        nivelDano, nivelAlerta, observaciones, capaId,
+        productos,
+      } = req.body;
+
+      const actividad = await new CreateActividad(repo).execute(
+        {
+          parcelaId, tipo, fecha, insumo, cantidad, unidad, metodo,
+          laminaAgua, rendimientoHa, totalSacos, humedad,
+          precioQq, costoCosecha, destino, plagaDetectada,
+          nivelDano, nivelAlerta, observaciones, capaId,
+        },
+        productos
+      );
+
       logger.info(`✅ Actividad creada con id: ${actividad.id}`);
       res.status(201).json(actividad);
     } catch (error) {
@@ -41,8 +58,31 @@ export class ActividadController {
     try {
       const id = Number(req.params.id);
       logger.info(`PUT /api/actividades/${id} → UpdateActividad ejecutado`);
-      const actividad = await new UpdateActividad(repo).execute(id, req.body);
-      if (!actividad) { res.status(404).json({ error: 'Actividad no encontrada' }); return; }
+
+      const {
+        tipo, fecha, insumo, cantidad, unidad, metodo,
+        laminaAgua, rendimientoHa, totalSacos, humedad,
+        precioQq, costoCosecha, destino, plagaDetectada,
+        nivelDano, nivelAlerta, observaciones,
+        productos,
+      } = req.body;
+
+      const actividad = await new UpdateActividad(repo).execute(
+        id,
+        {
+          tipo, fecha, insumo, cantidad, unidad, metodo,
+          laminaAgua, rendimientoHa, totalSacos, humedad,
+          precioQq, costoCosecha, destino, plagaDetectada,
+          nivelDano, nivelAlerta, observaciones,
+        },
+        productos
+      );
+
+      if (!actividad) {
+        res.status(404).json({ error: 'Actividad no encontrada' });
+        return;
+      }
+
       logger.info(`✅ Actividad ${id} actualizada`);
       res.json(actividad);
     } catch (error) {
@@ -57,7 +97,10 @@ export class ActividadController {
       const id = Number(req.params.id);
       logger.info(`DELETE /api/actividades/${id} → DeleteActividad ejecutado`);
       const deleted = await new DeleteActividad(repo).execute(id);
-      if (!deleted) { res.status(404).json({ error: 'Actividad no encontrada' }); return; }
+      if (!deleted) {
+        res.status(404).json({ error: 'Actividad no encontrada' });
+        return;
+      }
       logger.info(`✅ Actividad ${id} eliminada`);
       res.json({ mensaje: 'Actividad eliminada', id });
     } catch (error) {

@@ -3,6 +3,7 @@ import { CapaParcelaRepository } from '../../db/repositories/CapaParcelaReposito
 import { CreateCapa } from '../../../application/usecases/capas/CreateCapa';
 import { GetCapasByParcela } from '../../../application/usecases/capas/GetCapasByParcela';
 import { UpdateNdvi } from '../../../application/usecases/capas/UpdateNdvi';
+import { UpdateCapaGeometry } from '../../../application/usecases/capas/UpdateCapaGeometry';
 import { DeleteCapa } from '../../../application/usecases/capas/DeleteCapa';
 import { logger } from '../../../shared/logger';
 
@@ -50,6 +51,24 @@ export class CapaController {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al actualizar NDVI';
       logger.error('❌ Error al actualizar NDVI:', message);
+      res.status(400).json({ error: message });
+    }
+  }
+
+  async updateGeometry(req: Request, res: Response): Promise<void> {
+    try {
+      const id        = Number(req.params.id);
+      const parcelaId = Number(req.params.parcelaId);
+      logger.info(`PUT /api/capas/${id}/geometry → UpdateCapaGeometry ejecutado`);
+      const { geometria } = req.body;
+      if (!geometria) { res.status(400).json({ error: 'Se requiere geometria' }); return; }
+      const capa = await new UpdateCapaGeometry(repo).execute(id, parcelaId, geometria);
+      if (!capa) { res.status(404).json({ error: 'Capa no encontrada' }); return; }
+      logger.info(`✅ Geometría de capa ${id} actualizada`);
+      res.json(capa);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al actualizar geometría';
+      logger.error('❌ Error al actualizar geometría de capa:', message);
       res.status(400).json({ error: message });
     }
   }
