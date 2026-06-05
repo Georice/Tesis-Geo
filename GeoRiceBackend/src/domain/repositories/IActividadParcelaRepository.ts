@@ -8,4 +8,5 @@ export interface IActividadParcelaRepository {
   create(data: Partial<ActividadParcela>, productos?: Partial<ProductoActividad>[]): Promise<ActividadParcela>;
   update(id: number, data: Partial<ActividadParcela>, productos?: Partial<ProductoActividad>[]): Promise<ActividadParcela | null>;
   delete(id: number): Promise<boolean>;
+  findByCiclo(cicloId: number): Promise<ActividadParcela[]>;
 }

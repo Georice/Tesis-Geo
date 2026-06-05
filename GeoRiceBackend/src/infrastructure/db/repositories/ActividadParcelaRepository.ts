@@ -4,6 +4,13 @@ import { ProductoActividad } from '../../../domain/entities/ProductoActividad';
 import { IActividadParcelaRepository } from '../../../domain/repositories/IActividadParcelaRepository';
 
 export class ActividadParcelaRepository implements IActividadParcelaRepository {
+  async findByCiclo(cicloId: number): Promise<ActividadParcela[]> {
+    return this.repo.find({
+      where: { cicloId },
+      relations: ['productos'],
+      order: { fecha: 'DESC' },
+    });
+  }
   private repo         = AppDataSource.getRepository(ActividadParcela);
   private repoProducto = AppDataSource.getRepository(ProductoActividad);
 

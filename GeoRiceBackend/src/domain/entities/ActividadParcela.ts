@@ -1,7 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
-import { Parcela } from './Parcela';
-import { CapaParcela } from './CapaParcela';
+import {
+  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
+  ManyToOne, JoinColumn, OneToMany,
+} from 'typeorm';
+import { Parcela }        from './Parcela';
+import { CapaParcela }    from './CapaParcela';
 import { ProductoActividad } from './ProductoActividad';
+import { CicloActividad } from './CicloActividad';
+
 
 @Entity('actividades_parcela')
 export class ActividadParcela {
@@ -22,28 +27,25 @@ export class ActividadParcela {
   @JoinColumn({ name: 'capa_id' })
   capa!: CapaParcela;
 
+  // ── Tipo de actividad ─────────────────────────────────────────────
   @Column({ type: 'varchar', length: 30 })
   tipo!:
-    | 'preparacion_suelo'
-    | 'inundacion'
-    | 'siembra_boleo'
-    | 'siembra_trasplante'
-    | 'riego'
-    | 'fertilizacion'
-    | 'fumigacion'
-    | 'deshierba'
-    | 'cosecha'
-    | 'rozar_quemar'
-    | 'soca_riego'
-    | 'soca_fertilizacion'
-    | 'soca_fumigacion'
-    | 'cosecha_soca'
+    | 'preparacion_suelo' | 'inundacion'
+    | 'siembra_boleo'     | 'siembra_trasplante'
+    | 'riego'             | 'fertilizacion'
+    | 'fumigacion'        | 'deshierba'
+    | 'cosecha'           | 'rozar_quemar'
+    | 'soca_riego'        | 'soca_fertilizacion'
+    | 'soca_fumigacion'   | 'cosecha_soca'
     | 'observacion';
 
   @Column({ type: 'timestamp', default: () => 'NOW()' })
   fecha!: Date;
 
-  // Siembra
+  // ── Campos generales ──────────────────────────────────────────────
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  metodo!: string;
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   insumo!: string;
 
@@ -53,15 +55,11 @@ export class ActividadParcela {
   @Column({ type: 'varchar', length: 20, nullable: true })
   unidad!: string;
 
-  // Método aplicación
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  metodo!: string;
-
-  // Riego
+  // ── Riego / inundación ────────────────────────────────────────────
   @Column({ name: 'lamina_agua', type: 'decimal', precision: 8, scale: 2, nullable: true })
   laminaAgua!: number;
 
-  // Cosecha
+  // ── Cosecha ───────────────────────────────────────────────────────
   @Column({ name: 'rendimiento_ha', type: 'decimal', precision: 10, scale: 2, nullable: true })
   rendimientoHa!: number;
 
@@ -74,40 +72,60 @@ export class ActividadParcela {
   @Column({ name: 'precio_qq', type: 'decimal', precision: 10, scale: 2, nullable: true })
   precioQq!: number;
 
-  @Column({ name: 'ingreso_total', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({ name: 'ingreso_total', type: 'decimal', precision: 12, scale: 2, nullable: true })
   ingresoTotal!: number;
 
   @Column({ name: 'costo_cosecha', type: 'decimal', precision: 10, scale: 2, nullable: true })
   costoCosecha!: number;
 
-  @Column({
-    type: 'varchar',
-    length: 50,
-    nullable: true,
-  })
+  @Column({ type: 'varchar', length: 20, nullable: true })
   destino!: 'piladora' | 'almacen' | 'directo' | 'otro';
 
-  // Plagas
+  // ── Fumigación / plagas ───────────────────────────────────────────
   @Column({ name: 'plaga_detectada', type: 'varchar', length: 100, nullable: true })
   plagaDetectada!: string;
 
   @Column({ name: 'nivel_dano', type: 'varchar', length: 20, nullable: true })
   nivelDano!: 'leve' | 'moderado' | 'severo';
 
-  // Observación
-  @Column({ name: 'nivel_alerta', type: 'varchar', length: 20, nullable: true })
+  @Column({ name: 'nivel_alerta', type: 'varchar', length: 20, nullable: true, default: 'normal' })
   nivelAlerta!: 'normal' | 'alerta' | 'critico';
 
+  // ── TANQUE de fumigación ──────────────────────────────────────────
+  @Column({ name: 'capacidad_tanque', type: 'decimal', precision: 8, scale: 2, nullable: true, default: 200 })
+  capacidadTanque!: number;  // Litros del tanque (default 200L)
+
+  @Column({ name: 'num_tanques', type: 'decimal', precision: 6, scale: 2, nullable: true })
+  numTanques!: number;  // Cuántos tanques se aplicaron (puede ser 2.5)
+
+  // ── JORNALES / mano de obra ───────────────────────────────────────
+  @Column({ name: 'num_jornales', type: 'integer', nullable: true })
+  numJornales!: number;  // Cantidad de jornales usados
+
+  @Column({ name: 'pago_jornal', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  pagoJornal!: number;  // $ pagado por cada jornal
+
+  @Column({ name: 'costo_mano_obra', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  costoManoObra!: number;  // Calculado: numJornales × pagoJornal
+
+  // ── Observaciones ─────────────────────────────────────────────────
   @Column({ type: 'text', nullable: true })
   observaciones!: string;
+
+  // ── Productos (fumigación/fertilización) ──────────────────────────
+  @OneToMany(() => ProductoActividad, p => p.actividad, { cascade: true, eager: true })
+  productos!: ProductoActividad[];
 
   @CreateDateColumn({ name: 'fecha_registro' })
   fechaRegistro!: Date;
 
-  // Relación con productos
-  @OneToMany(() => ProductoActividad, producto => producto.actividad, {
-    cascade: true,
-    eager: true,
-  })
-  productos!: ProductoActividad[];
+  // ── Ciclo ─────────────────────────────────────────────────────────────────
+@Column({ name: 'ciclo_id', nullable: true })
+cicloId!: number;
+
+@ManyToOne(() => CicloActividad, { nullable: true, onDelete: 'SET NULL' })
+@JoinColumn({ name: 'ciclo_id' })
+ciclo!: CicloActividad;
+
+  
 }
