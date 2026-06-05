@@ -7,6 +7,8 @@ import parcelasRoutes from './infrastructure/http/routes/parcelas';
 import zonasRoutes from './infrastructure/http/routes/zonas';
 import capasRoutes from './infrastructure/http/routes/capas';
 import actividadesRoutes from './infrastructure/http/routes/actividades';
+import ciclosRoutes from './infrastructure/http/routes/ciclos';
+
 import { logger } from './shared/logger';
 
 dotenv.config();
@@ -26,11 +28,15 @@ app.get('/', (req, res) => {
   res.send('GeoRice Backend funcionando');
 });
 
-app.use('/api/parcelas', parcelasRoutes);
-app.use('/api/zonas', zonasRoutes);
-app.use('/api/parcelas/:parcelaId/capas', capasRoutes);
+// Rutas específicas PRIMERO
+app.use('/api/parcelas/:parcelaId/capas',       capasRoutes);
 app.use('/api/parcelas/:parcelaId/actividades', actividadesRoutes);
-app.use('/api/capas', capasRoutes);
+app.use('/api/parcelas/:parcelaId/ciclos',      ciclosRoutes);
+
+// Rutas genéricas DESPUÉS
+app.use('/api/parcelas', parcelasRoutes);
+app.use('/api/zonas',    zonasRoutes);
+app.use('/api/capas',    capasRoutes);
 app.use('/api/actividades', actividadesRoutes);
 
 AppDataSource.initialize()
@@ -53,6 +59,9 @@ AppDataSource.initialize()
       logger.info('  POST   /api/parcelas/:parcelaId/actividades');
       logger.info('  PUT    /api/actividades/:id');
       logger.info('  DELETE /api/actividades/:id');
+      logger.info('  GET    /api/parcelas/:parcelaId/ciclos');
+logger.info('  POST   /api/parcelas/:parcelaId/ciclos');
+logger.info('  PUT    /api/ciclos/:id/finalizar');
     });
   })
   .catch((error) => {

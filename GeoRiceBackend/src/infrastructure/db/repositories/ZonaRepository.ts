@@ -3,6 +3,9 @@ import { Zona } from '../../../domain/entities/Zona';
 import { IZonaRepository } from '../../../domain/repositories/IZonaRepository';
 
 export class ZonaRepository implements IZonaRepository {
+  delete(id: number): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
   private repo = AppDataSource.getRepository(Zona);
 
   async findAll(): Promise<Zona[]> {
@@ -71,25 +74,45 @@ export class ZonaRepository implements IZonaRepository {
   return this.repo.save(zona);
 }
 
+  // async update(id: number, data: Partial<Zona>): Promise<Zona | null> {
+  //   if (data.geometria) {
+  //     const geom           = this.closeRing(data.geometria);
+  //     const { geometria, ...rest } = data;
+  //     if (Object.keys(rest).length > 0) await this.repo.update(id, rest);
+  //     await AppDataSource.query(
+  //       `UPDATE zonas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
+  //       [JSON.stringify(geom), id]
+  //     );
+  //     return this.findById(id);
+  //   }
+  //   await this.repo.update(id, data);
+  //   return this.findById(id);
+  // }
+
+  // async delete(id: number): Promise<boolean> {
+  //   const result = await this.repo.delete(id);
+  //   return (result.affected ?? 0) > 0;
+  // }
+
   async update(id: number, data: Partial<Zona>): Promise<Zona | null> {
-    if (data.geometria) {
-      const geom           = this.closeRing(data.geometria);
-      const { geometria, ...rest } = data;
-      if (Object.keys(rest).length > 0) await this.repo.update(id, rest);
-      await AppDataSource.query(
-        `UPDATE zonas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
-        [JSON.stringify(geom), id]
-      );
-      return this.findById(id);
-    }
-    await this.repo.update(id, data);
+  if (data.geometria) {
+    const geom = this.closeRing(data.geometria);
+    const { geometria, ...rest } = data;
+    if (Object.keys(rest).length > 0) await this.repo.update(id, rest);
+    await AppDataSource.query(
+      `UPDATE zonas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
+      [JSON.stringify(geom), id]
+    );
+    // ← reasignar parcelas que ahora quedan dentro
+    await AppDataSource.query(
+      `UPDATE parcelas SET zona_id = NULL WHERE zona_id = $1`, [id]
+    );
+    await this.assignParcelasInsideZona(id);
     return this.findById(id);
   }
-
-  async delete(id: number): Promise<boolean> {
-    const result = await this.repo.delete(id);
-    return (result.affected ?? 0) > 0;
-  }
+  await this.repo.update(id, data);
+  return this.findById(id);
+}
 
   // async assignParcelasInsideZona(zonaId: number): Promise<number> {
   //   const result = await AppDataSource.query(
@@ -105,24 +128,17 @@ export class ZonaRepository implements IZonaRepository {
   //   return result[1] ?? 0;
   // }
 
-  async assignParcelasInsideZona(zonaId: number): Promise<number> {
-  console.log('ASSIGN ZONAИД:', zonaId);
-  try {
-    const result = await AppDataSource.query(
-      `UPDATE parcelas
-       SET zona_id = $1
-       WHERE ST_Contains(
-         (SELECT geometria FROM zonas WHERE id = $1),
-         geometria
-       )
-       AND (zona_id IS NULL OR zona_id != $1)`,
-      [zonaId]
-    );
-    console.log('ASSIGN RESULT:', result);
-    return result[1] ?? 0;
-  } catch (err) {
-    console.log('ERROR EN ASSIGN:', err);
-    throw err;
-  }
+ async assignParcelasInsideZona(zonaId: number): Promise<number> {
+  const result = await AppDataSource.query(
+    `UPDATE parcelas
+     SET zona_id = $1
+     WHERE ST_Within(
+       geometria,
+       (SELECT geometria FROM zonas WHERE id = $1)
+     )
+     AND (zona_id IS NULL OR zona_id != $1)`,
+    [zonaId]
+  );
+  return result[1] ?? 0;
 }
 }
