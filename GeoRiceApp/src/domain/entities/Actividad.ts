@@ -15,20 +15,24 @@ export interface ProductoActividad {
   tipo: TipoProducto;
   dosis?: number | null;
   unidad?: string | null;
-  fechaRegistro?: string;
+  dosisPorTanque?: number | null;
 }
 
 export interface Actividad {
   id: number;
   parcelaId: number;
   capaId?: number | null;
+  cicloId?: number | null;
   tipo: TipoActividad;
   fecha: string;
-  // Siembra
+  // Estado
+  estado?: 'pendiente' | 'en_proceso' | 'completada';
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  // General
   insumo?: string | null;
   cantidad?: number | null;
   unidad?: string | null;
-  // Método
   metodo?: string | null;
   // Riego
   laminaAgua?: number | null;
@@ -43,37 +47,33 @@ export interface Actividad {
   // Plagas
   plagaDetectada?: string | null;
   nivelDano?: string | null;
-  // Observación
   nivelAlerta?: string | null;
+  // Tanques
+  capacidadTanque?: number | null;
+  numTanques?: number | null;
+  // Jornales
+  numJornales?: number | null;
+  pagoJornal?: number | null;
+  costoManoObra?: number | null;
+  // Maquinaria
+  tipoMaquinaria?: string | null;
+  unidadCobro?: 'hora' | 'hectarea' | 'saco' | 'otro' | null;
+  cantidadUnidades?: number | null;
+  costoPorUnidad?: number | null;
+  costoMaquinaria?: number | null;
+  // Otros
   observaciones?: string | null;
   fechaRegistro?: string;
-  // Productos
   productos?: ProductoActividad[];
 }
 
-export interface CreateActividadDTO {
-  tipo: TipoActividad;
-  fecha: string;
-  insumo?: string;
-  cantidad?: number;
-  unidad?: string;
-  metodo?: string;
-  laminaAgua?: number;
-  rendimientoHa?: number;
-  totalSacos?: number;
-  humedad?: number;
-  precioQq?: number;
-  costoCosecha?: number;
-  destino?: string;
-  plagaDetectada?: string;
-  nivelDano?: string;
-  nivelAlerta?: string;
-  observaciones?: string;
-  capaId?: number | null;
-  productos?: Partial<ProductoActividad>[];
-}
 
 export interface UpdateActividadDTO {
+  tipo?: string;
+  estado?: 'pendiente' | 'en_proceso' | 'completada';
+  fecha?: string;
+  fechaInicio?: string;
+  fechaFin?: string;
   metodo?: string;
   insumo?: string;
   cantidad?: number;
@@ -89,5 +89,21 @@ export interface UpdateActividadDTO {
   nivelDano?: string;
   nivelAlerta?: string;
   observaciones?: string;
-  productos?: Partial<ProductoActividad>[];
+  capacidadTanque?: number;
+  numTanques?: number;
+  numJornales?: number;
+  pagoJornal?: number;
+  costoManoObra?: number;
+  tipoMaquinaria?: string;
+  unidadCobro?: string;
+  cantidadUnidades?: number;
+  costoPorUnidad?: number;
+  costoMaquinaria?: number;
+  productos?: any[];
+}
+
+export interface CreateActividadDTO extends UpdateActividadDTO {
+  parcelaId?: number;
+  cicloId?: number;
+  capaId?: number;
 }

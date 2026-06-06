@@ -1,15 +1,20 @@
+# Dependencias
 node_modules/
+
+# Variables de entorno
 .env
 
-# React Native
-android/.gradle
-android/app/build
-android/build
+# React Native (GeoRiceApp)
+GeoRiceApp/android/.gradle/
+GeoRiceApp/android/app/build/
+GeoRiceApp/android/app/.cxx/
+GeoRiceApp/android/build/
+*.o
 
 # Logs
 npm-debug.log
 yarn-error.log
 
-# OS
+# Sistema operativo
 .DS_Store
 Thumbs.db

@@ -127,5 +127,32 @@ cicloId!: number;
 @JoinColumn({ name: 'ciclo_id' })
 ciclo!: CicloActividad;
 
+
+@Column({ type: 'varchar', length: 20, default: 'pendiente' })
+estado!: 'pendiente' | 'en_proceso' | 'completada';
+
+@Column({ name: 'fecha_inicio', type: 'timestamp', nullable: true })
+fechaInicio!: Date;
+
+@Column({ name: 'fecha_fin', type: 'timestamp', nullable: true })
+fechaFin!: Date;
+
+
+// ── Maquinaria ────────────────────────────────────────────────────
+@Column({ name: 'tipo_maquinaria', type: 'varchar', length: 50, nullable: true })
+tipoMaquinaria!: string;  // tractor, drone, cosechadora, etc.
+
+@Column({ name: 'unidad_cobro', type: 'varchar', length: 20, nullable: true })
+unidadCobro!: 'hora' | 'hectarea' | 'saco' | 'otro';  // cómo se cobra
+
+@Column({ name: 'cantidad_unidades', type: 'decimal', precision: 8, scale: 2, nullable: true })
+cantidadUnidades!: number;  // horas trabajadas, hectáreas, sacos
+
+@Column({ name: 'costo_por_unidad', type: 'decimal', precision: 10, scale: 2, nullable: true })
+costoPorUnidad!: number;  // $ por hora/ha/saco
+
+@Column({ name: 'costo_maquinaria', type: 'decimal', precision: 10, scale: 2, nullable: true })
+costoMaquinaria!: number;  // Calculado: cantidadUnidades × costoPorUnidad
+
   
 }

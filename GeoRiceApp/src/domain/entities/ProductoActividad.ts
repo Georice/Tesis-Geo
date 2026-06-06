@@ -1,0 +1,1 @@
+export type { ProductoActividad, TipoProducto } from './Actividad';
