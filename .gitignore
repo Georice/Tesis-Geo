@@ -1,10 +1,15 @@
 node_modules/
 .env
 
-# React Native
-android/.gradle
-android/app/build
-android/build
+# React Native Android
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+
+# APKs
+*.apk
+*.aab
 
 # Logs
 npm-debug.log
