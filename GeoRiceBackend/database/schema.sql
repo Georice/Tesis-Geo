@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 7LgVQHab4oEf3U8LIUoDUd4VQawAOas49Ayaeo9N94uWUhOt0fo3oPlEgaAU2KB
+\restrict E2KK3bnNhvkXC0y0ysKOCqWAOp6caGrQJZ5QIkDoj8uKDSgj4yLMeZOz2IdaXxn
 
 -- Dumped from database version 17.9
 -- Dumped by pg_dump version 17.9
@@ -70,6 +70,14 @@ CREATE TABLE public.actividades_parcela (
     pago_jornal numeric(10,2),
     costo_mano_obra numeric(10,2),
     ciclo_id integer,
+    estado character varying(20) DEFAULT 'pendiente'::character varying,
+    fecha_inicio timestamp without time zone,
+    fecha_fin timestamp without time zone,
+    tipo_maquinaria character varying(50),
+    unidad_cobro character varying(20),
+    cantidad_unidades numeric(8,2),
+    costo_por_unidad numeric(10,2),
+    costo_maquinaria numeric(10,2),
     CONSTRAINT actividades_parcela_destino_check CHECK (((destino)::text = ANY ((ARRAY['piladora'::character varying, 'almacen'::character varying, 'directo'::character varying, 'otro'::character varying])::text[]))),
     CONSTRAINT actividades_parcela_nivel_dano_check CHECK (((nivel_dano)::text = ANY ((ARRAY['leve'::character varying, 'moderado'::character varying, 'severo'::character varying])::text[]))),
     CONSTRAINT actividades_parcela_tipo_check CHECK (((tipo)::text = ANY (ARRAY[('preparacion_suelo'::character varying)::text, ('inundacion'::character varying)::text, ('siembra_boleo'::character varying)::text, ('siembra_trasplante'::character varying)::text, ('riego'::character varying)::text, ('fertilizacion'::character varying)::text, ('fumigacion'::character varying)::text, ('deshierba'::character varying)::text, ('cosecha'::character varying)::text, ('rozar_quemar'::character varying)::text, ('soca_riego'::character varying)::text, ('soca_fertilizacion'::character varying)::text, ('soca_fumigacion'::character varying)::text, ('cosecha_soca'::character varying)::text, ('observacion'::character varying)::text])))
@@ -484,5 +492,5 @@ ALTER TABLE ONLY public.productos_actividad
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 7LgVQHab4oEf3U8LIUoDUd4VQawAOas49Ayaeo9N94uWUhOt0fo3oPlEgaAU2KB
+\unrestrict E2KK3bnNhvkXC0y0ysKOCqWAOp6caGrQJZ5QIkDoj8uKDSgj4yLMeZOz2IdaXxn
 

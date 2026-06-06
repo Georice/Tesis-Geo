@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 const BASE_URL = Platform.OS === 'android'
-  ? 'http://localhost:3000/api'
+  ? 'http://192.168.1.213:3000/api'
   : 'http://localhost:3000/api';
 
 export const apiFetch = async (path: string, options?: RequestInit): Promise<Response> => {
@@ -9,7 +9,7 @@ export const apiFetch = async (path: string, options?: RequestInit): Promise<Res
   try {
     const res = await fetch(url, options);
     return res;
- } catch {
+  } catch {
     throw new Error(`No se pudo conectar: ${url}`);
   }
 };

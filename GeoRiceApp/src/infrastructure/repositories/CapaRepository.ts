@@ -2,7 +2,6 @@ import { Capa, CreateCapaDTO } from '../../domain/entities/Capa';
 import { apiFetch } from './ApiClient';
 
 export const CapaRepository = {
-
   getByParcela: async (parcelaId: number): Promise<Capa[]> => {
     const res = await apiFetch(`/parcelas/${parcelaId}/capas`);
     if (!res.ok) throw new Error('Error al obtener capas');
@@ -28,6 +27,17 @@ export const CapaRepository = {
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al actualizar NDVI');
+    return json;
+  },
+
+  updateGeometry: async (parcelaId: number, capaId: number, data: { tipo?: string; geometria?: object }): Promise<Capa> => {
+    const res = await apiFetch(`/parcelas/${parcelaId}/capas/${capaId}/geometry`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Error al actualizar capa');
     return json;
   },
 

@@ -1,0 +1,15 @@
+export const Colors = {
+  verde:        '#1a5c2a',
+  verdeMedio:   '#2e7d32',
+  verdeClaro:   '#e8f5e9',
+  verdeBorder:  '#a5d6a7',
+  dorado:       '#f59e0b',
+  doradoClaro:  '#fef3c7',
+  doradoBorder: '#fcd34d',
+  tierra:       '#92400e',
+  blanco:       '#ffffff',
+  grisFondo:    '#f5f5f5',
+  grisBorde:    '#e0e0e0',
+  grisTexto:    '#757575',
+  rojo:         '#ef4444',
+};

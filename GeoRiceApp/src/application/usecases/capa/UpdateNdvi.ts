@@ -1,3 +1,13 @@
+// import { CapaRepository } from '../../../infrastructure/repositories/CapaRepository';
+// import { Capa } from '../../../domain/entities/Capa';
+
+// export const UpdateNdvi = async (capaId: number, ndviEstimado: number): Promise<Capa> => {
+//   if (!capaId) throw new Error('ID de capa inválido');
+//   if (ndviEstimado < 0 || ndviEstimado > 1) throw new Error('El NDVI debe estar entre 0 y 1');
+//   return await CapaRepository.updateNdvi(capaId, ndviEstimado);
+// };
+
+
 import { CapaRepository } from '../../../infrastructure/repositories/CapaRepository';
 import { Capa } from '../../../domain/entities/Capa';
 
@@ -5,4 +15,13 @@ export const UpdateNdvi = async (capaId: number, ndviEstimado: number): Promise<
   if (!capaId) throw new Error('ID de capa inválido');
   if (ndviEstimado < 0 || ndviEstimado > 1) throw new Error('El NDVI debe estar entre 0 y 1');
   return await CapaRepository.updateNdvi(capaId, ndviEstimado);
+};
+
+export const UpdateCapa = async (
+  capaId: number,
+  parcelaId: number,
+  data: { tipo?: string; geometria?: object }
+): Promise<Capa> => {
+  if (!capaId) throw new Error('ID de capa inválido');
+  return await CapaRepository.updateGeometry(parcelaId, capaId, data);
 };
