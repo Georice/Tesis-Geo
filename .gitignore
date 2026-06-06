@@ -1,20 +1,19 @@
-node_modules/
+GeoRiceApp/node_modules/
+GeoRiceBackend/node_modules/
+
+GeoRiceBackend/.env
 .env
 
-# React Native Android
-android/.gradle/
-android/build/
-android/app/build/
-android/app/.cxx/
+GeoRiceApp/android/.gradle/
+GeoRiceApp/android/build/
+GeoRiceApp/android/app/build/
+GeoRiceApp/android/app/.cxx/
 
-# APKs
 *.apk
 *.aab
 
-# Logs
 npm-debug.log
 yarn-error.log
 
-# OS
 .DS_Store
 Thumbs.db
