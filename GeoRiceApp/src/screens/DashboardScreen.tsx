@@ -3,13 +3,16 @@ import {
   StyleSheet, View, Text, TouchableOpacity, Alert, TextInput,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Mapbox from '@rnmapbox/maps';
 import turfArea from '@turf/area';
+import { booleanWithin } from '@turf/turf';
 import { type Polygon } from 'geojson';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { useAuth } from '../context/AuthContext';
 
 import { Parcela } from '../domain/entities/Parcela';
 import { Zona }    from '../domain/entities/Zona';
@@ -67,10 +70,11 @@ const DashboardScreen = () => {
   const navigation = useNavigation<Nav>();
   const route      = useRoute<RouteProp<RootStackParamList, 'Dashboard'>>();
   const parcelaRef = useRef<any>(null);
+  const cameraRef  = useRef<any>(null);
+  const { user, logout } = useAuth();
 
   const [vertices, setVertices]                   = useState<number[][]>([]);
   const [nombre, setNombre]                       = useState('');
-  const [propietario, setPropietario]             = useState('');
   const [parcelas, setParcelas]                   = useState<Parcela[]>([]);
   const [zonas, setZonas]                         = useState<Zona[]>([]);
   const [selectedParcela, setSelectedParcela]     = useState<any>(null);
@@ -95,6 +99,7 @@ const DashboardScreen = () => {
   const [verticesZonaEdit, setVerticesZonaEdit]     = useState<number[][]>([]);
 
   const [menuParcela, setMenuParcela] = useState<any>(null);
+  const [activeTab, setActiveTab]   = useState<'mapa' | 'parcelas'>('mapa');
 
   const fetchParcelas = async () => {
     try { setParcelas(await GetParcelas()); }
@@ -236,11 +241,11 @@ const DashboardScreen = () => {
     if (selectedParcela || editingData) {
       setSelectedParcela(null); setEditingData(null); return;
     }
-    setVertices(c => [...c, coord]);
+    if (activeTab === 'parcelas') setVertices(c => [...c, coord]);
   };
 
   const clearAll = () => {
-    setVertices([]); setNombre(''); setPropietario('');
+    setVertices([]); setNombre('');
     setSelectedParcela(null); setEditingData(null);
     setEditingGeometry([]); setParcelaEditandoId(null);
     setDibujandoCapa(false); setVerticesCapa([]); setParcelaParaCapa(null);
@@ -252,13 +257,38 @@ const DashboardScreen = () => {
   const saveParcel = async () => {
     if (vertices.length < 3) { Alert.alert('Error', 'Necesitas al menos 3 vértices.'); return; }
     if (!nombre.trim())       { Alert.alert('Error', 'Ingresa un nombre.'); return; }
+
+    if (zonas.length > 0) {
+      const parcelaFeature = {
+        type: 'Feature' as const, properties: {},
+        geometry: { type: 'Polygon' as const, coordinates: [[...vertices, vertices[0]]] },
+      };
+      const dentroDeZona = zonas.some(z => {
+        const geomRaw = (z as any).geometria ?? (z as any).z_geometria;
+        if (!geomRaw) return false;
+        try {
+          const geom = typeof geomRaw === 'string' ? JSON.parse(geomRaw) : geomRaw;
+          return booleanWithin(parcelaFeature, { type: 'Feature', properties: {}, geometry: geom });
+        } catch { return false; }
+      });
+      if (!dentroDeZona) {
+        Alert.alert('⚠️ Fuera de zona',
+          'La parcela debe estar completamente dentro de una zona registrada.',
+          [
+            { text: 'Ir a Zonas', onPress: () => navigation.navigate('Zonas') },
+            { text: 'Cancelar', style: 'cancel' },
+          ]
+        );
+        return;
+      }
+    }
+
     const geometria   = { type: 'Polygon', coordinates: [[...vertices, vertices[0]]] };
-    const parcelaData = { nombre: nombre.trim(), propietario: propietario.trim() || 'Sin asignar',
-                          cultivo: 'Arroz', estado: 'activo', geometria };
+    const parcelaData = { nombre: nombre.trim(), cultivo: 'Arroz', estado: 'activo', geometria };
     try {
       await CreateParcela(parcelaData);
       Alert.alert('✅ Parcela guardada', `Área: ${getArea(vertices)} ha`);
-      setVertices([]); setNombre(''); setPropietario('');
+      setVertices([]); setNombre('');
       fetchParcelas();
     } catch (e: any) {
       const msg = e.message ?? 'Error al guardar';
@@ -279,7 +309,7 @@ const DashboardScreen = () => {
           list.push(parcelaData);
           await AsyncStorage.setItem('offlineParcelas', JSON.stringify(list));
           Alert.alert('Sin conexión', 'Guardado localmente.');
-          setVertices([]); setNombre(''); setPropietario('');
+          setVertices([]); setNombre('');
         } catch (err) { console.error(err); }
       }
     }
@@ -344,7 +374,7 @@ const DashboardScreen = () => {
       p_id: parcela?.p_id ?? parcela?.id,
       id:   parcela?.p_id ?? parcela?.id,
     };
-    setVertices([]); setNombre(''); setPropietario('');
+    setVertices([]); setNombre('');
     setSelectedParcela(null); setEditingData(null);
     setEditingGeometry([]); setParcelaEditandoId(null);
     setDibujandoZona(false); setVerticesZona([]);
@@ -367,7 +397,7 @@ const DashboardScreen = () => {
       const f = coords[0]; const l = coords[coords.length - 1];
       if (f[0] === l[0] && f[1] === l[1]) coords = coords.slice(0, -1);
     }
-    setVertices([]); setNombre(''); setPropietario('');
+    setVertices([]); setNombre('');
     setSelectedParcela(null); setEditingData(null);
     setEditingGeometry([]); setParcelaEditandoId(null);
     setDibujandoZona(false); setVerticesZona([]);
@@ -454,7 +484,7 @@ const DashboardScreen = () => {
           // @ts-ignore
           maxZoomLevel={18}>
 
-          <Mapbox.Camera defaultSettings={{
+          <Mapbox.Camera ref={cameraRef} defaultSettings={{
             centerCoordinate: [-79.98893505962573, -1.9325948991925863],
             zoomLevel: 16,
           }} />
@@ -569,6 +599,11 @@ const DashboardScreen = () => {
               id="parcelasGuardadas"
               shape={parcelasGeoJSON}
               onPress={(event: any) => {
+                if (dibujandoCapa || dibujandoZona || editandoZonaId !== null || parcelaEditandoId !== null) {
+                  const c = event.coordinates;
+                  if (c) handleMapPress({ geometry: { coordinates: [c.longitude, c.latitude] } });
+                  return;
+                }
                 const feature: any = event?.features?.[0];
                 if (feature?.properties) {
                   const props           = feature.properties;
@@ -589,150 +624,218 @@ const DashboardScreen = () => {
           )}
         </Mapbox.MapView>
 
-        {!dibujandoCapa && !dibujandoZona && !editandoZonaId && (
+        <TouchableOpacity style={styles.btnUbicacion}
+          onPress={() => cameraRef.current?.setCamera({
+            centerCoordinate: [-79.98893505962573, -1.9325948991925863],
+            zoomLevel: 16,
+            animationMode: 'flyTo',
+            animationDuration: 1000,
+          })}>
+          <Text style={{ fontSize: 20 }}>📍</Text>
+        </TouchableOpacity>
+
+        {modoPanel !== 'parcela' && !dibujandoCapa && !dibujandoZona && !editandoZonaId && (
           <TouchableOpacity style={styles.btnZonas}
             onPress={() => navigation.navigate('Zonas')}>
             <Text style={styles.btnZonasTexto}>🗺 Zonas</Text>
           </TouchableOpacity>
         )}
 
-        <View style={[
-          styles.panel,
-          (modoPanel === 'nuevaCapa' || modoPanel === 'nuevaZona' || modoPanel === 'editarZona')
-            && { maxHeight: 160 }
-        ]} pointerEvents={
-          modoPanel === 'nuevaCapa' || modoPanel === 'nuevaZona' ||
-          modoPanel === 'editarZona' || modoPanel === 'editarGeom'
-            ? 'box-none' : 'auto'
-        }>
-          {modoPanel === 'nuevaCapa' && (
-            <>
-              <Text style={styles.panelTitulo}>
-                {editandoCapaId ? '🧩 Editando capa' : '🧩 Nueva capa — toca el mapa para dibujar'}
-              </Text>
-              <Text style={styles.panelSub}>Parcela: {parcelaParaCapa?.p_nombre ?? parcelaParaCapa?.nombre}</Text>
-              <View style={styles.tipoRow}>
-                {(['activo','descanso','lindero'] as const).map(t => (
-                  <TouchableOpacity key={t}
-                    style={[styles.tipoBtn, tipoCapa === t && { backgroundColor: CAPA_BORDER[t], borderColor: CAPA_BORDER[t] }]}
-                    onPress={() => setTipoCapa(t)}>
-                    <Text style={[styles.tipoBtnTexto, tipoCapa === t && { color: '#fff' }]}>
-                      {t.charAt(0).toUpperCase() + t.slice(1)}
+        {!menuParcela && <View style={styles.bottomStack} pointerEvents="box-none">
+
+
+          <View style={[
+            styles.panel,
+            modoPanel === 'nuevaCapa'  && { maxHeight: 240 },
+            (modoPanel === 'nuevaZona' || modoPanel === 'editarZona') && { maxHeight: 200 },
+          ]} pointerEvents={
+            modoPanel === 'nuevaCapa' || modoPanel === 'nuevaZona' ||
+            modoPanel === 'editarZona' || modoPanel === 'editarGeom'
+              ? 'box-none' : 'auto'
+          }>
+            {modoPanel === 'nuevaCapa' && (
+              <>
+                <Text style={styles.panelTitulo}>
+                  {editandoCapaId ? '🧩 Editando capa' : '🧩 Nueva capa — toca el mapa para dibujar'}
+                </Text>
+                <Text style={styles.panelSub}>Parcela: {parcelaParaCapa?.p_nombre ?? parcelaParaCapa?.nombre}</Text>
+                <View style={styles.tipoRow}>
+                  {(['activo','descanso','lindero'] as const).map(t => (
+                    <TouchableOpacity key={t}
+                      style={[styles.tipoBtn, tipoCapa === t && { backgroundColor: CAPA_BORDER[t], borderColor: CAPA_BORDER[t] }]}
+                      onPress={() => setTipoCapa(t)}>
+                      <Text style={[styles.tipoBtnTexto, tipoCapa === t && { color: '#fff' }]}>
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={styles.panelInfo}>Vértices: {verticesCapa.length} · Área: {getArea(verticesCapa)} ha</Text>
+                <View style={styles.btnRow}>
+                  <TouchableOpacity style={styles.btnSecundario} onPress={() => setVerticesCapa(v => v.slice(0, -1))}>
+                    <Text style={styles.btnSecTexto}>↩ Deshacer</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.btnSecundario}
+                    onPress={() => { setDibujandoCapa(false); setVerticesCapa([]); setParcelaParaCapa(null); setEditandoCapaId(null); }}>
+                    <Text style={[styles.btnSecTexto, { color: 'red' }]}>✕ Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.btnPrimario, verticesCapa.length < 3 && { opacity: 0.4 }]}
+                    onPress={saveCapa} disabled={verticesCapa.length < 3}>
+                    <Text style={styles.btnTexto}>💾 Guardar</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {modoPanel === 'nuevaZona' && (
+              <>
+                <Text style={styles.panelTitulo}>🗺 Nueva zona — toca el mapa para dibujar</Text>
+                <TextInput style={styles.input} value={nombreZona} onChangeText={setNombreZona}
+                  placeholder="Nombre de la zona *" placeholderTextColor="#aaa" />
+                <TextInput style={styles.input} value={descripcionZona} onChangeText={setDescripcionZona}
+                  placeholder="Descripción (opcional)" placeholderTextColor="#aaa" />
+                <Text style={styles.panelInfo}>Vértices: {verticesZona.length} · Área: {getArea(verticesZona)} ha</Text>
+                <View style={styles.btnRow}>
+                  <TouchableOpacity style={styles.btnSecundario} onPress={() => setVerticesZona(v => v.slice(0, -1))}>
+                    <Text style={styles.btnSecTexto}>↩ Deshacer</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.btnSecundario}
+                    onPress={() => { setDibujandoZona(false); setVerticesZona([]); setNombreZona(''); setDescripcionZona(''); }}>
+                    <Text style={[styles.btnSecTexto, { color: 'red' }]}>✕ Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.btnPrimario, (verticesZona.length < 3 || !nombreZona.trim()) && { opacity: 0.4 }]}
+                    onPress={saveZona} disabled={verticesZona.length < 3 || !nombreZona.trim()}>
+                    <Text style={styles.btnTexto}>💾 Guardar</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {modoPanel === 'editarZona' && (
+              <>
+                <Text style={styles.panelTitulo}>🗺 Editando: {editandoZonaNombre}</Text>
+                <Text style={styles.panelSub}>Arrastra vértices o toca el mapa para agregar</Text>
+                <Text style={styles.panelInfo}>Vértices: {verticesZonaEdit.length} · Área: {getArea(verticesZonaEdit)} ha</Text>
+                <View style={styles.btnRow}>
+                  <TouchableOpacity style={styles.btnSecundario} onPress={() => setVerticesZonaEdit(v => v.slice(0, -1))}>
+                    <Text style={styles.btnSecTexto}>↩ Deshacer</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.btnSecundario}
+                    onPress={() => { setEditandoZonaId(null); setEditandoZonaNombre(''); setVerticesZonaEdit([]); }}>
+                    <Text style={[styles.btnSecTexto, { color: 'red' }]}>✕ Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.btnPrimario, verticesZonaEdit.length < 3 && { opacity: 0.4 }]}
+                    onPress={saveZonaGeometry} disabled={verticesZonaEdit.length < 3}>
+                    <Text style={styles.btnTexto}>💾 Guardar</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {modoPanel === 'editarDatos' && (
+              <ParcelaEditarScreen editingData={editingData} onChangeData={setEditingData}
+                onCancelar={() => setEditingData(null)} onGuardar={updateParcelData} />
+            )}
+
+            {modoPanel === 'editarGeom' && (
+              <ParcelaGeometriaScreen editingGeometry={editingGeometry} area={getArea(editingGeometry)}
+                onEliminarUltimo={() => setEditingGeometry(v => v.slice(0, -1))}
+                onCancelar={() => { setEditingGeometry([]); setParcelaEditandoId(null); }}
+                onGuardar={saveGeometryChanges} />
+            )}
+
+            {modoPanel === 'detalle' && selectedParcela && (
+              <ParcelaDetalleScreen parcela={selectedParcela}
+                onEditarDatos={() => setEditingData({ ...selectedParcela })}
+                onEditarGeometria={startEditGeometry}
+                onEliminar={() => deleteParcel(selectedParcela.id ?? selectedParcela.p_id)}
+                onCerrar={() => setSelectedParcela(null)}
+                onActividades={() => {
+                  parcelaRef.current = selectedParcela;
+                  navigation.navigate('Actividades', { parcela: parcelaRef.current });
+                }}
+                onCapas={() => {
+                  parcelaRef.current = selectedParcela;
+                  navigation.navigate('Capas', { parcela: parcelaRef.current });
+                }}
+                onIniciarCiclo={() => {
+                  parcelaRef.current = selectedParcela;
+                  navigation.navigate('IniciarCiclo', { parcela: parcelaRef.current });
+                }} />
+            )}
+
+            {modoPanel === 'parcela' && activeTab === 'mapa' && (
+              <>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <Text style={styles.panelTitulo}>🗺 Vista general</Text>
+                  <TouchableOpacity onPress={() => Alert.alert(
+                    'Cerrar sesión',
+                    `¿Deseas salir, ${user?.nombres}?`,
+                    [
+                      { text: 'Cancelar', style: 'cancel' },
+                      { text: 'Salir', style: 'destructive', onPress: logout },
+                    ]
+                  )}>
+                    <Text style={{ fontSize: 12, color: '#888' }}>
+                      {user?.nombreCompleto} · Salir
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={styles.panelInfo}>Vértices: {verticesCapa.length} · Área: {getArea(verticesCapa)} ha</Text>
-              <View style={styles.btnRow}>
-                <TouchableOpacity style={styles.btnSecundario} onPress={() => setVerticesCapa(v => v.slice(0, -1))}>
-                  <Text style={styles.btnSecTexto}>↩ Deshacer</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.btnSecundario}
-                  onPress={() => { setDibujandoCapa(false); setVerticesCapa([]); setParcelaParaCapa(null); setEditandoCapaId(null); }}>
-                  <Text style={[styles.btnSecTexto, { color: 'red' }]}>✕ Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.btnPrimario, verticesCapa.length < 3 && { opacity: 0.4 }]}
-                  onPress={saveCapa} disabled={verticesCapa.length < 3}>
-                  <Text style={styles.btnTexto}>💾 Guardar</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+                </View>
+                <View style={[styles.infoRow, { marginVertical: 10 }]}>
+                  <View style={styles.infoStat}>
+                    <Text style={styles.infoNum}>{parcelas.length}</Text>
+                    <Text style={styles.infoLabel}>Parcelas</Text>
+                  </View>
+                  <View style={styles.infoSep} />
+                  <View style={styles.infoStat}>
+                    <Text style={styles.infoNum}>{zonas.length}</Text>
+                    <Text style={styles.infoLabel}>Zonas activas</Text>
+                  </View>
+                </View>
+                <Text style={styles.panelSub}>Toca una parcela en el mapa para ver sus detalles</Text>
+              </>
+            )}
 
-          {modoPanel === 'nuevaZona' && (
-            <>
-              <Text style={styles.panelTitulo}>🗺 Nueva zona — toca el mapa para dibujar</Text>
-              <TextInput style={styles.input} value={nombreZona} onChangeText={setNombreZona}
-                placeholder="Nombre de la zona *" placeholderTextColor="#aaa" />
-              <TextInput style={styles.input} value={descripcionZona} onChangeText={setDescripcionZona}
-                placeholder="Descripción (opcional)" placeholderTextColor="#aaa" />
-              <Text style={styles.panelInfo}>Vértices: {verticesZona.length} · Área: {getArea(verticesZona)} ha</Text>
-              <View style={styles.btnRow}>
-                <TouchableOpacity style={styles.btnSecundario} onPress={() => setVerticesZona(v => v.slice(0, -1))}>
-                  <Text style={styles.btnSecTexto}>↩ Deshacer</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.btnSecundario}
-                  onPress={() => { setDibujandoZona(false); setVerticesZona([]); setNombreZona(''); setDescripcionZona(''); }}>
-                  <Text style={[styles.btnSecTexto, { color: 'red' }]}>✕ Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.btnPrimario, (verticesZona.length < 3 || !nombreZona.trim()) && { opacity: 0.4 }]}
-                  onPress={saveZona} disabled={verticesZona.length < 3 || !nombreZona.trim()}>
-                  <Text style={styles.btnTexto}>💾 Guardar</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-
-          {modoPanel === 'editarZona' && (
-            <>
-              <Text style={styles.panelTitulo}>🗺 Editando: {editandoZonaNombre}</Text>
-              <Text style={styles.panelSub}>Arrastra vértices o toca el mapa para agregar</Text>
-              <Text style={styles.panelInfo}>Vértices: {verticesZonaEdit.length} · Área: {getArea(verticesZonaEdit)} ha</Text>
-              <View style={styles.btnRow}>
-                <TouchableOpacity style={styles.btnSecundario} onPress={() => setVerticesZonaEdit(v => v.slice(0, -1))}>
-                  <Text style={styles.btnSecTexto}>↩ Deshacer</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.btnSecundario}
-                  onPress={() => { setEditandoZonaId(null); setEditandoZonaNombre(''); setVerticesZonaEdit([]); }}>
-                  <Text style={[styles.btnSecTexto, { color: 'red' }]}>✕ Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.btnPrimario, verticesZonaEdit.length < 3 && { opacity: 0.4 }]}
-                  onPress={saveZonaGeometry} disabled={verticesZonaEdit.length < 3}>
-                  <Text style={styles.btnTexto}>💾 Guardar</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-
-          {modoPanel === 'editarDatos' && (
-            <ParcelaEditarScreen editingData={editingData} onChangeData={setEditingData}
-              onCancelar={() => setEditingData(null)} onGuardar={updateParcelData} />
-          )}
-
-          {modoPanel === 'editarGeom' && (
-            <ParcelaGeometriaScreen editingGeometry={editingGeometry} area={getArea(editingGeometry)}
-              onEliminarUltimo={() => setEditingGeometry(v => v.slice(0, -1))}
-              onCancelar={() => { setEditingGeometry([]); setParcelaEditandoId(null); }}
-              onGuardar={saveGeometryChanges} />
-          )}
-
-          {modoPanel === 'detalle' && selectedParcela && (
-            <ParcelaDetalleScreen parcela={selectedParcela}
-              onEditarDatos={() => setEditingData({ ...selectedParcela })}
-              onEditarGeometria={startEditGeometry}
-              onEliminar={() => deleteParcel(selectedParcela.id ?? selectedParcela.p_id)}
-              onCerrar={() => setSelectedParcela(null)}
-              onActividades={() => {
-                parcelaRef.current = selectedParcela;
-                navigation.navigate('Actividades', { parcela: parcelaRef.current });
-              }}
-              onCapas={() => {
-                parcelaRef.current = selectedParcela;
-                navigation.navigate('Capas', { parcela: parcelaRef.current });
-              }}
-              onIniciarCiclo={() => {
-                parcelaRef.current = selectedParcela;
-                navigation.navigate('IniciarCiclo', { parcela: parcelaRef.current });
-              }} />
-          )}
+            {modoPanel === 'parcela' && activeTab === 'parcelas' && (
+              <NuevaParcelaScreen vertices={vertices} nombre={nombre}
+                area={getArea(vertices)} onNombreChange={setNombre}
+                onLimpiar={clearAll} onGuardar={saveParcel} onSyncOffline={syncOfflineParcelas} />
+            )}
+          </View>
 
           {modoPanel === 'parcela' && (
-            <NuevaParcelaScreen vertices={vertices} nombre={nombre} propietario={propietario}
-              area={getArea(vertices)} onNombreChange={setNombre}
-              onPropietarioChange={setPropietario} onLimpiar={clearAll}
-              onGuardar={saveParcel} onSyncOffline={syncOfflineParcelas} />
+            <View style={styles.tabBar}>
+              <TouchableOpacity
+                style={[styles.tabItem, activeTab === 'mapa' && styles.tabActive]}
+                onPress={() => { setActiveTab('mapa'); setVertices([]); }}>
+                <Text style={styles.tabIcon}>🗺</Text>
+                <Text style={[styles.tabLabel, activeTab === 'mapa' && styles.tabLabelActive]}>Mapa</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.tabItem}
+                onPress={() => navigation.navigate('Zonas')}>
+                <Text style={styles.tabIcon}>📍</Text>
+                <Text style={styles.tabLabel}>Zonas</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tabItem, activeTab === 'parcelas' && styles.tabActive]}
+                onPress={() => setActiveTab('parcelas')}>
+                <Text style={styles.tabIcon}>🌾</Text>
+                <Text style={[styles.tabLabel, activeTab === 'parcelas' && styles.tabLabelActive]}>Parcelas</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.tabItem}
+                onPress={syncOfflineParcelas}>
+                <Text style={styles.tabIcon}>☁️</Text>
+                <Text style={styles.tabLabel}>Sincronizar</Text>
+              </TouchableOpacity>
+            </View>
           )}
-        </View>
+        </View>}
 
-        {/* Menú parcela */}
         {menuParcela && (
-  <View style={{
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    maxHeight: '80%',
-    backgroundColor: 'rgba(255,255,255,0.98)',
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    elevation: 10,
-  }}>
+  <View style={styles.parcelaSheet}>
+    <View style={styles.sheetHandle} />
     <ParcelaDetalleScreen
       parcela={menuParcela}
       onEditarDatos={() => {
@@ -743,11 +846,16 @@ const DashboardScreen = () => {
         if (pid) fetchCapas(pid);
       }}
       onEditarGeometria={() => {
+        const parcela = parcelaRef.current;
+        const geom = parseGeom(parcela?.p_geometria ?? parcela?.geometria);
+        let coords = (geom as any)?.coordinates?.[0] ?? [];
+        if (coords.length > 1) {
+          const f = coords[0]; const l = coords[coords.length - 1];
+          if (f[0] === l[0] && f[1] === l[1]) coords = coords.slice(0, -1);
+        }
         setMenuParcela(null);
-        setSelectedParcela(parcelaRef.current);
-        const pid = parcelaRef.current?.p_id;
-        if (pid) fetchCapas(pid);
-        setTimeout(() => startEditGeometry(), 100);
+        setEditingGeometry(coords.length ? coords : []);
+        setParcelaEditandoId(parcela?.p_id ?? parcela?.id);
       }}
       onEliminar={() => {
         setMenuParcela(null);
@@ -782,8 +890,21 @@ const styles = StyleSheet.create({
   editMarker:   { width: 24, height: 24, borderRadius: 12, backgroundColor: 'orange',
                   justifyContent: 'center', alignItems: 'center' },
   markerText:   { color: 'white', fontWeight: 'bold', fontSize: 12 },
-  panel:        { position: 'absolute', bottom: 30, left: 10, right: 10,
-                  backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12, padding: 15 },
+  bottomStack:  { position: 'absolute', bottom: 10, left: 10, right: 10 },
+  panel:        { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12, padding: 15, marginBottom: 8 },
+  infoCard:     { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12, padding: 12, marginBottom: 8 },
+  infoRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  infoStat:     { alignItems: 'center', flex: 1 },
+  infoNum:      { fontSize: 22, fontWeight: '700', color: '#1a5c2a' },
+  infoLabel:    { fontSize: 11, color: '#666', marginTop: 2 },
+  infoSep:      { width: 1, height: 32, backgroundColor: '#e0e0e0' },
+  tabBar:       { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12,
+                  flexDirection: 'row', padding: 6 },
+  tabItem:      { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8 },
+  tabActive:    { backgroundColor: 'rgba(26,92,42,0.1)' },
+  tabIcon:      { fontSize: 18, marginBottom: 2 },
+  tabLabel:     { fontSize: 11, color: '#888' },
+  tabLabelActive: { color: '#1a5c2a', fontWeight: '700' },
   panelTitulo:  { fontSize: 15, fontWeight: '700', marginBottom: 6 },
   panelSub:     { fontSize: 12, color: '#666', marginBottom: 6 },
   panelInfo:    { fontSize: 12, color: '#999', marginBottom: 8 },
@@ -800,7 +921,18 @@ const styles = StyleSheet.create({
   btnSecTexto:  { fontSize: 13, color: '#444' },
   input:        { borderWidth: 1, borderColor: '#ccc', borderRadius: 8,
                   paddingHorizontal: 12, paddingVertical: 8, marginBottom: 8, fontSize: 15 },
-  btnZonas:     { position: 'absolute', top: 50, right: 12,
+  parcelaSheet: { position: 'absolute', bottom: 10, left: 10, right: 10,
+                  backgroundColor: 'rgba(255,255,255,0.98)', borderRadius: 20,
+                  padding: 16, paddingTop: 10, elevation: 12,
+                  shadowColor: '#000', shadowOffset: { width: 0, height: -2 },
+                  shadowOpacity: 0.12, shadowRadius: 8 },
+  sheetHandle:  { width: 40, height: 4, backgroundColor: '#ddd', borderRadius: 2,
+                  alignSelf: 'center', marginBottom: 14 },
+  btnUbicacion: { position: 'absolute', top: 10, right: 12,
+                  backgroundColor: 'rgba(255,255,255,0.95)',
+                  width: 42, height: 42, borderRadius: 21,
+                  justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  btnZonas:     { position: 'absolute', top: 62, right: 12,
                   backgroundColor: 'rgba(255,255,255,0.95)',
                   paddingVertical: 8, paddingHorizontal: 14,
                   borderRadius: 20, elevation: 5 },

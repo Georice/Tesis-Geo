@@ -1,56 +1,66 @@
-import { Request, Response } from 'express';
-import { CapaParcelaRepository } from '../../db/repositories/CapaParcelaRepository';
-import { CreateCapa } from '../../../application/usecases/capas/CreateCapa';
-import { GetCapasByParcela } from '../../../application/usecases/capas/GetCapasByParcela';
-import { UpdateNdvi } from '../../../application/usecases/capas/UpdateNdvi';
-import { UpdateCapaGeometry } from '../../../application/usecases/capas/UpdateCapaGeometry';
-import { DeleteCapa } from '../../../application/usecases/capas/DeleteCapa';
-import { logger } from '../../../shared/logger';
+import { Request, Response }          from 'express';
+import { CapaParcelaRepository }      from '../../db/repositories/CapaParcelaRepository';
+import { CreateCapa }                 from '../../../application/usecases/capas/CreateCapa';
+import { GetCapasByParcela }          from '../../../application/usecases/capas/GetCapasByParcela';
+import { UpdateNdvi }                 from '../../../application/usecases/capas/UpdateNdvi';
+import { UpdateCapaGeometry }         from '../../../application/usecases/capas/UpdateCapaGeometry';
+import { DeleteCapa }                 from '../../../application/usecases/capas/DeleteCapa';
+import { AppDataSource }              from '../../db/DataSource';
+import { logger }                     from '../../../shared/logger';
 
 const repo = new CapaParcelaRepository();
+
+async function verifyParcelaAccess(parcelaId: number, usuarioId: number, rol: string): Promise<void> {
+  if (rol === 'administrador') return;
+  const result = await AppDataSource.query(
+    `SELECT id FROM parcelas WHERE id = $1 AND usuario_id = $2`, [parcelaId, usuarioId]
+  );
+  if (!result[0]) throw new Error('Parcela no encontrada o no autorizado');
+}
 
 export class CapaController {
   async getByParcela(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      logger.info(`GET /api/parcelas/${parcelaId}/capas → GetCapasByParcela ejecutado`);
+      await verifyParcelaAccess(parcelaId, Number(req.user!.sub), req.user!.rol);
       const capas = await new GetCapasByParcela(repo).execute(parcelaId);
-      logger.info(`✅ ${capas.length} capas obtenidas para parcela ${parcelaId}`);
+      logger.info(`GET capas parcela=${parcelaId} → ${capas.length}`);
       res.json(capas);
     } catch (error) {
-      logger.error('❌ Error al obtener capas:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      const message = error instanceof Error ? error.message : 'Error al obtener capas';
+      res.status(message.includes('autorizado') ? 403 : 500).json({ error: message });
     }
   }
 
   async create(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      logger.info(`POST /api/parcelas/${parcelaId}/capas → CreateCapa ejecutado`);
+      const usuarioId = Number(req.user!.sub);
+      await verifyParcelaAccess(parcelaId, usuarioId, req.user!.rol);
+
       const { tipo, geometria, ndviEstimado } = req.body;
-      const capa = await new CreateCapa(repo).execute({ parcelaId, tipo, geometria, ndviEstimado });
-      logger.info(`✅ Capa creada con id: ${capa.id} en parcela ${parcelaId}`);
+      const capa = await new CreateCapa(repo).execute({
+        parcelaId, tipo, geometria, ndviEstimado,
+        createdBy: usuarioId, updatedBy: usuarioId,
+      });
+      logger.info(`POST capa creada id=${capa.id} parcela=${parcelaId}`);
       res.status(201).json(capa);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al crear capa';
-      logger.error('❌ Error al crear capa:', message);
-      res.status(400).json({ error: message });
+      logger.error('Error al crear capa:', message);
+      res.status(message.includes('autorizado') ? 403 : 400).json({ error: message });
     }
   }
 
   async updateNdvi(req: Request, res: Response): Promise<void> {
     try {
-      const id = Number(req.params.id);
-      logger.info(`PUT /api/capas/${id}/ndvi → UpdateNdvi ejecutado`);
-      const { ndviEstimado } = req.body;
-      if (ndviEstimado === undefined) { res.status(400).json({ error: 'Se requiere ndviEstimado' }); return; }
-      const capa = await new UpdateNdvi(repo).execute(id, ndviEstimado);
+      const id   = Number(req.params.id);
+      const capa = await new UpdateNdvi(repo).execute(id, req.body.ndviEstimado);
       if (!capa) { res.status(404).json({ error: 'Capa no encontrada' }); return; }
-      logger.info(`✅ NDVI de capa ${id} actualizado a ${ndviEstimado}`);
+      logger.info(`PUT capa ${id} NDVI actualizado`);
       res.json(capa);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al actualizar NDVI';
-      logger.error('❌ Error al actualizar NDVI:', message);
       res.status(400).json({ error: message });
     }
   }
@@ -59,31 +69,36 @@ export class CapaController {
     try {
       const id        = Number(req.params.id);
       const parcelaId = Number(req.params.parcelaId);
-      logger.info(`PUT /api/capas/${id}/geometry → UpdateCapaGeometry ejecutado`);
+      await verifyParcelaAccess(parcelaId, Number(req.user!.sub), req.user!.rol);
+
       const { geometria } = req.body;
       if (!geometria) { res.status(400).json({ error: 'Se requiere geometria' }); return; }
       const capa = await new UpdateCapaGeometry(repo).execute(id, parcelaId, geometria);
       if (!capa) { res.status(404).json({ error: 'Capa no encontrada' }); return; }
-      logger.info(`✅ Geometría de capa ${id} actualizada`);
+      logger.info(`PUT capa ${id} geometría actualizada`);
       res.json(capa);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error al actualizar geometría';
-      logger.error('❌ Error al actualizar geometría de capa:', message);
-      res.status(400).json({ error: message });
+      const message = error instanceof Error ? error.message : 'Error al actualizar geometría de capa';
+      logger.error('Error al actualizar geometría de capa:', message);
+      res.status(message.includes('autorizado') ? 403 : 400).json({ error: message });
     }
   }
 
   async remove(req: Request, res: Response): Promise<void> {
     try {
-      const id = Number(req.params.id);
-      logger.info(`DELETE /api/capas/${id} → DeleteCapa ejecutado`);
+      const id   = Number(req.params.id);
+      const capa = await repo.findById(id);
+      if (!capa) { res.status(404).json({ error: 'Capa no encontrada' }); return; }
+      await verifyParcelaAccess(capa.parcelaId, Number(req.user!.sub), req.user!.rol);
+
       const deleted = await new DeleteCapa(repo).execute(id);
       if (!deleted) { res.status(404).json({ error: 'Capa no encontrada' }); return; }
-      logger.info(`✅ Capa ${id} eliminada`);
+      logger.info(`DELETE capa ${id} eliminada`);
       res.json({ mensaje: 'Capa eliminada', id });
     } catch (error) {
-      logger.error('❌ Error al eliminar capa:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      const message = error instanceof Error ? error.message : 'Error al eliminar capa';
+      logger.error('Error al eliminar capa:', message);
+      res.status(message.includes('autorizado') ? 403 : 500).json({ error: message });
     }
   }
 }

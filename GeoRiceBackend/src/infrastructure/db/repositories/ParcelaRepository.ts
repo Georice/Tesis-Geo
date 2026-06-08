@@ -1,215 +1,237 @@
 import { AppDataSource } from '../DataSource';
-import { Parcela } from '../../../domain/entities/Parcela';
-import { IParcelaRepository } from '../../../domain/repositories/IParcelaRepository';
+import { Parcela }             from '../../../domain/entities/Parcela';
+import { IParcelaRepository }  from '../../../domain/repositories/IParcelaRepository';
+import { AuthContext }         from '../../../shared/types/AuthContext';
 
 export class ParcelaRepository implements IParcelaRepository {
   private repo = AppDataSource.getRepository(Parcela);
 
-  async findAll(): Promise<any[]> {
-    return this.repo
-      .createQueryBuilder('p')
-      .select([
-        'p.id', 'p.nombre', 'p.propietario', 'p.cultivo',
-        'p.estado', 'p.zonaId', 'p.cicloActual', 'p.areaHa', 'p.fechaCreacion',
-        'ST_AsGeoJSON(p.geometria) AS p_geometria',
-        'ST_Area(p.geometria::geography) / 10000 AS p_area_ha',
-      ])
-      .getRawMany();
+  async findAll(ctx: AuthContext): Promise<any[]> {
+    const conds: string[] = [];
+    const params: any[]   = [];
+
+    if (ctx.rol !== 'administrador') {
+      params.push(ctx.usuarioId);
+      conds.push(`p.usuario_id = $${params.length}`);
+    }
+
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+
+    return AppDataSource.query(`
+      SELECT p.id, p.nombre, p.usuario_id AS "usuarioId",
+             p.propietario, p.cultivo, p.estado,
+             p.zona_id AS "zonaId", p.ciclo_actual AS "cicloActual",
+             p.area_ha AS "areaHa", p.area_cuadras AS "areaCuadras",
+             p.fecha_creacion AS "fechaCreacion", p.updated_at AS "updatedAt",
+             ST_AsGeoJSON(p.geometria)::json AS geometria,
+             u.nombres || ' ' || u.apellidos AS propietario_nombre,
+             u.cedula AS propietario_cedula
+      FROM parcelas p
+      LEFT JOIN usuarios u ON u.id = p.usuario_id
+      ${where}
+      ORDER BY p.fecha_creacion DESC
+    `, params);
   }
 
-  async findById(id: number): Promise<Parcela | null> {
-    return this.repo.findOneBy({ id });
+  async findById(id: number, ctx: AuthContext): Promise<any | null> {
+    const conds: string[] = ['p.id = $1'];
+    const params: any[]   = [id];
+
+    if (ctx.rol !== 'administrador') {
+      params.push(ctx.usuarioId);
+      conds.push(`p.usuario_id = $${params.length}`);
+    }
+
+    const result = await AppDataSource.query(`
+      SELECT p.id, p.nombre, p.usuario_id AS "usuarioId",
+             p.propietario, p.cultivo, p.estado,
+             p.zona_id AS "zonaId", p.ciclo_actual AS "cicloActual",
+             p.area_ha AS "areaHa", p.area_cuadras AS "areaCuadras",
+             p.fecha_creacion AS "fechaCreacion", p.updated_at AS "updatedAt",
+             ST_AsGeoJSON(p.geometria)::json AS geometria,
+             u.nombres || ' ' || u.apellidos AS propietario_nombre
+      FROM parcelas p
+      LEFT JOIN usuarios u ON u.id = p.usuario_id
+      WHERE ${conds.join(' AND ')}
+    `, params);
+
+    return result[0] ?? null;
   }
 
-  async findByZona(zonaId: number): Promise<Parcela[]> {
-    return this.repo.find({ where: { zonaId } });
+  async findByZona(zonaId: number, ctx: AuthContext): Promise<any[]> {
+    const conds: string[] = ['p.zona_id = $1'];
+    const params: any[]   = [zonaId];
+
+    if (ctx.rol !== 'administrador') {
+      params.push(ctx.usuarioId);
+      conds.push(`p.usuario_id = $${params.length}`);
+    }
+
+    return AppDataSource.query(`
+      SELECT p.id, p.nombre, p.usuario_id AS "usuarioId", p.propietario,
+             p.cultivo, p.estado, p.zona_id AS "zonaId"
+      FROM parcelas p WHERE ${conds.join(' AND ')}
+    `, params);
   }
 
-async create(data: Partial<Parcela>): Promise<Parcela> {
-  if (data.geometria) {
-    const geom    = this.closeAndValidate(data.geometria);
-    const area    = await this.calculateArea(geom);
+  async create(data: any, ctx: AuthContext): Promise<any> {
+    const propietarioId = ctx.rol === 'socio'
+      ? ctx.usuarioId
+      : (data.usuarioId ?? ctx.usuarioId);
+
+    const [propietarioUser] = await AppDataSource.query(
+      `SELECT nombres || ' ' || apellidos AS nombre FROM usuarios WHERE id = $1`,
+      [propietarioId]
+    );
+    const propietarioNombre = propietarioUser?.nombre ?? ctx.nombreCompleto;
+
+    if (!data.geometria) throw new Error('La geometría es obligatoria');
+
+    const geom  = this.closeAndValidate(data.geometria);
+    const area  = await this.calculateArea(geom);
     if (area <= 0) throw new Error('La geometría no tiene área válida');
+
     const overlap = await this.hasOverlap(geom);
-    if (overlap)  throw new Error('La parcela se superpone con una existente');
+    if (overlap) throw new Error('La parcela se superpone con una existente');
 
     const zonaId = await this.isInsideZona(geom);
     if (!zonaId) throw new Error('La parcela debe estar dentro de una zona registrada');
 
-    const { geometria, ...rest } = data as any;
-    const parcela = this.repo.create({ ...rest, areaHa: area, zonaId });
-    const saved   = await this.repo.save(parcela);
-    const savedId = (saved as any).id;
+    const parcela = this.repo.create({
+      usuarioId:   propietarioId,
+      propietario: propietarioNombre,
+      nombre:      data.nombre,
+      cultivo:     data.cultivo ?? 'Arroz',
+      estado:      data.estado  ?? 'activo',
+      areaHa:      area,
+      areaCuadras: area * 1.4222,
+      zonaId,
+      createdBy:   ctx.usuarioId,
+      updatedBy:   ctx.usuarioId,
+    });
+
+    const saved = await this.repo.save(parcela);
 
     await AppDataSource.query(
       `UPDATE parcelas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
-      [JSON.stringify(geom), savedId]
+      [JSON.stringify(geom), saved.id]
     );
 
-    const result = await AppDataSource.query(
-      `SELECT id, nombre, propietario, cultivo, estado, zona_id as "zonaId",
-              area_ha as "areaHa", fecha_creacion as "fechaCreacion",
-              ST_AsGeoJSON(geometria) AS p_geometria,
-              ST_Area(geometria::geography) / 10000 AS p_area_ha
-       FROM parcelas WHERE id = $1`,
-      [savedId]
+    return this.findById(saved.id, ctx);
+  }
+
+  async update(id: number, data: any, ctx: AuthContext): Promise<any | null> {
+    await this.verifyOwnership(id, ctx);
+
+    const sets: string[] = ['updated_by = $1', 'updated_at = NOW()'];
+    const params: any[]  = [ctx.usuarioId];
+
+    if (data.nombre      != null) { params.push(data.nombre);      sets.push(`nombre = $${params.length}`); }
+    if (data.cultivo     != null) { params.push(data.cultivo);     sets.push(`cultivo = $${params.length}`); }
+    if (data.estado      != null) { params.push(data.estado);      sets.push(`estado = $${params.length}`); }
+    if (data.cicloActual != null) { params.push(data.cicloActual); sets.push(`ciclo_actual = $${params.length}`); }
+
+    // Solo admin puede reasignar propietario
+    if (ctx.rol === 'administrador' && data.usuarioId != null) {
+      const [newOwner] = await AppDataSource.query(
+        `SELECT nombres || ' ' || apellidos AS nombre FROM usuarios WHERE id = $${params.length + 1}`,
+        [...params, data.usuarioId]
+      );
+      params.push(data.usuarioId);
+      sets.push(`usuario_id = $${params.length}`);
+      if (newOwner) {
+        params.push(newOwner.nombre);
+        sets.push(`propietario = $${params.length}`);
+      }
+    }
+
+    params.push(id);
+    await AppDataSource.query(
+      `UPDATE parcelas SET ${sets.join(', ')} WHERE id = $${params.length}`,
+      params
     );
 
-    return result[0];
-  }
-  const parcela = this.repo.create(data);
-  return this.repo.save(parcela);
-}
-async isInsideZona(geometria: object): Promise<number | null> {
-  const result = await AppDataSource.query(
-    `SELECT id FROM zonas 
-     WHERE ST_Intersects(
-       ST_GeomFromGeoJSON($1),
-       geometria
-     )
-     LIMIT 1`,
-    [JSON.stringify(geometria)]
-  );
-  return result.length > 0 ? result[0].id : null;
-}
-  // async create(data: Partial<Parcela>): Promise<Parcela> {
-  //   if (data.geometria) {
-  //     const geom    = this.closeAndValidate(data.geometria);
-  //     const area    = await this.calculateArea(geom);
-  //     if (area <= 0) throw new Error('La geometría no tiene área válida');
-  //     const overlap = await this.hasOverlap(geom);
-  //     if (overlap)  throw new Error('La parcela se superpone con una existente');
-
-  //     const { geometria, ...rest } = data as any;
-  //     const parcela = this.repo.create({ ...rest, areaHa: area });
-  //     const saved   = await this.repo.save(parcela);
-
-  //     await this.repo.createQueryBuilder()
-  //       .update(Parcela)
-  //       .set({ geometria: () => `ST_GeomFromGeoJSON('${JSON.stringify(geom)}')` } as any)
-  //       .where('id = :id', { id: saved.id })
-  //       .execute();
-
-  //     return this.findById(saved.id) as Promise<Parcela>;
-  //   }
-  //   const parcela = this.repo.create(data);
-  //   return this.repo.save(parcela);
-  // }
-
-  async update(id: number, data: Partial<Parcela>): Promise<Parcela | null> {
-    await this.repo.update(id, data);
-    return this.findById(id);
+    return this.findById(id, ctx);
   }
 
-  // async updateGeometry(id: number, geometria: object): Promise<Parcela | null> {
-  //   const geom    = this.closeAndValidate(geometria);
-  //   const area    = await this.calculateArea(geom);
-  //   if (area <= 0) throw new Error('La geometría no tiene área válida');
-  //   const overlap = await this.hasOverlap(geom, id);
-  //   if (overlap)  throw new Error('La nueva geometría se superpone con una existente');
+  async updateGeometry(id: number, geometria: object, ctx: AuthContext): Promise<any | null> {
+    await this.verifyOwnership(id, ctx);
 
-  //   await this.repo.createQueryBuilder()
-  //     .update(Parcela)
-  //     .set({
-  //       geometria: () => `ST_GeomFromGeoJSON('${JSON.stringify(geom)}')`,
-  //       areaHa:    area as any,
-  //     } as any)
-  //     .where('id = :id', { id })
-  //     .execute();
+    const geom  = this.closeAndValidate(geometria);
+    const area  = await this.calculateArea(geom);
+    if (area <= 0) throw new Error('La geometría no tiene área válida');
 
-  //   return this.findById(id);
-  // }
+    const overlap = await this.hasOverlap(geom, id);
+    if (overlap) throw new Error('La nueva geometría se superpone con una existente');
 
-  
-  // async updateGeometry(id: number, geometria: object): Promise<Parcela | null> {
-  //   const geom    = this.closeAndValidate(geometria);
-  //   const area    = await this.calculateArea(geom);
-  //   if (area <= 0) throw new Error('La geometría no tiene área válida');
-  //   const overlap = await this.hasOverlap(geom, id);
-  //   if (overlap)  throw new Error('La nueva geometría se superpone con una existente');
+    const zonaId = await this.isInsideZona(geom);
+    if (!zonaId) throw new Error('La parcela debe estar dentro de una zona registrada');
 
-  //   await this.repo.createQueryBuilder()
-  //     .update(Parcela)
-  //     .set({
-  //       geometria: () => `ST_GeomFromGeoJSON('${JSON.stringify(geom)}')`,
-  //       areaHa:    area as any,
-  //     } as any)
-  //     .where('id = :id', { id })
-  //     .execute();
+    await AppDataSource.query(`
+      UPDATE parcelas SET
+        geometria    = ST_GeomFromGeoJSON($1),
+        area_ha      = $2,
+        area_cuadras = $3,
+        zona_id      = $4,
+        updated_by   = $5,
+        updated_at   = NOW()
+      WHERE id = $6
+    `, [JSON.stringify(geom), area, area * 1.4222, zonaId, ctx.usuarioId, id]);
 
-  //   return this.findById(id);
-  // }
-
-
-  async updateGeometry(id: number, geometria: object): Promise<Parcela | null> {
-  const geom    = this.closeAndValidate(geometria);
-  const area    = await this.calculateArea(geom);
-  if (area <= 0) throw new Error('La geometría no tiene área válida');
-  const overlap = await this.hasOverlap(geom, id);
-  if (overlap)  throw new Error('La nueva geometría se superpone con una existente');
-
-  const zonaId = await this.isInsideZona(geom);
-  if (!zonaId) throw new Error('La parcela debe estar dentro de una zona registrada');
-
-  await this.repo.createQueryBuilder()
-    .update(Parcela)
-    .set({
-      geometria: () => `ST_GeomFromGeoJSON('${JSON.stringify(geom)}')`,
-      areaHa:    area as any,
-      zonaId:    zonaId as any,
-    } as any)
-    .where('id = :id', { id })
-    .execute();
-
-  return this.findById(id);
-}
-
-  async updateEstado(id: number, estado: string): Promise<Parcela | null> {
-    await this.repo.update(id, { estado: estado as any });
-    return this.findById(id);
+    return this.findById(id, ctx);
   }
 
-  async delete(id: number): Promise<boolean> {
+  async updateEstado(id: number, estado: string, ctx: AuthContext): Promise<any | null> {
+    await this.verifyOwnership(id, ctx);
+    await AppDataSource.query(
+      `UPDATE parcelas SET estado = $1, updated_by = $2, updated_at = NOW() WHERE id = $3`,
+      [estado, ctx.usuarioId, id]
+    );
+    return this.findById(id, ctx);
+  }
+
+  async delete(id: number, ctx: AuthContext): Promise<boolean> {
+    await this.verifyOwnership(id, ctx);
     const result = await this.repo.delete(id);
     return (result.affected ?? 0) > 0;
   }
 
-  // async calculateArea(geometria: object): Promise<number> {
-  //   const result = await this.repo
-  //     .createQueryBuilder()
-  //     .select(`ST_Area(ST_GeomFromGeoJSON(:geom)::geography) / 10000`, 'area_ha')
-  //     .setParameter('geom', JSON.stringify(geometria))
-  //     .getRawOne();
-  //   return parseFloat(result.area_ha);
-  // }
-
-  //   async calculateArea(geometria: object): Promise<number> {
-  //   const result = await this.repo
-  //     .createQueryBuilder()
-  //     .select(`ST_Area(ST_GeomFromGeoJSON(:geom)::geography) / 10000`, 'area_ha')
-  //     .setParameter('geom', JSON.stringify(geometria))
-  //     .getRawOne();
-  //   return parseFloat(result.area_ha);
-  // }
-
   async calculateArea(geometria: object): Promise<number> {
-  const result = await AppDataSource.query(
-    `SELECT ST_Area(ST_GeomFromGeoJSON($1)::geography) / 10000 AS area_ha`,
-    [JSON.stringify(geometria)]
-  );
-  return parseFloat(result[0]?.area_ha ?? '0');
-}
+    const result = await AppDataSource.query(
+      `SELECT ST_Area(ST_GeomFromGeoJSON($1)::geography) / 10000 AS area_ha`,
+      [JSON.stringify(geometria)]
+    );
+    return parseFloat(result[0]?.area_ha ?? '0');
+  }
 
   async hasOverlap(geometria: object, excludeId?: number): Promise<boolean> {
     const qb = this.repo
       .createQueryBuilder('p')
-      .where(`ST_Intersects(p.geometria, ST_GeomFromGeoJSON(:geom))`, { geom: JSON.stringify(geometria) })
-      .andWhere(`NOT ST_Touches(p.geometria, ST_GeomFromGeoJSON(:geom))`, { geom: JSON.stringify(geometria) });
+      .where('ST_Intersects(p.geometria, ST_GeomFromGeoJSON(:geom))', { geom: JSON.stringify(geometria) })
+      .andWhere('NOT ST_Touches(p.geometria, ST_GeomFromGeoJSON(:geom))', { geom: JSON.stringify(geometria) });
 
     if (excludeId) qb.andWhere('p.id != :excludeId', { excludeId });
 
-    const count = await qb.getCount();
-    return count > 0;
+    return (await qb.getCount()) > 0;
+  }
+
+  async isInsideZona(geometria: object): Promise<number | null> {
+    const result = await AppDataSource.query(
+      `SELECT id FROM zonas WHERE ST_Within(ST_GeomFromGeoJSON($1), geometria) LIMIT 1`,
+      [JSON.stringify(geometria)]
+    );
+    return result.length > 0 ? result[0].id : null;
+  }
+
+  private async verifyOwnership(id: number, ctx: AuthContext): Promise<void> {
+    if (ctx.rol === 'administrador') return;
+    const result = await AppDataSource.query(
+      `SELECT usuario_id FROM parcelas WHERE id = $1`, [id]
+    );
+    if (!result[0]) throw new Error('Parcela no encontrada');
+    if (result[0].usuario_id !== ctx.usuarioId) {
+      throw new Error('No autorizado para modificar esta parcela');
+    }
   }
 
   private closeAndValidate(geometria: object): object {

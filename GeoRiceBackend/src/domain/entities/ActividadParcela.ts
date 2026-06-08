@@ -1,5 +1,5 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
+  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn,
   ManyToOne, JoinColumn, OneToMany,
 } from 'typeorm';
 import { Parcela }        from './Parcela';
@@ -152,7 +152,14 @@ cantidadUnidades!: number;  // horas trabajadas, hectáreas, sacos
 costoPorUnidad!: number;  // $ por hora/ha/saco
 
 @Column({ name: 'costo_maquinaria', type: 'decimal', precision: 10, scale: 2, nullable: true })
-costoMaquinaria!: number;  // Calculado: cantidadUnidades × costoPorUnidad
+costoMaquinaria!: number;
 
-  
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt!: Date;
+
+  @Column({ name: 'created_by', type: 'int', nullable: true })
+  createdBy!: number | null;
+
+  @Column({ name: 'updated_by', type: 'int', nullable: true })
+  updatedBy!: number | null;
 }

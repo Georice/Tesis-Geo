@@ -11,12 +11,12 @@ export interface Parcela {
 }
 
 export interface CreateParcelaDTO {
-  nombre: string;
-  propietario: string;
-  cultivo: string;
-  estado: string;
-  zonaId?: number | null;
-  geometria: object;
+  nombre:       string;
+  propietario?: string;
+  cultivo:      string;
+  estado:       string;
+  zonaId?:      number | null;
+  geometria:    object;
 }
 
 export interface UpdateParcelaDTO {

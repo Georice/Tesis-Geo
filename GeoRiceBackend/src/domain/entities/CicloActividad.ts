@@ -1,6 +1,7 @@
 import {
   Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, ManyToOne, JoinColumn,
+  CreateDateColumn, UpdateDateColumn,
+  ManyToOne, JoinColumn,
 } from 'typeorm';
 import { Parcela } from './Parcela';
 
@@ -39,4 +40,13 @@ export class CicloActividad {
 
   @CreateDateColumn({ name: 'fecha_registro' })
   fechaRegistro!: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt!: Date;
+
+  @Column({ name: 'created_by', type: 'int', nullable: true })
+  createdBy!: number | null;
+
+  @Column({ name: 'updated_by', type: 'int', nullable: true })
+  updatedBy!: number | null;
 }

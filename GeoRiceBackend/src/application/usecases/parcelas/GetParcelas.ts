@@ -1,10 +1,10 @@
 import { IParcelaRepository } from '../../../domain/repositories/IParcelaRepository';
-import { Parcela } from '../../../domain/entities/Parcela';
+import { AuthContext }        from '../../../shared/types/AuthContext';
 
 export class GetParcelas {
   constructor(private repo: IParcelaRepository) {}
 
-  async execute(): Promise<Parcela[]> {
-    return this.repo.findAll();
+  async execute(ctx: AuthContext): Promise<any[]> {
+    return this.repo.findAll(ctx);
   }
 }

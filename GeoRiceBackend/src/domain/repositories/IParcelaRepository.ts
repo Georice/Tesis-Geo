@@ -1,43 +1,14 @@
-// import { Parcela } from '../entities/Parcela';
-
-// export interface IParcelaRepository {
-//   findAll(): Promise<Parcela[]>;
-//   findById(id: number): Promise<Parcela | null>;
-//   create(data: Partial<Parcela>): Promise<Parcela>;
-//   update(id: number, data: Partial<Parcela>): Promise<Parcela | null>;
-//   updateGeometry(id: number, geometria: object): Promise<Parcela | null>;
-//   delete(id: number): Promise<boolean>;
-
-//   calculateArea(geometria: object): Promise<number>;
-//   hasOverlap(geometria: object, excludeId?: number): Promise<boolean>;
-// }
-
-// import { Parcela } from '../entities/Parcela';
-
-// export interface IParcelaRepository {
-//   findAll(): Promise<Parcela[]>;
-//   findById(id: number): Promise<Parcela | null>;
-//   findByZona(zonaId: number): Promise<Parcela[]>;
-//   create(data: Partial<Parcela>): Promise<Parcela>;
-//   update(id: number, data: Partial<Parcela>): Promise<Parcela | null>;
-//   updateGeometry(id: number, geometria: object): Promise<Parcela | null>;
-//   updateEstado(id: number, estado: string): Promise<Parcela | null>;
-//   delete(id: number): Promise<boolean>;
-//   calculateArea(geometria: object): Promise<number>;
-//   hasOverlap(geometria: object, excludeId?: number): Promise<boolean>;
-// }
-
-import { Parcela } from '../entities/Parcela';
+import { AuthContext } from '../../shared/types/AuthContext';
 
 export interface IParcelaRepository {
-  findAll(): Promise<Parcela[]>;
-  findById(id: number): Promise<Parcela | null>;
-  findByZona(zonaId: number): Promise<Parcela[]>;
-  create(data: Partial<Parcela>): Promise<Parcela>;
-  update(id: number, data: Partial<Parcela>): Promise<Parcela | null>;
-  updateGeometry(id: number, geometria: object): Promise<Parcela | null>;
-  updateEstado(id: number, estado: string): Promise<Parcela | null>;
-  delete(id: number): Promise<boolean>;
+  findAll(ctx: AuthContext): Promise<any[]>;
+  findById(id: number, ctx: AuthContext): Promise<any | null>;
+  findByZona(zonaId: number, ctx: AuthContext): Promise<any[]>;
+  create(data: any, ctx: AuthContext): Promise<any>;
+  update(id: number, data: any, ctx: AuthContext): Promise<any | null>;
+  updateGeometry(id: number, geometria: object, ctx: AuthContext): Promise<any | null>;
+  updateEstado(id: number, estado: string, ctx: AuthContext): Promise<any | null>;
+  delete(id: number, ctx: AuthContext): Promise<boolean>;
   calculateArea(geometria: object): Promise<number>;
   hasOverlap(geometria: object, excludeId?: number): Promise<boolean>;
 }
