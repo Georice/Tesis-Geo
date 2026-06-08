@@ -1,6 +1,6 @@
 import {
   Entity, PrimaryGeneratedColumn, Column,
-  ManyToOne, JoinColumn,
+  ManyToOne, JoinColumn, UpdateDateColumn,
 } from 'typeorm';
 import { ActividadParcela } from './ActividadParcela';
 
@@ -28,11 +28,12 @@ export class ProductoActividad {
   @Column({ type: 'varchar', length: 20, nullable: true })
   unidad!: string;
 
-  // Dosis específica por tanque de fumigación
   @Column({ name: 'dosis_por_tanque', type: 'decimal', precision: 10, scale: 4, nullable: true })
   dosisPorTanque!: number;
 
-  // Calculado: dosisPorTanque × numTanques
   @Column({ name: 'dosis_total', type: 'decimal', precision: 10, scale: 4, nullable: true })
   dosisTotal!: number;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt!: Date;
 }

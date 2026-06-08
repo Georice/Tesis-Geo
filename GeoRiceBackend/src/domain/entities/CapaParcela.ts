@@ -1,4 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity, PrimaryGeneratedColumn, Column,
+  CreateDateColumn, UpdateDateColumn,
+  ManyToOne, JoinColumn,
+} from 'typeorm';
 import { Parcela } from './Parcela';
 
 @Entity('capas_parcela')
@@ -23,15 +27,18 @@ export class CapaParcela {
   })
   geometria!: object;
 
-  @Column({
-    name: 'ndvi_estimado',
-    type: 'decimal',
-    precision: 4,
-    scale: 2,
-    nullable: true
-  })
+  @Column({ name: 'ndvi_estimado', type: 'decimal', precision: 4, scale: 2, nullable: true })
   ndviEstimado!: number;
 
   @CreateDateColumn({ name: 'fecha_actualizacion' })
   fechaActualizacion!: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt!: Date;
+
+  @Column({ name: 'created_by', type: 'int', nullable: true })
+  createdBy!: number | null;
+
+  @Column({ name: 'updated_by', type: 'int', nullable: true })
+  updatedBy!: number | null;
 }

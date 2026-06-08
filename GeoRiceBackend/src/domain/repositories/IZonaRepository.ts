@@ -1,10 +1,10 @@
-import { Zona } from '../entities/Zona';
+import { AuthContext } from '../../shared/types/AuthContext';
 
 export interface IZonaRepository {
-  findAll(): Promise<Zona[]>;
-  findById(id: number): Promise<Zona | null>;
-  create(data: Partial<Zona>): Promise<Zona>;
-  update(id: number, data: Partial<Zona>): Promise<Zona | null>;
-  delete(id: number): Promise<boolean>;
- assignParcelasInsideZona(zonaId: number): Promise<number>;
+  findAll(ctx: AuthContext): Promise<any[]>;
+  findById(id: number): Promise<any | null>;
+  create(data: any, ctx: AuthContext): Promise<any>;
+  update(id: number, data: any, ctx: AuthContext): Promise<any | null>;
+  delete(id: number, ctx: AuthContext): Promise<boolean>;
+  assignParcelasInsideZona(zonaId: number): Promise<number>;
 }

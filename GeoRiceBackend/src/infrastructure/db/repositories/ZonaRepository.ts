@@ -1,24 +1,114 @@
-import { AppDataSource } from '../DataSource';
-import { Zona } from '../../../domain/entities/Zona';
-import { IZonaRepository } from '../../../domain/repositories/IZonaRepository';
+import { AppDataSource }       from '../DataSource';
+import { Zona }                from '../../../domain/entities/Zona';
+import { IZonaRepository }     from '../../../domain/repositories/IZonaRepository';
+import { AuthContext }         from '../../../shared/types/AuthContext';
 
 export class ZonaRepository implements IZonaRepository {
-  delete(id: number): Promise<boolean> {
-    throw new Error('Method not implemented.');
-  }
   private repo = AppDataSource.getRepository(Zona);
 
-  async findAll(): Promise<Zona[]> {
-    return this.repo.createQueryBuilder('z')
-      .select([
-        'z.id', 'z.nombre', 'z.descripcion', 'z.fechaCreacion',
-        'ST_AsGeoJSON(z.geometria) AS z_geometria',
-      ])
-      .getRawMany();
+  async findAll(ctx: AuthContext): Promise<any[]> {
+    const conds: string[] = [];
+    const params: any[]   = [];
+
+    if (ctx.rol !== 'administrador') {
+      params.push(ctx.usuarioId);
+      conds.push(`z.usuario_id = $${params.length}`);
+    }
+
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+
+    return AppDataSource.query(`
+      SELECT z.id, z.usuario_id AS "usuarioId", z.nombre, z.descripcion,
+             z.fecha_creacion AS "fechaCreacion", z.updated_at AS "updatedAt",
+             ST_AsGeoJSON(z.geometria)::json AS geometria
+      FROM zonas z ${where}
+      ORDER BY z.nombre
+    `, params);
   }
 
-  async findById(id: number): Promise<Zona | null> {
-    return this.repo.findOneBy({ id });
+  async findById(id: number): Promise<any | null> {
+    const result = await AppDataSource.query(`
+      SELECT z.id, z.usuario_id AS "usuarioId", z.nombre, z.descripcion,
+             z.fecha_creacion AS "fechaCreacion", z.updated_at AS "updatedAt",
+             ST_AsGeoJSON(z.geometria)::json AS geometria
+      FROM zonas z WHERE z.id = $1
+    `, [id]);
+    return result[0] ?? null;
+  }
+
+  async create(data: any, ctx: AuthContext): Promise<any> {
+    const zona = this.repo.create({
+      usuarioId:  ctx.usuarioId,
+      nombre:     data.nombre,
+      descripcion: data.descripcion ?? null,
+      createdBy:  ctx.usuarioId,
+      updatedBy:  ctx.usuarioId,
+    });
+    const saved = await this.repo.save(zona);
+
+    if (data.geometria) {
+      const geom = this.closeRing(data.geometria);
+      await AppDataSource.query(
+        `UPDATE zonas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
+        [JSON.stringify(geom), saved.id]
+      );
+    }
+
+    return this.findById(saved.id);
+  }
+
+  async update(id: number, data: any, ctx: AuthContext): Promise<any | null> {
+    await this.verifyOwnership(id, ctx);
+
+    const sets: string[] = ['updated_by = $1', 'updated_at = NOW()'];
+    const params: any[]  = [ctx.usuarioId];
+
+    if (data.nombre      != null) { params.push(data.nombre);      sets.push(`nombre = $${params.length}`); }
+    if (data.descripcion != null) { params.push(data.descripcion); sets.push(`descripcion = $${params.length}`); }
+
+    params.push(id);
+    await AppDataSource.query(
+      `UPDATE zonas SET ${sets.join(', ')} WHERE id = $${params.length}`,
+      params
+    );
+
+    if (data.geometria) {
+      const geom = this.closeRing(data.geometria);
+      await AppDataSource.query(
+        `UPDATE zonas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
+        [JSON.stringify(geom), id]
+      );
+      await AppDataSource.query(`UPDATE parcelas SET zona_id = NULL WHERE zona_id = $1`, [id]);
+      await this.assignParcelasInsideZona(id);
+    }
+
+    return this.findById(id);
+  }
+
+  async delete(id: number, ctx: AuthContext): Promise<boolean> {
+    await this.verifyOwnership(id, ctx);
+    const result = await this.repo.delete(id);
+    return (result.affected ?? 0) > 0;
+  }
+
+  async assignParcelasInsideZona(zonaId: number): Promise<number> {
+    const result = await AppDataSource.query(`
+      UPDATE parcelas SET zona_id = $1
+      WHERE ST_Within(geometria, (SELECT geometria FROM zonas WHERE id = $1))
+        AND (zona_id IS NULL OR zona_id != $1)
+    `, [zonaId]);
+    return result[1] ?? 0;
+  }
+
+  private async verifyOwnership(id: number, ctx: AuthContext): Promise<void> {
+    if (ctx.rol === 'administrador') return;
+    const result = await AppDataSource.query(
+      `SELECT usuario_id FROM zonas WHERE id = $1`, [id]
+    );
+    if (!result[0]) throw new Error('Zona no encontrada');
+    if (result[0].usuario_id !== ctx.usuarioId) {
+      throw new Error('No autorizado para modificar esta zona');
+    }
   }
 
   private closeRing(geometria: any): any {
@@ -30,115 +120,4 @@ export class ZonaRepository implements IZonaRepository {
     }
     return geometria;
   }
-
-  // async create(data: Partial<Zona>): Promise<Zona> {
-  //   if (data.geometria) {
-  //     const geom   = this.closeRing(data.geometria);
-  //     const geoStr = JSON.stringify(geom);
-  //     const { geometria, ...rest } = data;
-  //     const zona   = this.repo.create(rest);
-  //     const saved  = await this.repo.save(zona);
-  //     await AppDataSource.query(
-  //       `UPDATE zonas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
-  //       [geoStr, saved.id]
-  //     );
-  //     return this.findById(saved.id) as Promise<Zona>;
-  //   }
-  //   const zona = this.repo.create(data);
-  //   return this.repo.save(zona);
-  // }
-
-
-  async create(data: Partial<Zona>): Promise<Zona> {
-  if (data.geometria) {
-    const geom   = this.closeRing(data.geometria);
-    const geoStr = JSON.stringify(geom);
-    const { geometria, ...rest } = data;
-    const zona   = this.repo.create(rest);
-    const saved  = await this.repo.save(zona);
-    console.log('ID GUARDADO:', saved.id);
-    console.log('GEOSTR:', geoStr);
-    try {
-      await AppDataSource.query(
-        `UPDATE zonas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
-        [geoStr, saved.id]
-      );
-      console.log('UPDATE EXITOSO');
-    } catch (err) {
-      console.log('ERROR EN UPDATE:', err);
-      throw err;
-    }
-    return this.findById(saved.id) as Promise<Zona>;
-  }
-  const zona = this.repo.create(data);
-  return this.repo.save(zona);
-}
-
-  // async update(id: number, data: Partial<Zona>): Promise<Zona | null> {
-  //   if (data.geometria) {
-  //     const geom           = this.closeRing(data.geometria);
-  //     const { geometria, ...rest } = data;
-  //     if (Object.keys(rest).length > 0) await this.repo.update(id, rest);
-  //     await AppDataSource.query(
-  //       `UPDATE zonas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
-  //       [JSON.stringify(geom), id]
-  //     );
-  //     return this.findById(id);
-  //   }
-  //   await this.repo.update(id, data);
-  //   return this.findById(id);
-  // }
-
-  // async delete(id: number): Promise<boolean> {
-  //   const result = await this.repo.delete(id);
-  //   return (result.affected ?? 0) > 0;
-  // }
-
-  async update(id: number, data: Partial<Zona>): Promise<Zona | null> {
-  if (data.geometria) {
-    const geom = this.closeRing(data.geometria);
-    const { geometria, ...rest } = data;
-    if (Object.keys(rest).length > 0) await this.repo.update(id, rest);
-    await AppDataSource.query(
-      `UPDATE zonas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
-      [JSON.stringify(geom), id]
-    );
-    // ← reasignar parcelas que ahora quedan dentro
-    await AppDataSource.query(
-      `UPDATE parcelas SET zona_id = NULL WHERE zona_id = $1`, [id]
-    );
-    await this.assignParcelasInsideZona(id);
-    return this.findById(id);
-  }
-  await this.repo.update(id, data);
-  return this.findById(id);
-}
-
-  // async assignParcelasInsideZona(zonaId: number): Promise<number> {
-  //   const result = await AppDataSource.query(
-  //     `UPDATE parcelas
-  //      SET zona_id = $1
-  //      WHERE ST_Contains(
-  //        (SELECT geometria FROM zonas WHERE id = $1),
-  //        geometria
-  //      )
-  //      AND (zona_id IS NULL OR zona_id != $1)`,
-  //     [zonaId]
-  //   );
-  //   return result[1] ?? 0;
-  // }
-
- async assignParcelasInsideZona(zonaId: number): Promise<number> {
-  const result = await AppDataSource.query(
-    `UPDATE parcelas
-     SET zona_id = $1
-     WHERE ST_Within(
-       geometria,
-       (SELECT geometria FROM zonas WHERE id = $1)
-     )
-     AND (zona_id IS NULL OR zona_id != $1)`,
-    [zonaId]
-  );
-  return result[1] ?? 0;
-}
 }

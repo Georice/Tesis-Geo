@@ -5,7 +5,19 @@ export const ParcelaRepository = {
 
   getAll: async (): Promise<Parcela[]> => {
     const res = await apiFetch('/parcelas');
-    return res.json();
+    if (!res.ok) throw new Error(`GET /parcelas falló: ${res.status}`);
+    const data: any[] = await res.json();
+    return data.map(item => ({
+      p_id:             item.id            ?? item.p_id,
+      p_nombre:         item.nombre        ?? item.p_nombre,
+      p_propietario:    item.propietario_nombre ?? item.propietario ?? item.p_propietario,
+      p_cultivo:        item.cultivo       ?? item.p_cultivo,
+      p_estado:         item.estado        ?? item.p_estado,
+      p_area_ha:        item.areaHa        ?? item.area_ha        ?? item.p_area_ha,
+      p_zona_id:        item.zonaId        ?? item.zona_id        ?? item.p_zona_id,
+      p_fecha_creacion: item.fechaCreacion ?? item.fecha_creacion ?? item.p_fecha_creacion,
+      p_geometria:      item.geometria     ?? item.p_geometria,
+    }));
   },
 
   create: async (data: CreateParcelaDTO): Promise<Parcela> => {
