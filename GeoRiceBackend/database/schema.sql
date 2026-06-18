@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict E2KK3bnNhvkXC0y0ysKOCqWAOp6caGrQJZ5QIkDoj8uKDSgj4yLMeZOz2IdaXxn
+\restrict WacBYpjdHQbERwptUQcMVpc0PRd2QSC3Lh4hfrlqaa2Ncf2Jow9lVXVDbMfZfPX
 
 -- Dumped from database version 17.9
 -- Dumped by pg_dump version 17.9
@@ -32,6 +32,103 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 
 COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types and functions';
 
+
+--
+-- Name: fn_asignar_numero_actividad(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.fn_asignar_numero_actividad() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF NEW.ciclo_id IS NOT NULL AND NEW.numero_actividad IS NULL THEN
+        SELECT COALESCE(MAX(numero_actividad), 0) + 1
+        INTO NEW.numero_actividad
+        FROM public.actividades_parcela
+        WHERE ciclo_id = NEW.ciclo_id;
+    ELSIF NEW.ciclo_id IS NULL AND NEW.numero_actividad IS NULL THEN
+        SELECT COALESCE(MAX(numero_actividad), 0) + 1
+        INTO NEW.numero_actividad
+        FROM public.actividades_parcela
+        WHERE parcela_id = NEW.parcela_id
+          AND ciclo_id IS NULL;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.fn_asignar_numero_actividad() OWNER TO postgres;
+
+--
+-- Name: fn_recalcular_costo_producto(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.fn_recalcular_costo_producto() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+    precio_por_unidad_base NUMERIC;
+BEGIN
+    -- Calcular precio por unidad base ($/L o $/kg)
+    IF NEW.presentacion_ml IS NOT NULL AND NEW.precio_presentacion IS NOT NULL AND NEW.presentacion_ml > 0 THEN
+        -- precio_unitario = precio_presentacion ÷ (presentacion_ml / 1000)
+        precio_por_unidad_base := NEW.precio_presentacion / (NEW.presentacion_ml::NUMERIC / 1000);
+        NEW.precio_unitario := ROUND(precio_por_unidad_base, 4);
+
+        -- frascos_usados = dosis_total ÷ (presentacion_ml / 1000)
+        IF NEW.dosis_total IS NOT NULL THEN
+            NEW.frascos_usados := ROUND(NEW.dosis_total / (NEW.presentacion_ml::NUMERIC / 1000), 4);
+        END IF;
+    END IF;
+
+    -- costo_total = dosis_total × precio_unitario
+    IF NEW.dosis_total IS NOT NULL AND NEW.precio_unitario IS NOT NULL THEN
+        NEW.costo_total := ROUND(NEW.dosis_total * NEW.precio_unitario, 2);
+    END IF;
+
+    RETURN NEW;
+END;
+$_$;
+
+
+ALTER FUNCTION public.fn_recalcular_costo_producto() OWNER TO postgres;
+
+--
+-- Name: fn_recalcular_costo_total(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.fn_recalcular_costo_total() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    NEW.costo_total_actividad :=
+        COALESCE(NEW.costo_mano_obra,   0) +
+        COALESCE(NEW.costo_maquinaria,  0) +
+        COALESCE(NEW.costo_insumos,     0) +
+        COALESCE(NEW.costo_sembradores, 0);
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.fn_recalcular_costo_total() OWNER TO postgres;
+
+--
+-- Name: fn_set_updated_at(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.fn_set_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.fn_set_updated_at() OWNER TO postgres;
 
 SET default_tablespace = '';
 
@@ -78,13 +175,105 @@ CREATE TABLE public.actividades_parcela (
     cantidad_unidades numeric(8,2),
     costo_por_unidad numeric(10,2),
     costo_maquinaria numeric(10,2),
+    updated_at timestamp without time zone DEFAULT now(),
+    created_by integer,
+    updated_by integer,
+    numero_actividad integer,
+    costo_insumos numeric(10,2),
+    costo_total_actividad numeric(10,2),
+    unidad_mano_obra character varying(20),
+    cantidad_unidad_mo numeric(10,2),
+    precio_unidad_mo numeric(10,2),
+    num_trabajadores integer,
+    descripcion_unidad_mo character varying(100),
+    num_tareas numeric(8,2),
+    precio_tarea numeric(10,2),
+    costo_sembradores numeric(10,2),
     CONSTRAINT actividades_parcela_destino_check CHECK (((destino)::text = ANY ((ARRAY['piladora'::character varying, 'almacen'::character varying, 'directo'::character varying, 'otro'::character varying])::text[]))),
     CONSTRAINT actividades_parcela_nivel_dano_check CHECK (((nivel_dano)::text = ANY ((ARRAY['leve'::character varying, 'moderado'::character varying, 'severo'::character varying])::text[]))),
-    CONSTRAINT actividades_parcela_tipo_check CHECK (((tipo)::text = ANY (ARRAY[('preparacion_suelo'::character varying)::text, ('inundacion'::character varying)::text, ('siembra_boleo'::character varying)::text, ('siembra_trasplante'::character varying)::text, ('riego'::character varying)::text, ('fertilizacion'::character varying)::text, ('fumigacion'::character varying)::text, ('deshierba'::character varying)::text, ('cosecha'::character varying)::text, ('rozar_quemar'::character varying)::text, ('soca_riego'::character varying)::text, ('soca_fertilizacion'::character varying)::text, ('soca_fumigacion'::character varying)::text, ('cosecha_soca'::character varying)::text, ('observacion'::character varying)::text])))
+    CONSTRAINT actividades_parcela_tipo_check CHECK (((tipo)::text = ANY (ARRAY[('preparacion_suelo'::character varying)::text, ('inundacion'::character varying)::text, ('siembra_boleo'::character varying)::text, ('siembra_trasplante'::character varying)::text, ('riego'::character varying)::text, ('fertilizacion'::character varying)::text, ('fumigacion'::character varying)::text, ('deshierba'::character varying)::text, ('cosecha'::character varying)::text, ('rozar_quemar'::character varying)::text, ('soca_riego'::character varying)::text, ('soca_fertilizacion'::character varying)::text, ('soca_fumigacion'::character varying)::text, ('cosecha_soca'::character varying)::text, ('observacion'::character varying)::text]))),
+    CONSTRAINT actividades_unidad_mo_check CHECK (((unidad_mano_obra)::text = ANY ((ARRAY['jornal'::character varying, 'tanque'::character varying, 'saco'::character varying, 'tarea'::character varying, 'otro'::character varying])::text[])))
 );
 
 
 ALTER TABLE public.actividades_parcela OWNER TO postgres;
+
+--
+-- Name: COLUMN actividades_parcela.numero_actividad; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.actividades_parcela.numero_actividad IS 'Número secuencial dentro del ciclo (1,2,3...)';
+
+
+--
+-- Name: COLUMN actividades_parcela.costo_insumos; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.actividades_parcela.costo_insumos IS 'Suma de costo_total de todos los productos';
+
+
+--
+-- Name: COLUMN actividades_parcela.costo_total_actividad; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.actividades_parcela.costo_total_actividad IS 'costo_mano_obra + costo_maquinaria + costo_insumos';
+
+
+--
+-- Name: COLUMN actividades_parcela.unidad_mano_obra; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.actividades_parcela.unidad_mano_obra IS 'jornal / tanque / saco / tarea / otro';
+
+
+--
+-- Name: COLUMN actividades_parcela.cantidad_unidad_mo; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.actividades_parcela.cantidad_unidad_mo IS 'Total tanques, sacos, jornales o tareas';
+
+
+--
+-- Name: COLUMN actividades_parcela.precio_unidad_mo; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.actividades_parcela.precio_unidad_mo IS '$ por tanque/saco/jornal/tarea';
+
+
+--
+-- Name: COLUMN actividades_parcela.num_trabajadores; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.actividades_parcela.num_trabajadores IS 'Número de personas que trabajaron';
+
+
+--
+-- Name: COLUMN actividades_parcela.descripcion_unidad_mo; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.actividades_parcela.descripcion_unidad_mo IS 'Solo para unidad=otro: descripción libre';
+
+
+--
+-- Name: COLUMN actividades_parcela.num_tareas; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.actividades_parcela.num_tareas IS 'Calculado: area_ha × 16 (solo siembra_trasplante)';
+
+
+--
+-- Name: COLUMN actividades_parcela.precio_tarea; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.actividades_parcela.precio_tarea IS '$ por tarea (lo define el agricultor)';
+
+
+--
+-- Name: COLUMN actividades_parcela.costo_sembradores; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.actividades_parcela.costo_sembradores IS 'Total al grupo: num_tareas × precio_tarea';
+
 
 --
 -- Name: actividades_parcela_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -119,6 +308,9 @@ CREATE TABLE public.capas_parcela (
     geometria public.geometry(Geometry,4326) NOT NULL,
     ndvi_estimado numeric(4,2),
     fecha_actualizacion timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now(),
+    created_by integer,
+    updated_by integer,
     CONSTRAINT capas_parcela_ndvi_estimado_check CHECK (((ndvi_estimado >= (0)::numeric) AND (ndvi_estimado <= (1)::numeric))),
     CONSTRAINT capas_parcela_tipo_check CHECK (((tipo)::text = ANY ((ARRAY['activo'::character varying, 'descanso'::character varying, 'lindero'::character varying])::text[])))
 );
@@ -162,7 +354,10 @@ CREATE TABLE public.ciclos_actividad (
     variedad_semilla character varying(100),
     area_sembrada numeric(10,2),
     observaciones text,
-    fecha_registro timestamp without time zone DEFAULT now()
+    fecha_registro timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now(),
+    created_by integer,
+    updated_by integer
 );
 
 
@@ -206,6 +401,10 @@ CREATE TABLE public.parcelas (
     ciclo_actual character varying(20) DEFAULT 'siembra_normal_boleo'::character varying,
     area_ha double precision,
     area_cuadras double precision,
+    usuario_id integer NOT NULL,
+    updated_at timestamp without time zone DEFAULT now(),
+    created_by integer,
+    updated_by integer,
     CONSTRAINT parcelas_ciclo_actual_check CHECK (((ciclo_actual)::text = ANY ((ARRAY['siembra_normal_boleo'::character varying, 'siembra_normal_trasplante'::character varying, 'soca'::character varying, 'resoca'::character varying, 'en_preparacion'::character varying])::text[]))),
     CONSTRAINT parcelas_estado_check CHECK (((estado)::text = ANY ((ARRAY['activo'::character varying, 'descanso'::character varying, 'cosechado'::character varying, 'preparacion'::character varying])::text[])))
 );
@@ -249,11 +448,68 @@ CREATE TABLE public.productos_actividad (
     fecha_registro timestamp without time zone DEFAULT now(),
     dosis_por_tanque numeric(10,4),
     dosis_total numeric(10,4),
+    updated_at timestamp without time zone DEFAULT now(),
+    precio_unitario numeric(10,2),
+    costo_total numeric(10,2),
+    dosis_ha numeric(10,4),
+    presentacion_ml integer,
+    precio_presentacion numeric(10,2),
+    frascos_usados numeric(10,4),
+    dosis_por_unidad_mo numeric(10,4),
     CONSTRAINT productos_actividad_tipo_check CHECK (((tipo)::text = ANY ((ARRAY['herbicida'::character varying, 'fungicida'::character varying, 'insecticida'::character varying, 'fertilizante'::character varying, 'abono'::character varying, 'corrector'::character varying, 'bioestimulante'::character varying, 'otro'::character varying])::text[])))
 );
 
 
 ALTER TABLE public.productos_actividad OWNER TO postgres;
+
+--
+-- Name: COLUMN productos_actividad.precio_unitario; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.productos_actividad.precio_unitario IS 'Precio por unidad del producto ($/L, $/kg, etc.)';
+
+
+--
+-- Name: COLUMN productos_actividad.costo_total; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.productos_actividad.costo_total IS 'Calculado: dosis_total × precio_unitario';
+
+
+--
+-- Name: COLUMN productos_actividad.dosis_ha; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.productos_actividad.dosis_ha IS 'Dosis por hectárea';
+
+
+--
+-- Name: COLUMN productos_actividad.presentacion_ml; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.productos_actividad.presentacion_ml IS 'Tamaño del frasco/saco: ml para líquidos, gramos para sólidos (25000=25kg, 50000=50kg)';
+
+
+--
+-- Name: COLUMN productos_actividad.precio_presentacion; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.productos_actividad.precio_presentacion IS 'Precio del frasco o saco completo ($)';
+
+
+--
+-- Name: COLUMN productos_actividad.frascos_usados; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.productos_actividad.frascos_usados IS 'Calculado: cantidad_usada ÷ (presentacion_ml/1000) — frascos o sacos consumidos';
+
+
+--
+-- Name: COLUMN productos_actividad.dosis_por_unidad_mo; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.productos_actividad.dosis_por_unidad_mo IS 'Para fertilización: kg por saco echado de arroz';
+
 
 --
 -- Name: productos_actividad_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -278,6 +534,130 @@ ALTER SEQUENCE public.productos_actividad_id_seq OWNED BY public.productos_activ
 
 
 --
+-- Name: refresh_tokens; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.refresh_tokens (
+    id integer NOT NULL,
+    usuario_id integer NOT NULL,
+    token_hash character varying(255) NOT NULL,
+    expires_at timestamp without time zone NOT NULL,
+    creado_en timestamp without time zone DEFAULT now(),
+    revocado boolean DEFAULT false
+);
+
+
+ALTER TABLE public.refresh_tokens OWNER TO postgres;
+
+--
+-- Name: refresh_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.refresh_tokens_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.refresh_tokens_id_seq OWNER TO postgres;
+
+--
+-- Name: refresh_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.refresh_tokens_id_seq OWNED BY public.refresh_tokens.id;
+
+
+--
+-- Name: usuarios; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.usuarios (
+    id integer NOT NULL,
+    cedula character varying(13) NOT NULL,
+    nombres character varying(100) NOT NULL,
+    apellidos character varying(100) NOT NULL,
+    usuario character varying(50) NOT NULL,
+    password_hash character varying(255) NOT NULL,
+    rol character varying(20) DEFAULT 'socio'::character varying NOT NULL,
+    estado character varying(10) DEFAULT 'activo'::character varying NOT NULL,
+    fecha_registro timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now(),
+    updated_by integer,
+    CONSTRAINT usuarios_estado_check CHECK (((estado)::text = ANY ((ARRAY['activo'::character varying, 'inactivo'::character varying])::text[]))),
+    CONSTRAINT usuarios_rol_check CHECK (((rol)::text = ANY ((ARRAY['administrador'::character varying, 'socio'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.usuarios OWNER TO postgres;
+
+--
+-- Name: usuarios_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.usuarios_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.usuarios_id_seq OWNER TO postgres;
+
+--
+-- Name: usuarios_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.usuarios_id_seq OWNED BY public.usuarios.id;
+
+
+--
+-- Name: v_costos_actividad; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.v_costos_actividad AS
+ SELECT id,
+    ciclo_id,
+    parcela_id,
+    numero_actividad AS num,
+    tipo,
+    estado,
+    fecha_inicio,
+    fecha_fin,
+    num_trabajadores,
+    unidad_mano_obra,
+    cantidad_unidad_mo,
+    precio_unidad_mo,
+    COALESCE(costo_mano_obra, (0)::numeric) AS costo_mano_obra,
+    tipo_maquinaria,
+    unidad_cobro,
+    cantidad_unidades,
+    costo_por_unidad,
+    COALESCE(costo_maquinaria, (0)::numeric) AS costo_maquinaria,
+    COALESCE(costo_insumos, (0)::numeric) AS costo_insumos,
+    COALESCE(costo_sembradores, (0)::numeric) AS costo_sembradores,
+    COALESCE(costo_total_actividad, (0)::numeric) AS costo_total,
+    COALESCE(( SELECT json_agg(json_build_object('nombre', p.nombre, 'tipo', p.tipo, 'dosis_total', p.dosis_total, 'unidad', p.unidad, 'precio_unitario', p.precio_unitario, 'costo_total', p.costo_total)) AS json_agg
+           FROM public.productos_actividad p
+          WHERE (p.actividad_id = a.id)), '[]'::json) AS productos
+   FROM public.actividades_parcela a;
+
+
+ALTER VIEW public.v_costos_actividad OWNER TO postgres;
+
+--
+-- Name: VIEW v_costos_actividad; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON VIEW public.v_costos_actividad IS 'Vista completa de costos por actividad — base para exportación Excel';
+
+
+--
 -- Name: zonas; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -286,7 +666,11 @@ CREATE TABLE public.zonas (
     nombre character varying(100) NOT NULL,
     descripcion text,
     geometria public.geometry(Polygon,4326),
-    fecha_creacion timestamp without time zone DEFAULT now()
+    fecha_creacion timestamp without time zone DEFAULT now(),
+    usuario_id integer NOT NULL,
+    updated_at timestamp without time zone DEFAULT now(),
+    created_by integer,
+    updated_by integer
 );
 
 
@@ -350,6 +734,20 @@ ALTER TABLE ONLY public.productos_actividad ALTER COLUMN id SET DEFAULT nextval(
 
 
 --
+-- Name: refresh_tokens id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('public.refresh_tokens_id_seq'::regclass);
+
+
+--
+-- Name: usuarios id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.usuarios ALTER COLUMN id SET DEFAULT nextval('public.usuarios_id_seq'::regclass);
+
+
+--
 -- Name: zonas id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -397,6 +795,46 @@ ALTER TABLE ONLY public.productos_actividad
 
 
 --
+-- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.refresh_tokens
+    ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: refresh_tokens refresh_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.refresh_tokens
+    ADD CONSTRAINT refresh_tokens_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: usuarios usuarios_cedula_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.usuarios
+    ADD CONSTRAINT usuarios_cedula_unique UNIQUE (cedula);
+
+
+--
+-- Name: usuarios usuarios_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.usuarios
+    ADD CONSTRAINT usuarios_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: usuarios usuarios_usuario_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.usuarios
+    ADD CONSTRAINT usuarios_usuario_unique UNIQUE (usuario);
+
+
+--
 -- Name: zonas zonas_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -405,10 +843,31 @@ ALTER TABLE ONLY public.zonas
 
 
 --
+-- Name: idx_actividades_ciclo_numero; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_actividades_ciclo_numero ON public.actividades_parcela USING btree (ciclo_id, numero_actividad);
+
+
+--
+-- Name: idx_actividades_estado; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_actividades_estado ON public.actividades_parcela USING btree (estado);
+
+
+--
 -- Name: idx_actividades_parcela_id; Type: INDEX; Schema: public; Owner: postgres
 --
 
 CREATE INDEX idx_actividades_parcela_id ON public.actividades_parcela USING btree (parcela_id);
+
+
+--
+-- Name: idx_actividades_updated_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_actividades_updated_at ON public.actividades_parcela USING btree (updated_at);
 
 
 --
@@ -426,10 +885,193 @@ CREATE INDEX idx_capas_parcela_id ON public.capas_parcela USING btree (parcela_i
 
 
 --
+-- Name: idx_capas_updated_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_capas_updated_at ON public.capas_parcela USING btree (updated_at);
+
+
+--
+-- Name: idx_ciclos_updated_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_ciclos_updated_at ON public.ciclos_actividad USING btree (updated_at);
+
+
+--
+-- Name: idx_parcelas_updated_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_parcelas_updated_at ON public.parcelas USING btree (updated_at);
+
+
+--
+-- Name: idx_parcelas_usuario_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_parcelas_usuario_id ON public.parcelas USING btree (usuario_id);
+
+
+--
+-- Name: idx_productos_actividad_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_productos_actividad_id ON public.productos_actividad USING btree (actividad_id);
+
+
+--
+-- Name: idx_productos_presentacion; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_productos_presentacion ON public.productos_actividad USING btree (presentacion_ml);
+
+
+--
+-- Name: idx_productos_updated_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_productos_updated_at ON public.productos_actividad USING btree (updated_at);
+
+
+--
+-- Name: idx_refresh_tokens_hash; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_refresh_tokens_hash ON public.refresh_tokens USING btree (token_hash);
+
+
+--
+-- Name: idx_refresh_tokens_usuario; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_refresh_tokens_usuario ON public.refresh_tokens USING btree (usuario_id);
+
+
+--
+-- Name: idx_usuarios_cedula; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_usuarios_cedula ON public.usuarios USING btree (cedula);
+
+
+--
+-- Name: idx_usuarios_estado; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_usuarios_estado ON public.usuarios USING btree (estado);
+
+
+--
+-- Name: idx_usuarios_rol; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_usuarios_rol ON public.usuarios USING btree (rol);
+
+
+--
+-- Name: idx_usuarios_usuario; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_usuarios_usuario ON public.usuarios USING btree (usuario);
+
+
+--
 -- Name: idx_zonas_geometria; Type: INDEX; Schema: public; Owner: postgres
 --
 
 CREATE INDEX idx_zonas_geometria ON public.zonas USING gist (geometria);
+
+
+--
+-- Name: idx_zonas_updated_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_zonas_updated_at ON public.zonas USING btree (updated_at);
+
+
+--
+-- Name: idx_zonas_usuario_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_zonas_usuario_id ON public.zonas USING btree (usuario_id);
+
+
+--
+-- Name: actividades_parcela trg_actividades_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_actividades_updated_at BEFORE UPDATE ON public.actividades_parcela FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+
+--
+-- Name: capas_parcela trg_capas_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_capas_updated_at BEFORE UPDATE ON public.capas_parcela FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+
+--
+-- Name: ciclos_actividad trg_ciclos_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_ciclos_updated_at BEFORE UPDATE ON public.ciclos_actividad FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+
+--
+-- Name: productos_actividad trg_costo_producto; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_costo_producto BEFORE INSERT OR UPDATE ON public.productos_actividad FOR EACH ROW EXECUTE FUNCTION public.fn_recalcular_costo_producto();
+
+
+--
+-- Name: actividades_parcela trg_costo_total; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_costo_total BEFORE INSERT OR UPDATE ON public.actividades_parcela FOR EACH ROW EXECUTE FUNCTION public.fn_recalcular_costo_total();
+
+
+--
+-- Name: actividades_parcela trg_numero_actividad; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_numero_actividad BEFORE INSERT ON public.actividades_parcela FOR EACH ROW EXECUTE FUNCTION public.fn_asignar_numero_actividad();
+
+
+--
+-- Name: parcelas trg_parcelas_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_parcelas_updated_at BEFORE UPDATE ON public.parcelas FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+
+--
+-- Name: productos_actividad trg_productos_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_productos_updated_at BEFORE UPDATE ON public.productos_actividad FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+
+--
+-- Name: usuarios trg_usuarios_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_usuarios_updated_at BEFORE UPDATE ON public.usuarios FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+
+--
+-- Name: zonas trg_zonas_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_zonas_updated_at BEFORE UPDATE ON public.zonas FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+
+--
+-- Name: actividades_parcela actividades_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.actividades_parcela
+    ADD CONSTRAINT actividades_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
 
 
 --
@@ -445,7 +1087,7 @@ ALTER TABLE ONLY public.actividades_parcela
 --
 
 ALTER TABLE ONLY public.actividades_parcela
-    ADD CONSTRAINT actividades_parcela_ciclo_id_fkey FOREIGN KEY (ciclo_id) REFERENCES public.ciclos_actividad(id) ON DELETE SET NULL;
+    ADD CONSTRAINT actividades_parcela_ciclo_id_fkey FOREIGN KEY (ciclo_id) REFERENCES public.ciclos_actividad(id) ON DELETE CASCADE;
 
 
 --
@@ -457,6 +1099,22 @@ ALTER TABLE ONLY public.actividades_parcela
 
 
 --
+-- Name: actividades_parcela actividades_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.actividades_parcela
+    ADD CONSTRAINT actividades_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
+-- Name: capas_parcela capas_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.capas_parcela
+    ADD CONSTRAINT capas_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
 -- Name: capas_parcela capas_parcela_parcela_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -465,11 +1123,59 @@ ALTER TABLE ONLY public.capas_parcela
 
 
 --
+-- Name: capas_parcela capas_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.capas_parcela
+    ADD CONSTRAINT capas_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
 -- Name: ciclos_actividad ciclos_actividad_parcela_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.ciclos_actividad
     ADD CONSTRAINT ciclos_actividad_parcela_id_fkey FOREIGN KEY (parcela_id) REFERENCES public.parcelas(id) ON DELETE CASCADE;
+
+
+--
+-- Name: ciclos_actividad ciclos_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.ciclos_actividad
+    ADD CONSTRAINT ciclos_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
+-- Name: ciclos_actividad ciclos_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.ciclos_actividad
+    ADD CONSTRAINT ciclos_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
+-- Name: parcelas parcelas_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.parcelas
+    ADD CONSTRAINT parcelas_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
+-- Name: parcelas parcelas_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.parcelas
+    ADD CONSTRAINT parcelas_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
+-- Name: parcelas parcelas_usuario_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.parcelas
+    ADD CONSTRAINT parcelas_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE RESTRICT;
 
 
 --
@@ -489,8 +1195,48 @@ ALTER TABLE ONLY public.productos_actividad
 
 
 --
+-- Name: refresh_tokens refresh_tokens_usuario_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.refresh_tokens
+    ADD CONSTRAINT refresh_tokens_usuario_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE CASCADE;
+
+
+--
+-- Name: usuarios usuarios_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.usuarios
+    ADD CONSTRAINT usuarios_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
+-- Name: zonas zonas_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.zonas
+    ADD CONSTRAINT zonas_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
+-- Name: zonas zonas_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.zonas
+    ADD CONSTRAINT zonas_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
+-- Name: zonas zonas_usuario_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.zonas
+    ADD CONSTRAINT zonas_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE RESTRICT;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict E2KK3bnNhvkXC0y0ysKOCqWAOp6caGrQJZ5QIkDoj8uKDSgj4yLMeZOz2IdaXxn
+\unrestrict WacBYpjdHQbERwptUQcMVpc0PRd2QSC3Lh4hfrlqaa2Ncf2Jow9lVXVDbMfZfPX
 

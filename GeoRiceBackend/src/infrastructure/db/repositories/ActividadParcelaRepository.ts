@@ -4,21 +4,22 @@ import { ProductoActividad } from '../../../domain/entities/ProductoActividad';
 import { IActividadParcelaRepository } from '../../../domain/repositories/IActividadParcelaRepository';
 
 export class ActividadParcelaRepository implements IActividadParcelaRepository {
+  private repo         = AppDataSource.getRepository(ActividadParcela);
+  private repoProducto = AppDataSource.getRepository(ProductoActividad);
+
   async findByCiclo(cicloId: number): Promise<ActividadParcela[]> {
     return this.repo.find({
       where: { cicloId },
       relations: ['productos'],
-      order: { fecha: 'DESC' },
+      order: { numeroActividad: 'ASC' },
     });
   }
-  private repo         = AppDataSource.getRepository(ActividadParcela);
-  private repoProducto = AppDataSource.getRepository(ProductoActividad);
 
   async findByParcela(parcelaId: number): Promise<ActividadParcela[]> {
     return this.repo.find({
       where: { parcelaId },
       relations: ['productos'],
-      order: { fecha: 'DESC' },
+      order: { numeroActividad: 'ASC' },
     });
   }
 
@@ -38,37 +39,43 @@ export class ActividadParcelaRepository implements IActividadParcelaRepository {
   }
 
   async create(
-    data: Partial<ActividadParcela>,
-    productos?: Partial<ProductoActividad>[]
-  ): Promise<ActividadParcela> {
-    const actividad = this.repo.create(data);
-    const saved     = await this.repo.save(actividad);
+  data: Partial<ActividadParcela>,
+  productos?: Partial<ProductoActividad>[]
+): Promise<ActividadParcela> {
+  const { productos: _prods, ...dataSinProductos } = data as any;
 
-    if (productos && productos.length > 0) {
-      const prods = productos.map(p =>
-        this.repoProducto.create({ ...p, actividadId: saved.id })
-      );
-      await this.repoProducto.save(prods);
-    }
+  const result = await this.repo.insert(dataSinProductos);
+  const id = result.identifiers[0].id;
 
-    return this.findById(saved.id) as Promise<ActividadParcela>;
+  const prodsAGuardar = productos ?? _prods;
+  if (prodsAGuardar && prodsAGuardar.length > 0) {
+    const nuevos = prodsAGuardar.map((p: any) =>
+      this.repoProducto.create({ ...p, actividadId: id })
+    );
+    await this.repoProducto.save(nuevos);
   }
+
+  return this.findById(id) as Promise<ActividadParcela>;
+}
 
   async update(
     id: number,
     data: Partial<ActividadParcela>,
     productos?: Partial<ProductoActividad>[]
   ): Promise<ActividadParcela | null> {
-    await this.repo.update(id, data);
+    // Separar productos del data para no pasarlos al repo.update
+    const { productos: _prods, ...dataSinProductos } = data as any;
 
-    if (productos !== undefined) {
-      // Eliminar productos anteriores y reemplazar
+    await this.repo.update(id, dataSinProductos);
+
+    const prodsAGuardar = productos ?? _prods;
+    if (prodsAGuardar !== undefined) {
       await this.repoProducto.delete({ actividadId: id });
-      if (productos.length > 0) {
-        const prods = productos.map(p =>
+      if (prodsAGuardar.length > 0) {
+        const nuevos = prodsAGuardar.map((p: any) =>
           this.repoProducto.create({ ...p, actividadId: id })
         );
-        await this.repoProducto.save(prods);
+        await this.repoProducto.save(nuevos);
       }
     }
 

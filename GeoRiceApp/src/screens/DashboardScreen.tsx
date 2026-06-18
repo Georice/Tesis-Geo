@@ -3,7 +3,7 @@ import {
   StyleSheet, View, Text, TouchableOpacity, Alert, TextInput,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+//import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Mapbox from '@rnmapbox/maps';
 import turfArea from '@turf/area';
 import { booleanWithin } from '@turf/turf';
@@ -798,8 +798,9 @@ const DashboardScreen = () => {
 
             {modoPanel === 'parcela' && activeTab === 'parcelas' && (
               <NuevaParcelaScreen vertices={vertices} nombre={nombre}
-                area={getArea(vertices)} onNombreChange={setNombre}
-                onLimpiar={clearAll} onGuardar={saveParcel} onSyncOffline={syncOfflineParcelas} />
+              area={getArea(vertices)} onNombreChange={setNombre}
+              onLimpiar={clearAll} onGuardar={saveParcel} onSyncOffline={syncOfflineParcelas} propietario={''} 
+             onPropietarioChange={(_v: string) => {}}/>
             )}
           </View>
 
