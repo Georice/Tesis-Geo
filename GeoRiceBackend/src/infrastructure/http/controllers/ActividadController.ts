@@ -44,9 +44,19 @@ export class ActividadController {
         precioQq, costoCosecha, destino,
         plagaDetectada, nivelDano, nivelAlerta,
         capacidadTanque, numTanques,
+        // mano de obra legacy
         numJornales, pagoJornal, costoManoObra,
+        // mano de obra nuevo modelo
+        unidadManoObra, cantidadUnidadMo, precioUnidadMo,
+        numTrabajadores, descripcionUnidadMo,
+        // maquinaria
         tipoMaquinaria, unidadCobro, cantidadUnidades,
         costoPorUnidad, costoMaquinaria,
+        // sembradores trasplante
+        numTareas, precioTarea, costoSembradores,
+        // costos calculados
+        costoInsumos, costoTotalActividad,
+        // otros
         observaciones, capaId, cicloId, productos,
       } = req.body;
 
@@ -58,8 +68,12 @@ export class ActividadController {
         plagaDetectada, nivelDano, nivelAlerta,
         capacidadTanque, numTanques,
         numJornales, pagoJornal, costoManoObra,
+        unidadManoObra, cantidadUnidadMo, precioUnidadMo,
+        numTrabajadores, descripcionUnidadMo,
         tipoMaquinaria, unidadCobro, cantidadUnidades,
         costoPorUnidad, costoMaquinaria,
+        numTareas, precioTarea, costoSembradores,
+        costoInsumos, costoTotalActividad,
         observaciones, capaId, cicloId,
         createdBy: usuarioId, updatedBy: usuarioId,
         productos,
@@ -90,9 +104,19 @@ export class ActividadController {
         precioQq, costoCosecha, destino,
         plagaDetectada, nivelDano, nivelAlerta,
         capacidadTanque, numTanques,
+        // mano de obra legacy
         numJornales, pagoJornal, costoManoObra,
+        // mano de obra nuevo modelo
+        unidadManoObra, cantidadUnidadMo, precioUnidadMo,
+        numTrabajadores, descripcionUnidadMo,
+        // maquinaria
         tipoMaquinaria, unidadCobro, cantidadUnidades,
         costoPorUnidad, costoMaquinaria,
+        // sembradores trasplante
+        numTareas, precioTarea, costoSembradores,
+        // costos calculados
+        costoInsumos, costoTotalActividad,
+        // otros
         observaciones, capaId, productos,
       } = req.body;
 
@@ -104,9 +128,14 @@ export class ActividadController {
         plagaDetectada, nivelDano, nivelAlerta,
         capacidadTanque, numTanques,
         numJornales, pagoJornal, costoManoObra,
+        unidadManoObra, cantidadUnidadMo, precioUnidadMo,
+        numTrabajadores, descripcionUnidadMo,
         tipoMaquinaria, unidadCobro, cantidadUnidades,
         costoPorUnidad, costoMaquinaria,
-        observaciones, capaId, updatedBy: usuarioId,
+        numTareas, precioTarea, costoSembradores,
+        costoInsumos, costoTotalActividad,
+        observaciones, capaId,
+        updatedBy: usuarioId,
         productos,
       } as any);
 

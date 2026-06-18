@@ -1,8 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform }  from 'react-native';
 
+
+//Parrales
+// export const BASE_URL = Platform.OS === 'android'
+//   ? 'http://192.168.100.6:3000/api'
+//   : 'http://localhost:3000/api';
+
+
+//Brando
 export const BASE_URL = Platform.OS === 'android'
-  ? 'http://192.168.100.6:3000/api'
+  ? 'http://192.168.1.213:3000/api'
   : 'http://localhost:3000/api';
 
 export const STORAGE_KEYS = {

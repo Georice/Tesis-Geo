@@ -162,4 +162,42 @@ costoMaquinaria!: number;
 
   @Column({ name: 'updated_by', type: 'int', nullable: true })
   updatedBy!: number | null;
+
+
+  // ── Numeración por ciclo ──────────────────────────────────────
+  @Column({ name: 'numero_actividad', type: 'integer', nullable: true })
+  numeroActividad!: number;  // asignado automáticamente por trigger BD
+
+  // ── Costos calculados ─────────────────────────────────────────
+  @Column({ name: 'costo_insumos', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  costoInsumos!: number;  // suma de costo_total de todos los productos
+
+  @Column({ name: 'costo_total_actividad', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  costoTotalActividad!: number;  // mano_obra + maquinaria + insumos + sembradores
+
+  // ── Mano de obra detallada ────────────────────────────────────
+  @Column({ name: 'unidad_mano_obra', type: 'varchar', length: 20, nullable: true })
+  unidadManoObra!: 'jornal' | 'tanque' | 'saco' | 'tarea' | 'otro';
+
+  @Column({ name: 'cantidad_unidad_mo', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  cantidadUnidadMo!: number;  // total tanques / sacos / jornales
+
+  @Column({ name: 'precio_unidad_mo', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  precioUnidadMo!: number;  // $ por tanque/saco/jornal/tarea
+
+  @Column({ name: 'num_trabajadores', type: 'integer', nullable: true })
+  numTrabajadores!: number;  // personas que trabajaron
+
+  @Column({ name: 'descripcion_unidad_mo', type: 'varchar', length: 100, nullable: true })
+  descripcionUnidadMo!: string;  // solo para unidad = 'otro'
+
+  // ── Siembra Trasplante — sembradores ──────────────────────────
+  @Column({ name: 'num_tareas', type: 'decimal', precision: 8, scale: 2, nullable: true })
+  numTareas!: number;  // calculado: area_ha × 16
+
+  @Column({ name: 'precio_tarea', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  precioTarea!: number;  // $ por tarea
+
+  @Column({ name: 'costo_sembradores', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  costoSembradores!: number;  // total al grupo: num_tareas × precio_tarea
 }
