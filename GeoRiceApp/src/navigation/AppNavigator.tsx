@@ -5,12 +5,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from './types';
 import { useAuth } from '../context/AuthContext';
 
-import LoginScreen       from '../screens/LoginScreen';
-import DashboardScreen   from '../screens/DashboardScreen';
-import ZonasScreen       from '../screens/ZonasScreen';
-import ActividadesScreen from '../screens/ActividadesScreen';
-import CapasScreen       from '../screens/CapasScreen';
-import IniciarCicloScreen from '../screens/IniciarCicloScreen';
+import LoginScreen          from '../screens/LoginScreen';
+import DashboardScreen      from '../screens/DashboardScreen';
+import ZonasScreen          from '../screens/ZonasScreen';
+import ActividadesScreen    from '../screens/ActividadesScreen';
+import CapasScreen          from '../screens/CapasScreen';
+import IniciarCicloScreen   from '../screens/IniciarCicloScreen';
+import AdminUsuariosScreen  from '../screens/AdminUsuariosScreen';
+import { Colors }           from '../theme/colors';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -37,6 +39,16 @@ const AppNavigator = () => {
             <Stack.Screen name="Actividades"  component={ActividadesScreen}  options={{ title: 'Actividades' }} />
             <Stack.Screen name="Capas"        component={CapasScreen}        options={{ title: 'Capas' }} />
             <Stack.Screen name="IniciarCiclo" component={IniciarCicloScreen} options={{ title: 'Iniciar Ciclo' }} />
+            <Stack.Screen
+              name="AdminUsuarios"
+              component={AdminUsuariosScreen}
+              options={{
+                title: 'Administración de usuarios',
+                headerStyle: { backgroundColor: Colors.verde },
+                headerTintColor: Colors.blanco,
+                headerTitleStyle: { fontWeight: '700' },
+              }}
+            />
           </>
         )}
       </Stack.Navigator>

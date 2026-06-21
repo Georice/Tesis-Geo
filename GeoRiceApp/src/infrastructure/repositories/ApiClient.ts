@@ -3,15 +3,15 @@ import { Platform }  from 'react-native';
 
 
 //Parrales
-// export const BASE_URL = Platform.OS === 'android'
-//   ? 'http://192.168.100.6:3000/api'
-//   : 'http://localhost:3000/api';
+export const BASE_URL = Platform.OS === 'android'
+  ? 'http://192.168.100.6:3000/api'
+  : 'http://localhost:3000/api';
 
 
 //Brando
-export const BASE_URL = Platform.OS === 'android'
-  ? 'http://192.168.1.213:3000/api'
-  : 'http://localhost:3000/api';
+// export const BASE_URL = Platform.OS === 'android'
+//   ? 'http://192.168.1.213:3000/api'
+//   : 'http://localhost:3000/api';
 
 export const STORAGE_KEYS = {
   ACCESS_TOKEN:    '@georice:access_token',
@@ -21,6 +21,14 @@ export const STORAGE_KEYS = {
   SYNC_TIMESTAMP:  '@georice:sync_timestamp',
   OFFLINE_QUEUE:   '@georice:offline_queue',
 } as const;
+
+// Callback registrado por AuthContext para disparar logout global
+// cuando el refresh token ya no es válido (sesión expirada o BD recreada).
+let _forceLogout: (() => void) | null = null;
+
+export function setForceLogoutCallback(fn: () => void): void {
+  _forceLogout = fn;
+}
 
 export async function clearSession(): Promise<void> {
   await AsyncStorage.multiRemove([
@@ -38,7 +46,7 @@ async function getToken(): Promise<string | null> {
 
 async function tryRefresh(): Promise<string | null> {
   const raw = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-  if (!raw) return null;
+  if (!raw) { await clearSession(); _forceLogout?.(); return null; }
 
   try {
     const res = await fetch(`${BASE_URL}/auth/refresh`, {
@@ -46,7 +54,7 @@ async function tryRefresh(): Promise<string | null> {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ refreshToken: raw }),
     });
-    if (!res.ok) { await clearSession(); return null; }
+    if (!res.ok) { await clearSession(); _forceLogout?.(); return null; }
     const { accessToken, refreshToken } = await res.json();
     await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
     await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
