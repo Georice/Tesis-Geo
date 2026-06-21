@@ -55,8 +55,9 @@ AppDataSource.initialize()
   .then(() => {
     logger.success('Base de datos conectada con TypeORM');
     app.listen(PORT, () => {
-      //cambiar por su propia ip, chino mmvrg
-      logger.success(`Servidor corriendo en http://192.168.1.213:${PORT}`);
+      //cambiar por su propia ip, chino mmvrg XDDDDDDDDDD
+//       logger.success(`Servidor corriendo en http://192.168.1.213:${PORT}`);
+        logger.success(`Servidor corriendo en 192.168.100.6:${PORT}`);
       logger.info('Auth:   POST /api/auth/login | POST /api/auth/refresh | POST /api/auth/logout');
       logger.info('Sync:   GET  /api/sync | GET /api/sync?since=ISO8601');
       logger.info('Users:  GET/POST /api/usuarios (admin only)');
