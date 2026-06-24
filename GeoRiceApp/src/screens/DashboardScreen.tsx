@@ -3,6 +3,10 @@ import {
   StyleSheet, View, Text, TouchableOpacity, Alert, TextInput,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
+import AppHeader from '../components/AppHeader';
+import AppDrawer from '../components/AppDrawer';
+import { GetUserMenuByRole } from '../application/usecases/auth/GetUserMenuByRole';
+import { MenuAction } from '../domain/entities/MenuItem';
 //import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Mapbox from '@rnmapbox/maps';
 import turfArea from '@turf/area';
@@ -99,7 +103,28 @@ const DashboardScreen = () => {
   const [verticesZonaEdit, setVerticesZonaEdit]     = useState<number[][]>([]);
 
   const [menuParcela, setMenuParcela] = useState<any>(null);
-  const [activeTab, setActiveTab]   = useState<'mapa' | 'parcelas'>('mapa');
+  const [activeTab,   setActiveTab]  = useState<'mapa' | 'parcelas'>('mapa');
+  const [drawerOpen,  setDrawerOpen] = useState(false);
+
+  const menuItems = useMemo(
+    () => (user ? GetUserMenuByRole(user.rol) : []),
+    [user],
+  );
+
+  const handleDrawerAction = (action: MenuAction) => {
+    if (action === 'adminUsuarios') {
+      navigation.navigate('AdminUsuarios');
+    } else if (action === 'logout') {
+      Alert.alert(
+        'Cerrar sesión',
+        `¿Deseas salir, ${user?.nombres}?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Salir', style: 'destructive', onPress: logout },
+        ],
+      );
+    }
+  };
 
   const fetchParcelas = async () => {
     try { setParcelas(await GetParcelas()); }
@@ -476,6 +501,10 @@ const DashboardScreen = () => {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.container}>
 
+        <AppHeader onMenuPress={() => setDrawerOpen(true)} />
+
+        <View style={{ flex: 1 }}>
+
         <Mapbox.MapView
           style={styles.map}
           styleURL={Mapbox.StyleURL.SatelliteStreet}
@@ -766,21 +795,7 @@ const DashboardScreen = () => {
 
             {modoPanel === 'parcela' && activeTab === 'mapa' && (
               <>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <Text style={styles.panelTitulo}>🗺 Vista general</Text>
-                  <TouchableOpacity onPress={() => Alert.alert(
-                    'Cerrar sesión',
-                    `¿Deseas salir, ${user?.nombres}?`,
-                    [
-                      { text: 'Cancelar', style: 'cancel' },
-                      { text: 'Salir', style: 'destructive', onPress: logout },
-                    ]
-                  )}>
-                    <Text style={{ fontSize: 12, color: '#888' }}>
-                      {user?.nombreCompleto} · Salir
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                <Text style={[styles.panelTitulo, { marginBottom: 4 }]}>🗺 Vista general</Text>
                 <View style={[styles.infoRow, { marginVertical: 10 }]}>
                   <View style={styles.infoStat}>
                     <Text style={styles.infoNum}>{parcelas.length}</Text>
@@ -838,6 +853,7 @@ const DashboardScreen = () => {
   <View style={styles.parcelaSheet}>
     <View style={styles.sheetHandle} />
     <ParcelaDetalleScreen
+
       parcela={menuParcela}
       onEditarDatos={() => {
         setMenuParcela(null);
@@ -878,6 +894,16 @@ const DashboardScreen = () => {
     />
   </View>
 )}
+        </View>{/* END map container */}
+
+        <AppDrawer
+          visible={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          menuItems={menuItems}
+          userName={user?.nombreCompleto ?? ''}
+          userRole={user?.rol ?? 'socio'}
+          onAction={handleDrawerAction}
+        />
       </View>
     </KeyboardAvoidingView>
   );
