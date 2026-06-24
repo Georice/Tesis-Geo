@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict WacBYpjdHQbERwptUQcMVpc0PRd2QSC3Lh4hfrlqaa2Ncf2Jow9lVXVDbMfZfPX
+\restrict 99v9VwDjVpZIwGU90a8y5Hu0LkjiShXjvRVYyYMhquPzXdnsLYkwNZOvBh2Yc9N
 
 -- Dumped from database version 17.9
 -- Dumped by pg_dump version 17.9
@@ -31,6 +31,85 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 --
 
 COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types and functions';
+
+
+--
+-- Name: fn_asignar_fase(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.fn_asignar_fase() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_tipo_ciclo      VARCHAR(20);
+    v_orden           INTEGER;
+    v_fase_id         INTEGER;
+    v_tipos_ambiguos  VARCHAR(30)[] := ARRAY['riego', 'fertilizacion', 'fumigacion', 'soca_riego', 'soca_fumigacion'];
+BEGIN
+    -- 1. Obtener el tipo de ciclo padre
+    SELECT tipo INTO v_tipo_ciclo
+    FROM ciclos_actividad
+    WHERE id = NEW.ciclo_id;
+
+    IF v_tipo_ciclo IS NULL THEN
+        RAISE EXCEPTION 'No se encontró el ciclo_id % o no tiene tipo definido', NEW.ciclo_id;
+    END IF;
+
+    -- 2. Resolver el orden_plantilla a usar
+    v_orden := NEW.orden_plantilla;
+
+    IF v_orden IS NULL THEN
+        -- Tipos ambiguos: el orden_plantilla es obligatorio, no se puede inferir
+        IF NEW.tipo = ANY(v_tipos_ambiguos) THEN
+            RAISE EXCEPTION
+                'orden_plantilla es obligatorio para actividades de tipo "%" (se repite en la plantilla del ciclo "%" y la fase no puede determinarse solo por el tipo)',
+                NEW.tipo, v_tipo_ciclo;
+        END IF;
+
+        -- Tipos no ambiguos: buscar la primera (única) ocurrencia en plantillas_ciclo
+        SELECT orden INTO v_orden
+        FROM plantillas_ciclo
+        WHERE tipo_ciclo = v_tipo_ciclo
+          AND tipo_actividad = NEW.tipo
+        ORDER BY orden
+        LIMIT 1;
+
+        IF v_orden IS NULL THEN
+            RAISE EXCEPTION
+                'El tipo de actividad "%" no existe en plantillas_ciclo para el tipo de ciclo "%". Revisar PLANTILLAS_CICLO (PlantillaCiclo.ts) y la tabla plantillas_ciclo.',
+                NEW.tipo, v_tipo_ciclo;
+        END IF;
+
+        NEW.orden_plantilla := v_orden;
+    END IF;
+
+    -- 3. Buscar la fase cuyo rango [orden_min, orden_max] contiene v_orden
+    SELECT id INTO v_fase_id
+    FROM fases_ciclo
+    WHERE tipo_ciclo = v_tipo_ciclo
+      AND v_orden BETWEEN orden_min AND orden_max
+    LIMIT 1;
+
+    IF v_fase_id IS NULL THEN
+        RAISE EXCEPTION
+            'No se encontró una fase en fases_ciclo para tipo_ciclo="%" con orden=%. Revisar los rangos orden_min/orden_max configurados.',
+            v_tipo_ciclo, v_orden;
+    END IF;
+
+    NEW.fase_id := v_fase_id;
+
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.fn_asignar_fase() OWNER TO postgres;
+
+--
+-- Name: FUNCTION fn_asignar_fase(); Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON FUNCTION public.fn_asignar_fase() IS 'Asigna fase_id en actividades_parcela según el tipo_ciclo del ciclo padre y el orden_plantilla de la actividad (explícito o resuelto desde plantillas_ciclo si el tipo no es ambiguo).';
 
 
 --
@@ -189,6 +268,8 @@ CREATE TABLE public.actividades_parcela (
     num_tareas numeric(8,2),
     precio_tarea numeric(10,2),
     costo_sembradores numeric(10,2),
+    orden_plantilla integer,
+    fase_id integer,
     CONSTRAINT actividades_parcela_destino_check CHECK (((destino)::text = ANY ((ARRAY['piladora'::character varying, 'almacen'::character varying, 'directo'::character varying, 'otro'::character varying])::text[]))),
     CONSTRAINT actividades_parcela_nivel_dano_check CHECK (((nivel_dano)::text = ANY ((ARRAY['leve'::character varying, 'moderado'::character varying, 'severo'::character varying])::text[]))),
     CONSTRAINT actividades_parcela_tipo_check CHECK (((tipo)::text = ANY (ARRAY[('preparacion_suelo'::character varying)::text, ('inundacion'::character varying)::text, ('siembra_boleo'::character varying)::text, ('siembra_trasplante'::character varying)::text, ('riego'::character varying)::text, ('fertilizacion'::character varying)::text, ('fumigacion'::character varying)::text, ('deshierba'::character varying)::text, ('cosecha'::character varying)::text, ('rozar_quemar'::character varying)::text, ('soca_riego'::character varying)::text, ('soca_fertilizacion'::character varying)::text, ('soca_fumigacion'::character varying)::text, ('cosecha_soca'::character varying)::text, ('observacion'::character varying)::text]))),
@@ -276,6 +357,20 @@ COMMENT ON COLUMN public.actividades_parcela.costo_sembradores IS 'Total al grup
 
 
 --
+-- Name: COLUMN actividades_parcela.orden_plantilla; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.actividades_parcela.orden_plantilla IS 'Orden dentro de PLANTILLAS_CICLO (PlantillaCiclo.ts) que originó esta actividad. Obligatorio para tipos ambiguos (riego, fertilizacion, fumigacion, soca_riego, soca_fumigacion) que se repiten en la plantilla con distinto orden.';
+
+
+--
+-- Name: COLUMN actividades_parcela.fase_id; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.actividades_parcela.fase_id IS 'Fase agrícola (F1-F6) asignada automáticamente por trg_asignar_fase según el tipo de ciclo y el orden_plantilla de la actividad.';
+
+
+--
 -- Name: actividades_parcela_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -357,7 +452,8 @@ CREATE TABLE public.ciclos_actividad (
     fecha_registro timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now(),
     created_by integer,
-    updated_by integer
+    updated_by integer,
+    CONSTRAINT chk_ciclos_tipo CHECK (((tipo)::text = ANY ((ARRAY['siembra_boleo'::character varying, 'siembra_trasplante'::character varying, 'soca'::character varying, 'resoca'::character varying])::text[])))
 );
 
 
@@ -383,6 +479,78 @@ ALTER SEQUENCE public.ciclos_actividad_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.ciclos_actividad_id_seq OWNED BY public.ciclos_actividad.id;
+
+
+--
+-- Name: fases_ciclo; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.fases_ciclo (
+    id integer NOT NULL,
+    codigo character varying(5) NOT NULL,
+    nombre character varying(100) NOT NULL,
+    tipo_ciclo character varying(20) NOT NULL,
+    orden_fase integer NOT NULL,
+    orden_min integer NOT NULL,
+    orden_max integer NOT NULL,
+    tipos_actividad character varying(30)[] NOT NULL,
+    descripcion text,
+    created_at timestamp without time zone DEFAULT now(),
+    CONSTRAINT chk_fases_orden_rango CHECK ((orden_min <= orden_max)),
+    CONSTRAINT chk_fases_tipo_ciclo CHECK (((tipo_ciclo)::text = ANY ((ARRAY['siembra_boleo'::character varying, 'siembra_trasplante'::character varying, 'soca'::character varying, 'resoca'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.fases_ciclo OWNER TO postgres;
+
+--
+-- Name: TABLE fases_ciclo; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.fases_ciclo IS 'Define las fases agrícolas (F1-F6) según el tipo de ciclo, mapeadas al campo "orden" de PLANTILLAS_CICLO (PlantillaCiclo.ts)';
+
+
+--
+-- Name: COLUMN fases_ciclo.orden_min; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.fases_ciclo.orden_min IS 'Orden mínimo de la plantilla que pertenece a esta fase (inclusive)';
+
+
+--
+-- Name: COLUMN fases_ciclo.orden_max; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.fases_ciclo.orden_max IS 'Orden máximo de la plantilla que pertenece a esta fase (inclusive)';
+
+
+--
+-- Name: COLUMN fases_ciclo.tipos_actividad; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.fases_ciclo.tipos_actividad IS 'Tipos de actividad de referencia para esta fase (documentación, no usado para la asignación cuando hay órdenes repetidos)';
+
+
+--
+-- Name: fases_ciclo_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.fases_ciclo_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.fases_ciclo_id_seq OWNER TO postgres;
+
+--
+-- Name: fases_ciclo_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.fases_ciclo_id_seq OWNED BY public.fases_ciclo.id;
 
 
 --
@@ -432,6 +600,53 @@ ALTER SEQUENCE public.parcelas_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.parcelas_id_seq OWNED BY public.parcelas.id;
+
+
+--
+-- Name: plantillas_ciclo; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.plantillas_ciclo (
+    id integer NOT NULL,
+    tipo_ciclo character varying(20) NOT NULL,
+    tipo_actividad character varying(30) NOT NULL,
+    orden integer NOT NULL,
+    dias_desde_inicio integer NOT NULL,
+    descripcion text,
+    obligatoria boolean DEFAULT true NOT NULL,
+    CONSTRAINT chk_plantillas_tipo_ciclo CHECK (((tipo_ciclo)::text = ANY ((ARRAY['siembra_boleo'::character varying, 'siembra_trasplante'::character varying, 'soca'::character varying, 'resoca'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.plantillas_ciclo OWNER TO postgres;
+
+--
+-- Name: TABLE plantillas_ciclo; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.plantillas_ciclo IS 'Réplica en BD de PLANTILLAS_CICLO (PlantillaCiclo.ts). Usada por trg_asignar_fase cuando una actividad no trae orden_plantilla explícito.';
+
+
+--
+-- Name: plantillas_ciclo_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.plantillas_ciclo_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.plantillas_ciclo_id_seq OWNER TO postgres;
+
+--
+-- Name: plantillas_ciclo_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.plantillas_ciclo_id_seq OWNED BY public.plantillas_ciclo.id;
 
 
 --
@@ -720,10 +935,24 @@ ALTER TABLE ONLY public.ciclos_actividad ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
+-- Name: fases_ciclo id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.fases_ciclo ALTER COLUMN id SET DEFAULT nextval('public.fases_ciclo_id_seq'::regclass);
+
+
+--
 -- Name: parcelas id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.parcelas ALTER COLUMN id SET DEFAULT nextval('public.parcelas_id_seq'::regclass);
+
+
+--
+-- Name: plantillas_ciclo id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.plantillas_ciclo ALTER COLUMN id SET DEFAULT nextval('public.plantillas_ciclo_id_seq'::regclass);
 
 
 --
@@ -779,11 +1008,27 @@ ALTER TABLE ONLY public.ciclos_actividad
 
 
 --
+-- Name: fases_ciclo fases_ciclo_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.fases_ciclo
+    ADD CONSTRAINT fases_ciclo_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: parcelas parcelas_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.parcelas
     ADD CONSTRAINT parcelas_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: plantillas_ciclo plantillas_ciclo_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.plantillas_ciclo
+    ADD CONSTRAINT plantillas_ciclo_pkey PRIMARY KEY (id);
 
 
 --
@@ -808,6 +1053,22 @@ ALTER TABLE ONLY public.refresh_tokens
 
 ALTER TABLE ONLY public.refresh_tokens
     ADD CONSTRAINT refresh_tokens_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: fases_ciclo uq_fases_codigo_tipo; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.fases_ciclo
+    ADD CONSTRAINT uq_fases_codigo_tipo UNIQUE (codigo, tipo_ciclo);
+
+
+--
+-- Name: plantillas_ciclo uq_plantillas_tipo_orden; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.plantillas_ciclo
+    ADD CONSTRAINT uq_plantillas_tipo_orden UNIQUE (tipo_ciclo, orden);
 
 
 --
@@ -854,6 +1115,13 @@ CREATE INDEX idx_actividades_ciclo_numero ON public.actividades_parcela USING bt
 --
 
 CREATE INDEX idx_actividades_estado ON public.actividades_parcela USING btree (estado);
+
+
+--
+-- Name: idx_actividades_fase; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_actividades_fase ON public.actividades_parcela USING btree (fase_id);
 
 
 --
@@ -1004,6 +1272,13 @@ CREATE TRIGGER trg_actividades_updated_at BEFORE UPDATE ON public.actividades_pa
 
 
 --
+-- Name: actividades_parcela trg_asignar_fase; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_asignar_fase BEFORE INSERT OR UPDATE OF tipo, ciclo_id, orden_plantilla ON public.actividades_parcela FOR EACH ROW EXECUTE FUNCTION public.fn_asignar_fase();
+
+
+--
 -- Name: capas_parcela trg_capas_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -1088,6 +1363,14 @@ ALTER TABLE ONLY public.actividades_parcela
 
 ALTER TABLE ONLY public.actividades_parcela
     ADD CONSTRAINT actividades_parcela_ciclo_id_fkey FOREIGN KEY (ciclo_id) REFERENCES public.ciclos_actividad(id) ON DELETE CASCADE;
+
+
+--
+-- Name: actividades_parcela actividades_parcela_fase_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.actividades_parcela
+    ADD CONSTRAINT actividades_parcela_fase_id_fkey FOREIGN KEY (fase_id) REFERENCES public.fases_ciclo(id);
 
 
 --
@@ -1238,5 +1521,5 @@ ALTER TABLE ONLY public.zonas
 -- PostgreSQL database dump complete
 --
 
-\unrestrict WacBYpjdHQbERwptUQcMVpc0PRd2QSC3Lh4hfrlqaa2Ncf2Jow9lVXVDbMfZfPX
+\unrestrict 99v9VwDjVpZIwGU90a8y5Hu0LkjiShXjvRVYyYMhquPzXdnsLYkwNZOvBh2Yc9N
 
