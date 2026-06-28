@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 99v9VwDjVpZIwGU90a8y5Hu0LkjiShXjvRVYyYMhquPzXdnsLYkwNZOvBh2Yc9N
+\restrict 0ZYjV2BanwICQrDmdrwZJXfxavztcQqj889xd8ytn8fPr1UHPacTY6P2mKzcP6B
 
 -- Dumped from database version 17.9
 -- Dumped by pg_dump version 17.9
@@ -1516,54 +1516,10 @@ ALTER TABLE ONLY public.zonas
 ALTER TABLE ONLY public.zonas
     ADD CONSTRAINT zonas_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE RESTRICT;
 
--- ================================================================
--- INSERTAR ADMINISTRADOR POR DEFECTO
--- ================================================================
-INSERT INTO public.usuarios (cedula, nombres, apellidos, usuario, password_hash, rol, estado)
-VALUES (
-    '0000000000',
-    'Administrador',
-    'GeoRice',
-    'admin',
-    '$2b$12$3FJIsiqQhOlO43RW9jwRg.t3sRqKZd9B6iACekAg1zoen9FBxEYBG',
-    'administrador',
-    'activo'
-)
-ON CONFLICT (usuario) DO NOTHING;
 
--- ================================================================
--- TRIGGER FALTANTE PARA zonas
--- ================================================================
-DROP TRIGGER IF EXISTS trg_zonas_updated_at ON public.zonas;
-CREATE TRIGGER trg_zonas_updated_at
-    BEFORE UPDATE ON public.zonas
-    FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
-
--- ================================================================
--- ACTUALIZAR DATOS EXISTENTES (opcional, para migraciones)
--- ================================================================
--- Asignar admin a zonas sin usuario
-UPDATE public.zonas
-SET usuario_id = (SELECT id FROM public.usuarios WHERE rol = 'administrador' LIMIT 1),
-    created_by = (SELECT id FROM public.usuarios WHERE rol = 'administrador' LIMIT 1)
-WHERE usuario_id IS NULL;
-
--- Asignar admin a parcelas sin usuario
-UPDATE public.parcelas
-SET usuario_id = (SELECT id FROM public.usuarios WHERE rol = 'administrador' LIMIT 1),
-    created_by = (SELECT id FROM public.usuarios WHERE rol = 'administrador' LIMIT 1)
-WHERE usuario_id IS NULL;
-
--- Rellenar propietario vacío desde el usuario
-UPDATE public.parcelas p
-SET propietario = (
-    SELECT u.nombres || ' ' || u.apellidos
-    FROM public.usuarios u WHERE u.id = p.usuario_id
-)
-WHERE propietario IS NULL OR propietario = '';
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 99v9VwDjVpZIwGU90a8y5Hu0LkjiShXjvRVYyYMhquPzXdnsLYkwNZOvBh2Yc9N
+\unrestrict 0ZYjV2BanwICQrDmdrwZJXfxavztcQqj889xd8ytn8fPr1UHPacTY6P2mKzcP6B
 

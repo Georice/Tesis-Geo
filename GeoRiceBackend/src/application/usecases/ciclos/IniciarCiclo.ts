@@ -22,7 +22,6 @@ export class IniciarCiclo {
     const cicloRepo      = AppDataSource.getRepository(CicloActividad);
     const actividadRepo  = AppDataSource.getRepository(ActividadParcela);
 
-    // Verificar si ya hay un ciclo activo para esta parcela
     const cicloActivo = await cicloRepo.findOne({
       where: { parcelaId, estado: 'activo' },
     });
@@ -30,7 +29,6 @@ export class IniciarCiclo {
       throw new Error('Esta parcela ya tiene un ciclo activo. Finaliza el ciclo actual antes de iniciar uno nuevo.');
     }
 
-    // Crear el ciclo
     const ciclo = cicloRepo.create({
       parcelaId,
       tipo,
@@ -42,7 +40,6 @@ export class IniciarCiclo {
     });
     await cicloRepo.save(ciclo);
 
-    // Generar actividades automáticamente desde la plantilla
     const actividades: ActividadParcela[] = [];
     for (const item of plantilla) {
       const fechaActividad = new Date(fechaInicio);
@@ -50,11 +47,12 @@ export class IniciarCiclo {
 
       const actividad = actividadRepo.create({
         parcelaId,
-        tipo:         item.tipo as any,
-        fecha:        fechaActividad,
-          cicloId:      ciclo.id,
-        observaciones: item.descripcion,
-        nivelAlerta:  'normal',
+        tipo:           item.tipo as any,
+        fecha:          fechaActividad,
+        cicloId:        ciclo.id,
+        ordenPlantilla: item.orden,
+        observaciones:  item.descripcion,
+        nivelAlerta:    'normal',
       });
       await actividadRepo.save(actividad);
       actividades.push(actividad);
