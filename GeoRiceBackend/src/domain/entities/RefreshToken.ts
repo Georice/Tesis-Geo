@@ -9,10 +9,10 @@ export class RefreshToken {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ name: 'usuario_id' })
-  usuarioId!: number;
+  @Column({ name: 'usuario_id', type: 'text' })
+  usuarioId!: string;
 
-  @ManyToOne(() => Usuario, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Usuario, { onDelete: 'CASCADE', eager: false })
   @JoinColumn({ name: 'usuario_id' })
   usuario!: Usuario;
 

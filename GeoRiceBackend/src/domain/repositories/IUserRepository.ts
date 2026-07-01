@@ -1,53 +1,44 @@
 export interface CredencialesLogin {
-  id:           number;
+  id:           string;
   passwordHash: string;
   rol:          string;
   estado:       string;
-  cedula:       string;
   nombres:      string;
   apellidos:    string;
 }
 
 export interface UsuarioPublico {
-  id:            number;
-  cedula:        string;
+  id:            string;
   nombres:       string;
   apellidos:     string;
-  usuario:       string;
+  email:         string | null;
   rol:           'administrador' | 'socio';
   estado:        'activo' | 'inactivo';
   fechaRegistro: Date;
 }
 
 export interface CreateUsuarioDTO {
-  cedula:    string;
   nombres:   string;
   apellidos: string;
-  usuario:   string;
+  email:     string;
   password:  string;
-  rol:       'administrador' | 'socio';
 }
 
 export interface UpdateUsuarioDTO {
-  cedula?:    string;
   nombres?:   string;
   apellidos?: string;
-  usuario?:   string;
+  email?:     string;
   password?:  string;
-  rol?:       'administrador' | 'socio';
   estado?:    'activo' | 'inactivo';
 }
 
-// Contrato puro. AuthService depende sólo de esta interfaz.
-// LocalUserRepository la implementa en Etapa 1.
-// ExternalUserRepository la implementará en Etapa 2 sin tocar AuthService.
 export interface IUserRepository {
-  findByUsuario(usuario: string): Promise<CredencialesLogin | null>;
-  findById(id: number): Promise<UsuarioPublico | null>;
+  findByEmail(email: string): Promise<CredencialesLogin | null>;
+  findById(id: string): Promise<UsuarioPublico | null>;
   findAll(): Promise<UsuarioPublico[]>;
   findSoloActivos(): Promise<UsuarioPublico[]>;
-  create(data: CreateUsuarioDTO, createdBy: number): Promise<UsuarioPublico>;
-  update(id: number, data: UpdateUsuarioDTO, updatedBy: number): Promise<UsuarioPublico>;
-  activate(id: number, updatedBy: number): Promise<void>;
-  deactivate(id: number, updatedBy: number): Promise<void>;
+  create(data: CreateUsuarioDTO, createdBy: string): Promise<UsuarioPublico>;
+  update(id: string, data: UpdateUsuarioDTO, updatedBy: string): Promise<UsuarioPublico>;
+  activate(id: string, updatedBy: string): Promise<void>;
+  deactivate(id: string, updatedBy: string): Promise<void>;
 }

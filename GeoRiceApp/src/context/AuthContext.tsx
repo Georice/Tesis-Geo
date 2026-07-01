@@ -7,11 +7,10 @@ import {
 } from '../infrastructure/repositories/ApiClient';
 
 export interface AuthUser {
-  id:             number;
-  cedula:         string;
+  id:             string;
   nombres:        string;
   apellidos:      string;
-  usuario:        string;
+  email:          string;
   rol:            'administrador' | 'socio';
   nombreCompleto: string;
 }
@@ -75,11 +74,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const login = async (usuario: string, password: string): Promise<void> => {
+  const login = async (email: string, password: string): Promise<void> => {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ usuario, password }),
+      body:    JSON.stringify({ email, password }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -87,11 +86,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     const { accessToken, refreshToken, usuario: payload } = await res.json();
     const fullUser: AuthUser = {
-      id:             Number(payload.sub),
-      cedula:         payload.cedula,
+      id:             payload.sub,
       nombres:        payload.nombres,
       apellidos:      payload.apellidos,
-      usuario:        usuario,
+      email,
       rol:            payload.rol,
       nombreCompleto: `${payload.nombres} ${payload.apellidos}`,
     };

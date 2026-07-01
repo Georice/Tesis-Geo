@@ -24,8 +24,7 @@ export class ParcelaRepository implements IParcelaRepository {
              p.area_ha AS "areaHa", p.area_cuadras AS "areaCuadras",
              p.fecha_creacion AS "fechaCreacion", p.updated_at AS "updatedAt",
              ST_AsGeoJSON(p.geometria)::json AS geometria,
-             u.nombres || ' ' || u.apellidos AS propietario_nombre,
-             u.cedula AS propietario_cedula
+             u.nombre || ' ' || u.apellido AS propietario_nombre
       FROM parcelas p
       LEFT JOIN usuarios u ON u.id = p.usuario_id
       ${where}
@@ -49,7 +48,7 @@ export class ParcelaRepository implements IParcelaRepository {
              p.area_ha AS "areaHa", p.area_cuadras AS "areaCuadras",
              p.fecha_creacion AS "fechaCreacion", p.updated_at AS "updatedAt",
              ST_AsGeoJSON(p.geometria)::json AS geometria,
-             u.nombres || ' ' || u.apellidos AS propietario_nombre
+             u.nombre || ' ' || u.apellido AS propietario_nombre
       FROM parcelas p
       LEFT JOIN usuarios u ON u.id = p.usuario_id
       WHERE ${conds.join(' AND ')}
@@ -80,7 +79,7 @@ export class ParcelaRepository implements IParcelaRepository {
       : (data.usuarioId ?? ctx.usuarioId);
 
     const [propietarioUser] = await AppDataSource.query(
-      `SELECT nombres || ' ' || apellidos AS nombre FROM usuarios WHERE id = $1`,
+      `SELECT nombre || ' ' || apellido AS nombre FROM public.usuarios WHERE id = $1`,
       [propietarioId]
     );
     const propietarioNombre = propietarioUser?.nombre ?? ctx.nombreCompleto;
@@ -134,7 +133,7 @@ export class ParcelaRepository implements IParcelaRepository {
     // Solo admin puede reasignar propietario
     if (ctx.rol === 'administrador' && data.usuarioId != null) {
       const [newOwner] = await AppDataSource.query(
-        `SELECT nombres || ' ' || apellidos AS nombre FROM usuarios WHERE id = $${params.length + 1}`,
+        `SELECT nombre || ' ' || apellido AS nombre FROM public.usuarios WHERE id = $${params.length + 1}`,
         [...params, data.usuarioId]
       );
       params.push(data.usuarioId);

@@ -7,17 +7,17 @@ import { useAuth } from '../context/AuthContext';
 
 const LoginScreen = () => {
   const { login }              = useAuth();
-  const [usuario, setUsuario]  = useState('');
+  const [email, setEmail]      = useState('');
   const [password, setPassword]= useState('');
   const [loading, setLoading]  = useState(false);
 
   const handleLogin = async () => {
-    if (!usuario.trim() || !password.trim()) {
-      Alert.alert('Error', 'Ingresa usuario y contraseña'); return;
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Error', 'Ingresa correo y contraseña'); return;
     }
     setLoading(true);
     try {
-      await login(usuario.trim(), password);
+      await login(email.trim(), password);
     } catch (e: any) {
       Alert.alert('Error de acceso', e.message ?? 'No se pudo iniciar sesión');
     } finally {
@@ -34,12 +34,13 @@ const LoginScreen = () => {
 
         <TextInput
           style={s.input}
-          value={usuario}
-          onChangeText={setUsuario}
-          placeholder="Usuario"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Correo electrónico"
           placeholderTextColor="#aaa"
           autoCapitalize="none"
           autoCorrect={false}
+          keyboardType="email-address"
         />
         <TextInput
           style={s.input}
@@ -52,9 +53,9 @@ const LoginScreen = () => {
         />
 
         <TouchableOpacity
-          style={[s.btn, (loading || !usuario || !password) && { opacity: 0.5 }]}
+          style={[s.btn, (loading || !email || !password) && { opacity: 0.5 }]}
           onPress={handleLogin}
-          disabled={loading || !usuario.trim() || !password.trim()}>
+          disabled={loading || !email.trim() || !password.trim()}>
           {loading
             ? <ActivityIndicator color="#fff" />
             : <Text style={s.btnText}>Ingresar</Text>

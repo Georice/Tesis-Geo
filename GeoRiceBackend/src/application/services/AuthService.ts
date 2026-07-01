@@ -7,7 +7,6 @@ import { RefreshToken } from '../../domain/entities/RefreshToken';
 
 export interface JwtPayload {
   sub:       string;
-  cedula:    string;
   rol:       'administrador' | 'socio';
   nombres:   string;
   apellidos: string;
@@ -18,8 +17,8 @@ export class AuthService {
 
   constructor(private readonly userRepo: IUserRepository) {}
 
-  async login(usuario: string, password: string) {
-    const user = await this.userRepo.findByUsuario(usuario);
+  async login(email: string, password: string) {
+    const user = await this.userRepo.findByEmail(email);
     if (!user) throw new Error('Credenciales incorrectas');
     if (user.estado !== 'activo') throw new Error('Usuario inactivo. Contacte al administrador.');
 
@@ -27,8 +26,7 @@ export class AuthService {
     if (!valid) throw new Error('Credenciales incorrectas');
 
     const payload: JwtPayload = {
-      sub:       String(user.id),
-      cedula:    user.cedula,
+      sub:       user.id,
       rol:       user.rol as 'administrador' | 'socio',
       nombres:   user.nombres,
       apellidos: user.apellidos,
@@ -38,7 +36,7 @@ export class AuthService {
     const { refreshToken, tokenHash, expiresAt } = this.generateRefreshToken();
 
     await this.refreshRepo.save(
-      this.refreshRepo.create({ usuarioId: user.id, tokenHash, expiresAt })
+      this.refreshRepo.create({ usuarioId: user.id, tokenHash, expiresAt }),
     );
 
     return { accessToken, refreshToken, usuario: payload };
@@ -54,16 +52,22 @@ export class AuthService {
     if (!record || record.expiresAt < new Date()) {
       throw new Error('Refresh token inválido o expirado');
     }
-    if (record.usuario.estado !== 'activo') {
+    if (!record.usuario.activo) {
       throw new Error('Usuario inactivo');
     }
 
     await this.refreshRepo.update(record.id, { revocado: true });
 
+    const socioRows = await AppDataSource.query(
+      `SELECT COALESCE(CASE s."nivelAcceso" WHEN 'ADMIN' THEN 'administrador' ELSE 'socio' END, 'socio') AS rol
+       FROM socios s WHERE s."usuarioId" = $1 LIMIT 1`,
+      [record.usuario.id],
+    );
+    const rol = (socioRows[0]?.rol ?? 'socio') as 'administrador' | 'socio';
+
     const payload: JwtPayload = {
-      sub:       String(record.usuario.id),
-      cedula:    record.usuario.cedula,
-      rol:       record.usuario.rol,
+      sub:       record.usuario.id,
+      rol,
       nombres:   record.usuario.nombres,
       apellidos: record.usuario.apellidos,
     };
@@ -72,7 +76,7 @@ export class AuthService {
     const { refreshToken, tokenHash: newHash, expiresAt: newExpires } = this.generateRefreshToken();
 
     await this.refreshRepo.save(
-      this.refreshRepo.create({ usuarioId: record.usuario.id, tokenHash: newHash, expiresAt: newExpires })
+      this.refreshRepo.create({ usuarioId: record.usuario.id, tokenHash: newHash, expiresAt: newExpires }),
     );
 
     return { accessToken, refreshToken };

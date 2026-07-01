@@ -12,7 +12,7 @@ const repo = new ParcelaRepository();
 
 function buildCtx(req: Request): AuthContext {
   return {
-    usuarioId:      Number(req.user!.sub),
+    usuarioId:      req.user!.sub,
     rol:            req.user!.rol,
     nombreCompleto: `${req.user!.nombres} ${req.user!.apellidos}`,
   };

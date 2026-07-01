@@ -10,7 +10,7 @@ import { logger }                     from '../../../shared/logger';
 
 const repo = new CapaParcelaRepository();
 
-async function verifyParcelaAccess(parcelaId: number, usuarioId: number, rol: string): Promise<void> {
+async function verifyParcelaAccess(parcelaId: number, usuarioId: string, rol: string): Promise<void> {
   if (rol === 'administrador') return;
   const result = await AppDataSource.query(
     `SELECT id FROM parcelas WHERE id = $1 AND usuario_id = $2`, [parcelaId, usuarioId]
@@ -22,7 +22,7 @@ export class CapaController {
   async getByParcela(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      await verifyParcelaAccess(parcelaId, Number(req.user!.sub), req.user!.rol);
+      await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
       const capas = await new GetCapasByParcela(repo).execute(parcelaId);
       logger.info(`GET capas parcela=${parcelaId} → ${capas.length}`);
       res.json(capas);
@@ -35,7 +35,7 @@ export class CapaController {
   async create(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      const usuarioId = Number(req.user!.sub);
+      const usuarioId = req.user!.sub;
       await verifyParcelaAccess(parcelaId, usuarioId, req.user!.rol);
 
       const { tipo, geometria, ndviEstimado } = req.body;
@@ -69,7 +69,7 @@ export class CapaController {
     try {
       const id        = Number(req.params.id);
       const parcelaId = Number(req.params.parcelaId);
-      await verifyParcelaAccess(parcelaId, Number(req.user!.sub), req.user!.rol);
+      await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
 
       const { geometria } = req.body;
       if (!geometria) { res.status(400).json({ error: 'Se requiere geometria' }); return; }
@@ -89,7 +89,7 @@ export class CapaController {
       const id   = Number(req.params.id);
       const capa = await repo.findById(id);
       if (!capa) { res.status(404).json({ error: 'Capa no encontrada' }); return; }
-      await verifyParcelaAccess(capa.parcelaId, Number(req.user!.sub), req.user!.rol);
+      await verifyParcelaAccess(capa.parcelaId, req.user!.sub, req.user!.rol);
 
       const deleted = await new DeleteCapa(repo).execute(id);
       if (!deleted) { res.status(404).json({ error: 'Capa no encontrada' }); return; }

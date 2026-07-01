@@ -1,44 +1,22 @@
-import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn,
-} from 'typeorm';
+import { Entity, PrimaryColumn, Column } from 'typeorm';
 
-@Entity('usuarios')
+@Entity({ name: 'usuarios', schema: 'public' })
 export class Usuario {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  @PrimaryColumn({ type: 'text' })
+  id!: string;
 
-  @Column({ type: 'varchar', length: 13, unique: true })
-  cedula!: string;
+  @Column({ type: 'text' })
+  email!: string;
 
-  @Column({ type: 'varchar', length: 100 })
-  nombres!: string;
-
-  @Column({ type: 'varchar', length: 100 })
-  apellidos!: string;
-
-  @Column({ type: 'varchar', length: 50, unique: true })
-  usuario!: string;
-
-  @Column({ name: 'password_hash', type: 'varchar', length: 255, select: false })
+  @Column({ name: 'password', type: 'text', select: false })
   passwordHash!: string;
 
-  @Column({ type: 'varchar', length: 20, default: 'socio' })
-  rol!: 'administrador' | 'socio';
+  @Column({ name: 'nombre', type: 'text' })
+  nombres!: string;
 
-  @Column({ type: 'varchar', length: 10, default: 'activo' })
-  estado!: 'activo' | 'inactivo';
+  @Column({ name: 'apellido', type: 'text' })
+  apellidos!: string;
 
-  @CreateDateColumn({ name: 'fecha_registro' })
-  fechaRegistro!: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
-
-  @Column({
-    name: 'updated_by',
-    type: 'integer',
-    nullable: true
-  })
-  updatedBy!: number | null;
+  @Column({ type: 'boolean', default: true })
+  activo!: boolean;
 }
