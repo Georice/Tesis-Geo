@@ -21,12 +21,6 @@ export class ActividadController {
   async getByParcela(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-<<<<<<< Updated upstream
-      await verifyParcelaAccess(parcelaId, Number(req.user!.sub), req.user!.rol);
-      const actividades = await new GetActividadesByParcela(repo).execute(parcelaId);
-      logger.info(`GET actividades parcela=${parcelaId} → ${actividades.length}`);
-      res.json(actividades);
-=======
       await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
 
       const page     = req.query.page ? Number(req.query.page) : undefined;
@@ -35,7 +29,6 @@ export class ActividadController {
       const resultado = await new GetActividadesByParcela(repo).execute(parcelaId, page, pageSize);
       logger.info(`GET actividades parcela=${parcelaId} → ${resultado.total} totales`);
       res.json(resultado);
->>>>>>> Stashed changes
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al obtener actividades';
       res.status(message.includes('autorizado') ? 403 : 500).json({ error: message });
@@ -51,43 +44,20 @@ export class ActividadController {
       const {
         tipo, estado, fecha, fechaInicio, fechaFin,
         metodo, insumo, cantidad, unidad,
-        laminaAgua, rendimientoHa, totalSacos, humedad,
-        precioQq, costoCosecha, destino,
-        plagaDetectada, nivelDano, nivelAlerta,
-        capacidadTanque, numTanques,
-        // mano de obra legacy
-        numJornales, pagoJornal, costoManoObra,
-        // mano de obra nuevo modelo
-        unidadManoObra, cantidadUnidadMo, precioUnidadMo,
-        numTrabajadores, descripcionUnidadMo,
-        // maquinaria
-        tipoMaquinaria, unidadCobro, cantidadUnidades,
-        costoPorUnidad, costoMaquinaria,
-        // sembradores trasplante
-        numTareas, precioTarea, costoSembradores,
-        // costos calculados
-        costoInsumos, costoTotalActividad,
-        // otros
-        observaciones, capaId, cicloId, productos,
+        nivelAlerta, observaciones, capaId, cicloId,
+        ordenPlantilla, productos,
+        detalleRiego, detalleFumigacion, detalleFertilizacion,
+        detalleCosecha, detalleManoObra, detalleMaquinaria,
       } = req.body;
 
       const actividad = await new CreateActividad(repo).execute({
         parcelaId, tipo, estado, fecha, fechaInicio, fechaFin,
         metodo, insumo, cantidad, unidad,
-        laminaAgua, rendimientoHa, totalSacos, humedad,
-        precioQq, costoCosecha, destino,
-        plagaDetectada, nivelDano, nivelAlerta,
-        capacidadTanque, numTanques,
-        numJornales, pagoJornal, costoManoObra,
-        unidadManoObra, cantidadUnidadMo, precioUnidadMo,
-        numTrabajadores, descripcionUnidadMo,
-        tipoMaquinaria, unidadCobro, cantidadUnidades,
-        costoPorUnidad, costoMaquinaria,
-        numTareas, precioTarea, costoSembradores,
-        costoInsumos, costoTotalActividad,
-        observaciones, capaId, cicloId,
+        nivelAlerta, observaciones, capaId, cicloId,
+        ordenPlantilla, productos,
+        detalleRiego, detalleFumigacion, detalleFertilizacion,
+        detalleCosecha, detalleManoObra, detalleMaquinaria,
         createdBy: usuarioId, updatedBy: usuarioId,
-        productos,
       } as any);
 
       logger.info(`POST actividad creada id=${actividad.id} parcela=${parcelaId}`);
@@ -111,43 +81,20 @@ export class ActividadController {
       const {
         tipo, estado, fecha, fechaInicio, fechaFin,
         metodo, insumo, cantidad, unidad,
-        laminaAgua, rendimientoHa, totalSacos, humedad,
-        precioQq, costoCosecha, destino,
-        plagaDetectada, nivelDano, nivelAlerta,
-        capacidadTanque, numTanques,
-        // mano de obra legacy
-        numJornales, pagoJornal, costoManoObra,
-        // mano de obra nuevo modelo
-        unidadManoObra, cantidadUnidadMo, precioUnidadMo,
-        numTrabajadores, descripcionUnidadMo,
-        // maquinaria
-        tipoMaquinaria, unidadCobro, cantidadUnidades,
-        costoPorUnidad, costoMaquinaria,
-        // sembradores trasplante
-        numTareas, precioTarea, costoSembradores,
-        // costos calculados
-        costoInsumos, costoTotalActividad,
-        // otros
-        observaciones, capaId, productos,
+        nivelAlerta, observaciones, capaId,
+        ordenPlantilla, productos,
+        detalleRiego, detalleFumigacion, detalleFertilizacion,
+        detalleCosecha, detalleManoObra, detalleMaquinaria,
       } = req.body;
 
       const actividad = await new UpdateActividad(repo).execute(id, {
         tipo, estado, fecha, fechaInicio, fechaFin,
         metodo, insumo, cantidad, unidad,
-        laminaAgua, rendimientoHa, totalSacos, humedad,
-        precioQq, costoCosecha, destino,
-        plagaDetectada, nivelDano, nivelAlerta,
-        capacidadTanque, numTanques,
-        numJornales, pagoJornal, costoManoObra,
-        unidadManoObra, cantidadUnidadMo, precioUnidadMo,
-        numTrabajadores, descripcionUnidadMo,
-        tipoMaquinaria, unidadCobro, cantidadUnidades,
-        costoPorUnidad, costoMaquinaria,
-        numTareas, precioTarea, costoSembradores,
-        costoInsumos, costoTotalActividad,
-        observaciones, capaId,
+        nivelAlerta, observaciones, capaId,
+        ordenPlantilla, productos,
+        detalleRiego, detalleFumigacion, detalleFertilizacion,
+        detalleCosecha, detalleManoObra, detalleMaquinaria,
         updatedBy: usuarioId,
-        productos,
       } as any);
 
       logger.info(`PUT actividad ${id} actualizada`);

@@ -2,12 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform }  from 'react-native';
 
 
-<<<<<<< Updated upstream
-//Parrales
-export const BASE_URL = Platform.OS === 'android'
-  ? 'http://192.168.100.6:3000/api'
-  : 'http://localhost:3000/api';
-=======
 // //Parrales
 export const BASE_URL = Platform.OS === 'android'
   ? 'http://192.168.100.6:3000/api'
@@ -18,13 +12,12 @@ export const BASE_URL = Platform.OS === 'android'
 // export const BASE_URL = Platform.OS === 'android'
 //   ? 'http://192.168.1.213:3000/api'
 //   : 'http://localhost:3000/api';
->>>>>>> Stashed changes
 
 
-//Brando
-// export const BASE_URL = Platform.OS === 'android'
-//   ? 'http://192.168.1.213:3000/api'
-//   : 'http://localhost:3000/api';
+  // export const BASE_URL = Platform.OS === 'android'
+  // ? 'http://192.168.255.3:3000/api'
+  // : 'http://localhost:3000/api';
+
 
 export const STORAGE_KEYS = {
   ACCESS_TOKEN:    '@georice:access_token',
