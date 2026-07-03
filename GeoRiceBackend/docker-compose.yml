@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: managerice_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       managerice_db
+      POSTGRES_USER:     managerice
+      POSTGRES_PASSWORD: managerice123
+    ports:
+      - "5432:5432"
+    volumes:
+      - managerice_data:/var/lib/postgresql/data
+
+volumes:
+  managerice_data:

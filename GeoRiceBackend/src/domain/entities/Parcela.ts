@@ -11,8 +11,8 @@ export class Parcela {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ name: 'usuario_id' })
-  usuarioId!: number;
+  @Column({ name: 'usuario_id', type: 'text' })
+  usuarioId!: string;
 
   @ManyToOne(() => Usuario, { nullable: false, eager: false })
   @JoinColumn({ name: 'usuario_id' })
@@ -67,9 +67,9 @@ export class Parcela {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
 
-  @Column({ name: 'created_by', type: 'int', nullable: true })
-  createdBy!: number | null;
+  @Column({ name: 'created_by', type: 'text', nullable: true })
+  createdBy!: string | null;
 
-  @Column({ name: 'updated_by', type: 'int', nullable: true })
-  updatedBy!: number | null;
+  @Column({ name: 'updated_by', type: 'text', nullable: true })
+  updatedBy!: string | null;
 }

@@ -7,12 +7,12 @@ const authService = new AuthService(new LocalUserRepository());
 export class AuthController {
   async login(req: Request, res: Response): Promise<void> {
     try {
-      const { usuario, password } = req.body;
-      if (!usuario || !password) {
-        res.status(400).json({ error: 'usuario y password son requeridos' });
+      const { email, password } = req.body;
+      if (!email || !password) {
+        res.status(400).json({ error: 'email y password son requeridos' });
         return;
       }
-      const result = await authService.login(String(usuario), String(password));
+      const result = await authService.login(String(email), String(password));
       res.json(result);
     } catch (err: any) {
       res.status(401).json({ error: err.message });

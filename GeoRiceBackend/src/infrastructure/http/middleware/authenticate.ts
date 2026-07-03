@@ -22,11 +22,10 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
-    // Verificar que el usuario aún existe y está activo en BD.
-    // Evita que tokens válidos de sesiones cuya BD fue recreada produzcan
-    // errores de FK en los controladores en lugar de 401.
+    // Verifica contra public.usuarios de MagnaRice.
+    // MagnaRice usa boolean "activo", no varchar "estado".
     const rows = await AppDataSource.query(
-      `SELECT id FROM usuarios WHERE id = $1 AND estado = 'activo' LIMIT 1`,
+      `SELECT id FROM public.usuarios WHERE id = $1 AND activo = true LIMIT 1`,
       [payload.sub],
     );
     if (!rows[0]) {

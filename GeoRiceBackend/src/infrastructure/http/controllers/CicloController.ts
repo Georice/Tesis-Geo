@@ -4,7 +4,7 @@ import { AppDataSource }       from '../../db/DataSource';
 import { CicloActividad }      from '../../../domain/entities/CicloActividad';
 import { logger }              from '../../../shared/logger';
 
-async function verifyParcelaAccess(parcelaId: number, usuarioId: number, rol: string): Promise<void> {
+async function verifyParcelaAccess(parcelaId: number, usuarioId: string, rol: string): Promise<void> {
   if (rol === 'administrador') return;
   const result = await AppDataSource.query(
     `SELECT id FROM parcelas WHERE id = $1 AND usuario_id = $2`, [parcelaId, usuarioId]
@@ -16,7 +16,7 @@ export class CicloController {
   async iniciar(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      const usuarioId = Number(req.user!.sub);
+      const usuarioId = req.user!.sub;
       await verifyParcelaAccess(parcelaId, usuarioId, req.user!.rol);
 
       const { tipo, fechaInicio, variedadSemilla, areaSembrada, observaciones } = req.body;
@@ -30,7 +30,7 @@ export class CicloController {
         variedadSemilla, areaSembrada, observaciones,
       });
 
-      logger.info(`✅ Ciclo ${resultado.ciclo.id} iniciado con ${resultado.actividades.length} actividades`);
+      logger.info(`Ciclo ${resultado.ciclo.id} iniciado con ${resultado.actividades.length} actividades`);
       res.status(201).json(resultado);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al iniciar ciclo';
@@ -42,7 +42,7 @@ export class CicloController {
   async getByParcela(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      await verifyParcelaAccess(parcelaId, Number(req.user!.sub), req.user!.rol);
+      await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
       const repo   = AppDataSource.getRepository(CicloActividad);
       const ciclos = await repo.find({ where: { parcelaId }, order: { fechaInicio: 'DESC' } });
       res.json(ciclos);
@@ -58,11 +58,11 @@ export class CicloController {
       const repo = AppDataSource.getRepository(CicloActividad);
       const ciclo = await repo.findOne({ where: { id } });
       if (!ciclo) { res.status(404).json({ error: 'Ciclo no encontrado' }); return; }
-      await verifyParcelaAccess(ciclo.parcelaId, Number(req.user!.sub), req.user!.rol);
+      await verifyParcelaAccess(ciclo.parcelaId, req.user!.sub, req.user!.rol);
       ciclo.estado   = 'completado';
       ciclo.fechaFin = new Date();
       await repo.save(ciclo);
-      logger.info(`✅ Ciclo ${id} finalizado`);
+      logger.info(`Ciclo ${id} finalizado`);
       res.json(ciclo);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al finalizar ciclo';
