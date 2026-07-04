@@ -19,6 +19,12 @@ export const BASE_URL = Platform.OS === 'android'
   // : 'http://localhost:3000/api';
 
 
+
+  // export const BASE_URL = Platform.OS === 'android'
+  // ? 'http://192.168.255.3:3000/api'
+  // : 'http://localhost:3000/api';
+
+
 export const STORAGE_KEYS = {
   ACCESS_TOKEN:    '@georice:access_token',
   REFRESH_TOKEN:   '@georice:refresh_token',
@@ -50,24 +56,55 @@ async function getToken(): Promise<string | null> {
   return AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
 }
 
-async function tryRefresh(): Promise<string | null> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-  if (!raw) { await clearSession(); _forceLogout?.(); return null; }
+// async function tryRefresh(): Promise<string | null> {
+//   const raw = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+//   if (!raw) { await clearSession(); _forceLogout?.(); return null; }
 
-  try {
-    const res = await fetch(`${BASE_URL}/auth/refresh`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ refreshToken: raw }),
-    });
-    if (!res.ok) { await clearSession(); _forceLogout?.(); return null; }
-    const { accessToken, refreshToken } = await res.json();
-    await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-    await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
-    return accessToken;
-  } catch {
-    return null;
-  }
+//   try {
+//     const res = await fetch(`${BASE_URL}/auth/refresh`, {
+//       method:  'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body:    JSON.stringify({ refreshToken: raw }),
+//     });
+//     if (!res.ok) { await clearSession(); _forceLogout?.(); return null; }
+//     const { accessToken, refreshToken } = await res.json();
+//     await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+//     await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+//     return accessToken;
+//   } catch {
+//     return null;
+//   }
+// }
+
+
+let _refreshPromise: Promise<string | null> | null = null;
+
+async function tryRefresh(): Promise<string | null> {
+  if (_refreshPromise) return _refreshPromise;
+  
+  _refreshPromise = (async () => {
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+    if (!raw) { await clearSession(); _forceLogout?.(); return null; }
+
+    try {
+      const res = await fetch(`${BASE_URL}/auth/refresh`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ refreshToken: raw }),
+      });
+      if (!res.ok) { await clearSession(); _forceLogout?.(); return null; }
+      const { accessToken, refreshToken } = await res.json();
+      await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+      await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+      return accessToken;
+    } catch {
+      return null;
+    } finally {
+      _refreshPromise = null;
+    }
+  })();
+
+  return _refreshPromise;
 }
 
 async function request(path: string, options: RequestInit = {}): Promise<Response> {

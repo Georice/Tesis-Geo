@@ -9,7 +9,7 @@ import { logger }                        from '../../../shared/logger';
 
 const repo = new ActividadParcelaRepository();
 
-async function verifyParcelaAccess(parcelaId: number, usuarioId: number, rol: string): Promise<void> {
+async function verifyParcelaAccess(parcelaId: number, usuarioId: string, rol: string): Promise<void> {
   if (rol === 'administrador') return;
   const result = await AppDataSource.query(
     `SELECT id FROM parcelas WHERE id = $1 AND usuario_id = $2`, [parcelaId, usuarioId]
@@ -21,8 +21,8 @@ export class ActividadController {
   async getByParcela(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      await verifyParcelaAccess(parcelaId, Number(req.user!.sub), req.user!.rol);
-
+      //await verifyParcelaAccess(parcelaId, Number(req.user!.sub), req.user!.rol);
+await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
       const page     = req.query.page ? Number(req.query.page) : undefined;
       const pageSize = req.query.pageSize ? Number(req.query.pageSize) : undefined;
 
@@ -38,7 +38,7 @@ export class ActividadController {
   async create(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      const usuarioId = Number(req.user!.sub);
+      const usuarioId = req.user!.sub;
       await verifyParcelaAccess(parcelaId, usuarioId, req.user!.rol);
 
       const {
@@ -72,7 +72,7 @@ export class ActividadController {
   async update(req: Request, res: Response): Promise<void> {
     try {
       const id        = Number(req.params.id);
-      const usuarioId = Number(req.user!.sub);
+      const usuarioId = req.user!.sub;
 
       const existing = await repo.findById(id);
       if (!existing) { res.status(404).json({ error: 'Actividad no encontrada' }); return; }
@@ -109,7 +109,7 @@ export class ActividadController {
   async remove(req: Request, res: Response): Promise<void> {
     try {
       const id        = Number(req.params.id);
-      const usuarioId = Number(req.user!.sub);
+      const usuarioId = req.user!.sub;
 
       const existing = await repo.findById(id);
       if (!existing) { res.status(404).json({ error: 'Actividad no encontrada' }); return; }

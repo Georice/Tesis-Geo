@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 0ZYjV2BanwICQrDmdrwZJXfxavztcQqj889xd8ytn8fPr1UHPacTY6P2mKzcP6B
+\restrict av3YbWJWfoigujhAvLhP6tQhI4tuf9dRghZTQvSoqgeeTqOgpmGsOFOADxPBYHm
 
 -- Dumped from database version 17.9
 -- Dumped by pg_dump version 17.9
@@ -32,6 +32,130 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 
 COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types and functions';
 
+
+--
+-- Name: EstadoDocumento; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public."EstadoDocumento" AS ENUM (
+    'ACTIVO',
+    'ENVIADO',
+    'EMITIDO',
+    'ARCHIVADO'
+);
+
+
+ALTER TYPE public."EstadoDocumento" OWNER TO postgres;
+
+--
+-- Name: EstadoMulta; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public."EstadoMulta" AS ENUM (
+    'PENDIENTE',
+    'PAGADA',
+    'EXONERADA'
+);
+
+
+ALTER TYPE public."EstadoMulta" OWNER TO postgres;
+
+--
+-- Name: EstadoReunion; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public."EstadoReunion" AS ENUM (
+    'PROGRAMADA',
+    'EN_CURSO',
+    'FINALIZADA',
+    'CANCELADA'
+);
+
+
+ALTER TYPE public."EstadoReunion" OWNER TO postgres;
+
+--
+-- Name: EstadoSocio; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public."EstadoSocio" AS ENUM (
+    'ACTIVO',
+    'INACTIVO',
+    'SUSPENDIDO'
+);
+
+
+ALTER TYPE public."EstadoSocio" OWNER TO postgres;
+
+--
+-- Name: ModalidadReunion; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public."ModalidadReunion" AS ENUM (
+    'PRESENCIAL',
+    'VIRTUAL',
+    'MIXTA'
+);
+
+
+ALTER TYPE public."ModalidadReunion" OWNER TO postgres;
+
+--
+-- Name: NivelAcceso; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public."NivelAcceso" AS ENUM (
+    'ADMIN',
+    'DIRECTIVO',
+    'MIEMBRO',
+    'SOLO_VISTA'
+);
+
+
+ALTER TYPE public."NivelAcceso" OWNER TO postgres;
+
+--
+-- Name: RolSocio; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public."RolSocio" AS ENUM (
+    'PRESIDENTE',
+    'SECRETARIA',
+    'TESORERO',
+    'VOCAL',
+    'SOCIO',
+    'INDEPENDIENTE'
+);
+
+
+ALTER TYPE public."RolSocio" OWNER TO postgres;
+
+--
+-- Name: TipoDocumento; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public."TipoDocumento" AS ENUM (
+    'RESOLUCION',
+    'OFICIO',
+    'CERTIFICADO',
+    'SOLICITUD',
+    'ACTA'
+);
+
+
+ALTER TYPE public."TipoDocumento" OWNER TO postgres;
+
+--
+-- Name: TipoReunion; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public."TipoReunion" AS ENUM (
+    'ORDINARIA',
+    'EXTRAORDINARIA'
+);
+
+
+ALTER TYPE public."TipoReunion" OWNER TO postgres;
 
 --
 -- Name: fn_asignar_fase(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -140,6 +264,60 @@ $$;
 ALTER FUNCTION public.fn_asignar_numero_actividad() OWNER TO postgres;
 
 --
+-- Name: fn_calcular_costo_mano_obra(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.fn_calcular_costo_mano_obra() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    -- Costo por jornales o por unidad (saco/tanque/tarea genérica)
+    IF NEW.cantidad_unidad_mo IS NOT NULL AND NEW.precio_unidad_mo IS NOT NULL THEN
+        NEW.costo_mano_obra := ROUND(NEW.cantidad_unidad_mo * NEW.precio_unidad_mo, 2);
+    ELSIF NEW.num_jornales IS NOT NULL AND NEW.pago_jornal IS NOT NULL THEN
+        NEW.costo_mano_obra := ROUND(NEW.num_jornales * NEW.pago_jornal, 2);
+    END IF;
+
+    -- Costo de sembradores (tareas), independiente del costo_mano_obra general
+    IF NEW.num_tareas IS NOT NULL AND NEW.precio_tarea IS NOT NULL THEN
+        NEW.costo_sembradores := ROUND(NEW.num_tareas * NEW.precio_tarea, 2);
+    END IF;
+
+    -- Reparto entre trabajadores: toma el costo relevante (mano_obra o sembradores)
+    IF NEW.num_trabajadores IS NOT NULL AND NEW.num_trabajadores > 0 THEN
+        IF NEW.costo_mano_obra IS NOT NULL THEN
+            NEW.pago_por_trabajador := ROUND(NEW.costo_mano_obra / NEW.num_trabajadores, 2);
+        ELSIF NEW.costo_sembradores IS NOT NULL THEN
+            NEW.pago_por_trabajador := ROUND(NEW.costo_sembradores / NEW.num_trabajadores, 2);
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.fn_calcular_costo_mano_obra() OWNER TO postgres;
+
+--
+-- Name: fn_calcular_costo_maquinaria(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.fn_calcular_costo_maquinaria() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF NEW.cantidad_unidades IS NOT NULL AND NEW.costo_por_unidad IS NOT NULL THEN
+        NEW.costo_maquinaria := ROUND(NEW.cantidad_unidades * NEW.costo_por_unidad, 2);
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.fn_calcular_costo_maquinaria() OWNER TO postgres;
+
+--
 -- Name: fn_recalcular_costo_producto(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -149,19 +327,37 @@ CREATE FUNCTION public.fn_recalcular_costo_producto() RETURNS trigger
 DECLARE
     precio_por_unidad_base NUMERIC;
 BEGIN
-    -- Calcular precio por unidad base ($/L o $/kg)
-    IF NEW.presentacion_ml IS NOT NULL AND NEW.precio_presentacion IS NOT NULL AND NEW.presentacion_ml > 0 THEN
-        -- precio_unitario = precio_presentacion ÷ (presentacion_ml / 1000)
-        precio_por_unidad_base := NEW.precio_presentacion / (NEW.presentacion_ml::NUMERIC / 1000);
-        NEW.precio_unitario := ROUND(precio_por_unidad_base, 4);
+    -- ── FERTILIZANTES/ABONOS: cálculo por saco ───────────────────────────
+    -- precio_presentacion = precio por saco ($)
+    -- dosis_total         = sacos echados en esta actividad
+    -- costo_total         = sacos_echados × precio_saco
+    -- precio_unitario     = precio por saco (referencia)
+    -- frascos_usados      = sacos echados (misma cantidad)
+    IF NEW.tipo IN ('fertilizante', 'abono') THEN
+        IF NEW.dosis_total IS NOT NULL AND NEW.precio_presentacion IS NOT NULL THEN
+            NEW.precio_unitario := NEW.precio_presentacion;
+            NEW.frascos_usados  := NEW.dosis_total;
+            NEW.costo_total     := ROUND(NEW.dosis_total * NEW.precio_presentacion, 2);
+        END IF;
+        RETURN NEW;
+    END IF;
 
-        -- frascos_usados = dosis_total ÷ (presentacion_ml / 1000)
+    -- ── FUMIGACIÓN/OTROS: cálculo por presentación (ml/L) ────────────────
+    -- precio_presentacion = precio del frasco/litro
+    -- presentacion_ml     = tamaño del frasco en ml
+    -- precio_unitario     = precio por litro calculado
+    -- dosis_total         = litros aplicados
+    -- frascos_usados      = frascos necesarios
+    -- costo_total         = dosis_total × precio_unitario
+    IF NEW.presentacion_ml IS NOT NULL AND NEW.precio_presentacion IS NOT NULL AND NEW.presentacion_ml > 0 THEN
+        precio_por_unidad_base := NEW.precio_presentacion / (NEW.presentacion_ml::NUMERIC / 1000);
+        NEW.precio_unitario    := ROUND(precio_por_unidad_base, 4);
+
         IF NEW.dosis_total IS NOT NULL THEN
             NEW.frascos_usados := ROUND(NEW.dosis_total / (NEW.presentacion_ml::NUMERIC / 1000), 4);
         END IF;
     END IF;
 
-    -- costo_total = dosis_total × precio_unitario
     IF NEW.dosis_total IS NOT NULL AND NEW.precio_unitario IS NOT NULL THEN
         NEW.costo_total := ROUND(NEW.dosis_total * NEW.precio_unitario, 2);
     END IF;
@@ -269,7 +465,7 @@ CREATE TABLE public.actividades_parcela (
     precio_tarea numeric(10,2),
     costo_sembradores numeric(10,2),
     orden_plantilla integer,
-    fase_id integer,
+    fase_id integer NOT NULL,
     CONSTRAINT actividades_parcela_destino_check CHECK (((destino)::text = ANY ((ARRAY['piladora'::character varying, 'almacen'::character varying, 'directo'::character varying, 'otro'::character varying])::text[]))),
     CONSTRAINT actividades_parcela_nivel_dano_check CHECK (((nivel_dano)::text = ANY ((ARRAY['leve'::character varying, 'moderado'::character varying, 'severo'::character varying])::text[]))),
     CONSTRAINT actividades_parcela_tipo_check CHECK (((tipo)::text = ANY (ARRAY[('preparacion_suelo'::character varying)::text, ('inundacion'::character varying)::text, ('siembra_boleo'::character varying)::text, ('siembra_trasplante'::character varying)::text, ('riego'::character varying)::text, ('fertilizacion'::character varying)::text, ('fumigacion'::character varying)::text, ('deshierba'::character varying)::text, ('cosecha'::character varying)::text, ('rozar_quemar'::character varying)::text, ('soca_riego'::character varying)::text, ('soca_fertilizacion'::character varying)::text, ('soca_fumigacion'::character varying)::text, ('cosecha_soca'::character varying)::text, ('observacion'::character varying)::text]))),
@@ -479,6 +675,154 @@ ALTER SEQUENCE public.ciclos_actividad_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.ciclos_actividad_id_seq OWNED BY public.ciclos_actividad.id;
+
+
+--
+-- Name: detalle_cosecha; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.detalle_cosecha (
+    actividad_id integer NOT NULL,
+    rendimiento_ha numeric(10,2),
+    total_sacos numeric(10,2),
+    humedad numeric(5,2),
+    precio_qq numeric(10,2),
+    ingreso_total numeric(12,2),
+    costo_cosecha numeric(10,2),
+    destino character varying(20),
+    CONSTRAINT detalle_cosecha_destino_check CHECK (((destino)::text = ANY ((ARRAY['piladora'::character varying, 'almacen'::character varying, 'directo'::character varying, 'otro'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.detalle_cosecha OWNER TO postgres;
+
+--
+-- Name: TABLE detalle_cosecha; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.detalle_cosecha IS 'Datos específicos de actividades tipo cosecha/cosecha_soca';
+
+
+--
+-- Name: detalle_fertilizacion; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.detalle_fertilizacion (
+    actividad_id integer NOT NULL
+);
+
+
+ALTER TABLE public.detalle_fertilizacion OWNER TO postgres;
+
+--
+-- Name: TABLE detalle_fertilizacion; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.detalle_fertilizacion IS 'Datos específicos de actividades tipo fertilizacion/soca_fertilizacion (reservada para futuras columnas)';
+
+
+--
+-- Name: detalle_fumigacion; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.detalle_fumigacion (
+    actividad_id integer NOT NULL,
+    plaga_detectada character varying(100),
+    nivel_dano character varying(20),
+    capacidad_tanque numeric(8,2) DEFAULT 200,
+    num_tanques numeric(6,2),
+    CONSTRAINT detalle_fumigacion_nivel_dano_check CHECK (((nivel_dano)::text = ANY ((ARRAY['leve'::character varying, 'moderado'::character varying, 'severo'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.detalle_fumigacion OWNER TO postgres;
+
+--
+-- Name: TABLE detalle_fumigacion; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.detalle_fumigacion IS 'Datos específicos de actividades tipo fumigacion/soca_fumigacion';
+
+
+--
+-- Name: detalle_mano_obra; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.detalle_mano_obra (
+    actividad_id integer NOT NULL,
+    num_jornales integer,
+    pago_jornal numeric(10,2),
+    costo_mano_obra numeric(10,2),
+    unidad_mano_obra character varying(20),
+    cantidad_unidad_mo numeric(10,2),
+    precio_unidad_mo numeric(10,2),
+    num_trabajadores integer,
+    pago_por_trabajador numeric(10,2),
+    descripcion_unidad_mo character varying(100),
+    num_tareas numeric(8,2),
+    precio_tarea numeric(10,2),
+    costo_sembradores numeric(10,2),
+    CONSTRAINT detalle_mano_obra_unidad_mano_obra_check CHECK (((unidad_mano_obra)::text = ANY ((ARRAY['jornal'::character varying, 'tanque'::character varying, 'saco'::character varying, 'tarea'::character varying, 'otro'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.detalle_mano_obra OWNER TO postgres;
+
+--
+-- Name: TABLE detalle_mano_obra; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.detalle_mano_obra IS 'Jornales, sacos, tanques y sembradores (tareas) asociados a cualquier actividad que requiera mano de obra';
+
+
+--
+-- Name: COLUMN detalle_mano_obra.pago_por_trabajador; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.detalle_mano_obra.pago_por_trabajador IS 'Calculado: costo_mano_obra ÷ num_trabajadores. Cuánto le corresponde a cada trabajador.';
+
+
+--
+-- Name: detalle_maquinaria; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.detalle_maquinaria (
+    actividad_id integer NOT NULL,
+    tipo_maquinaria character varying(50),
+    unidad_cobro character varying(20),
+    cantidad_unidades numeric(8,2),
+    costo_por_unidad numeric(10,2),
+    costo_maquinaria numeric(10,2),
+    CONSTRAINT detalle_maquinaria_unidad_cobro_check CHECK (((unidad_cobro)::text = ANY ((ARRAY['hora'::character varying, 'hectarea'::character varying, 'saco'::character varying, 'otro'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.detalle_maquinaria OWNER TO postgres;
+
+--
+-- Name: TABLE detalle_maquinaria; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.detalle_maquinaria IS 'Uso de maquinaria (tractor, drone, cosechadora) en cualquier actividad';
+
+
+--
+-- Name: detalle_riego; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.detalle_riego (
+    actividad_id integer NOT NULL,
+    lamina_agua numeric(8,2)
+);
+
+
+ALTER TABLE public.detalle_riego OWNER TO postgres;
+
+--
+-- Name: TABLE detalle_riego; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.detalle_riego IS 'Datos específicos de actividades tipo riego/inundacion/soca_riego';
 
 
 --
@@ -787,6 +1131,52 @@ ALTER SEQUENCE public.refresh_tokens_id_seq OWNED BY public.refresh_tokens.id;
 
 
 --
+-- Name: socios; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.socios (
+    id integer NOT NULL,
+    cedula character varying(10) NOT NULL,
+    nombre text NOT NULL,
+    apellido text NOT NULL,
+    email text,
+    telefono text DEFAULT ''::text NOT NULL,
+    direccion text,
+    rol public."RolSocio" DEFAULT 'SOCIO'::public."RolSocio" NOT NULL,
+    nivel_acceso public."NivelAcceso" DEFAULT 'MIEMBRO'::public."NivelAcceso" NOT NULL,
+    estado public."EstadoSocio" DEFAULT 'ACTIVO'::public."EstadoSocio" NOT NULL,
+    fecha_ingreso timestamp without time zone DEFAULT now() NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    usuario_id integer
+);
+
+
+ALTER TABLE public.socios OWNER TO postgres;
+
+--
+-- Name: socios_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.socios_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.socios_id_seq OWNER TO postgres;
+
+--
+-- Name: socios_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.socios_id_seq OWNED BY public.socios.id;
+
+
+--
 -- Name: usuarios; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -802,6 +1192,7 @@ CREATE TABLE public.usuarios (
     fecha_registro timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now(),
     updated_by integer,
+    email character varying(100),
     CONSTRAINT usuarios_estado_check CHECK (((estado)::text = ANY ((ARRAY['activo'::character varying, 'inactivo'::character varying])::text[]))),
     CONSTRAINT usuarios_rol_check CHECK (((rol)::text = ANY ((ARRAY['administrador'::character varying, 'socio'::character varying])::text[])))
 );
@@ -970,6 +1361,13 @@ ALTER TABLE ONLY public.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('publ
 
 
 --
+-- Name: socios id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.socios ALTER COLUMN id SET DEFAULT nextval('public.socios_id_seq'::regclass);
+
+
+--
 -- Name: usuarios id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -1005,6 +1403,54 @@ ALTER TABLE ONLY public.capas_parcela
 
 ALTER TABLE ONLY public.ciclos_actividad
     ADD CONSTRAINT ciclos_actividad_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: detalle_cosecha detalle_cosecha_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.detalle_cosecha
+    ADD CONSTRAINT detalle_cosecha_pkey PRIMARY KEY (actividad_id);
+
+
+--
+-- Name: detalle_fertilizacion detalle_fertilizacion_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.detalle_fertilizacion
+    ADD CONSTRAINT detalle_fertilizacion_pkey PRIMARY KEY (actividad_id);
+
+
+--
+-- Name: detalle_fumigacion detalle_fumigacion_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.detalle_fumigacion
+    ADD CONSTRAINT detalle_fumigacion_pkey PRIMARY KEY (actividad_id);
+
+
+--
+-- Name: detalle_mano_obra detalle_mano_obra_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.detalle_mano_obra
+    ADD CONSTRAINT detalle_mano_obra_pkey PRIMARY KEY (actividad_id);
+
+
+--
+-- Name: detalle_maquinaria detalle_maquinaria_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.detalle_maquinaria
+    ADD CONSTRAINT detalle_maquinaria_pkey PRIMARY KEY (actividad_id);
+
+
+--
+-- Name: detalle_riego detalle_riego_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.detalle_riego
+    ADD CONSTRAINT detalle_riego_pkey PRIMARY KEY (actividad_id);
 
 
 --
@@ -1056,6 +1502,30 @@ ALTER TABLE ONLY public.refresh_tokens
 
 
 --
+-- Name: socios socios_cedula_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.socios
+    ADD CONSTRAINT socios_cedula_key UNIQUE (cedula);
+
+
+--
+-- Name: socios socios_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.socios
+    ADD CONSTRAINT socios_email_key UNIQUE (email);
+
+
+--
+-- Name: socios socios_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.socios
+    ADD CONSTRAINT socios_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: fases_ciclo uq_fases_codigo_tipo; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -1077,6 +1547,14 @@ ALTER TABLE ONLY public.plantillas_ciclo
 
 ALTER TABLE ONLY public.usuarios
     ADD CONSTRAINT usuarios_cedula_unique UNIQUE (cedula);
+
+
+--
+-- Name: usuarios usuarios_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.usuarios
+    ADD CONSTRAINT usuarios_email_key UNIQUE (email);
 
 
 --
@@ -1265,6 +1743,13 @@ CREATE INDEX idx_zonas_usuario_id ON public.zonas USING btree (usuario_id);
 
 
 --
+-- Name: socios_usuario_id_key; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX socios_usuario_id_key ON public.socios USING btree (usuario_id);
+
+
+--
 -- Name: actividades_parcela trg_actividades_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -1276,6 +1761,20 @@ CREATE TRIGGER trg_actividades_updated_at BEFORE UPDATE ON public.actividades_pa
 --
 
 CREATE TRIGGER trg_asignar_fase BEFORE INSERT OR UPDATE OF tipo, ciclo_id, orden_plantilla ON public.actividades_parcela FOR EACH ROW EXECUTE FUNCTION public.fn_asignar_fase();
+
+
+--
+-- Name: detalle_mano_obra trg_calcular_mano_obra; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_calcular_mano_obra BEFORE INSERT OR UPDATE ON public.detalle_mano_obra FOR EACH ROW EXECUTE FUNCTION public.fn_calcular_costo_mano_obra();
+
+
+--
+-- Name: detalle_maquinaria trg_calcular_maquinaria; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_calcular_maquinaria BEFORE INSERT OR UPDATE ON public.detalle_maquinaria FOR EACH ROW EXECUTE FUNCTION public.fn_calcular_costo_maquinaria();
 
 
 --
@@ -1438,6 +1937,54 @@ ALTER TABLE ONLY public.ciclos_actividad
 
 
 --
+-- Name: detalle_cosecha detalle_cosecha_actividad_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.detalle_cosecha
+    ADD CONSTRAINT detalle_cosecha_actividad_id_fkey FOREIGN KEY (actividad_id) REFERENCES public.actividades_parcela(id) ON DELETE CASCADE;
+
+
+--
+-- Name: detalle_fertilizacion detalle_fertilizacion_actividad_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.detalle_fertilizacion
+    ADD CONSTRAINT detalle_fertilizacion_actividad_id_fkey FOREIGN KEY (actividad_id) REFERENCES public.actividades_parcela(id) ON DELETE CASCADE;
+
+
+--
+-- Name: detalle_fumigacion detalle_fumigacion_actividad_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.detalle_fumigacion
+    ADD CONSTRAINT detalle_fumigacion_actividad_id_fkey FOREIGN KEY (actividad_id) REFERENCES public.actividades_parcela(id) ON DELETE CASCADE;
+
+
+--
+-- Name: detalle_mano_obra detalle_mano_obra_actividad_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.detalle_mano_obra
+    ADD CONSTRAINT detalle_mano_obra_actividad_id_fkey FOREIGN KEY (actividad_id) REFERENCES public.actividades_parcela(id) ON DELETE CASCADE;
+
+
+--
+-- Name: detalle_maquinaria detalle_maquinaria_actividad_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.detalle_maquinaria
+    ADD CONSTRAINT detalle_maquinaria_actividad_id_fkey FOREIGN KEY (actividad_id) REFERENCES public.actividades_parcela(id) ON DELETE CASCADE;
+
+
+--
+-- Name: detalle_riego detalle_riego_actividad_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.detalle_riego
+    ADD CONSTRAINT detalle_riego_actividad_id_fkey FOREIGN KEY (actividad_id) REFERENCES public.actividades_parcela(id) ON DELETE CASCADE;
+
+
+--
 -- Name: parcelas parcelas_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -1486,6 +2033,14 @@ ALTER TABLE ONLY public.refresh_tokens
 
 
 --
+-- Name: socios socios_usuario_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.socios
+    ADD CONSTRAINT socios_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
 -- Name: usuarios usuarios_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -1521,5 +2076,5 @@ ALTER TABLE ONLY public.zonas
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0ZYjV2BanwICQrDmdrwZJXfxavztcQqj889xd8ytn8fPr1UHPacTY6P2mKzcP6B
+\unrestrict av3YbWJWfoigujhAvLhP6tQhI4tuf9dRghZTQvSoqgeeTqOgpmGsOFOADxPBYHm
 

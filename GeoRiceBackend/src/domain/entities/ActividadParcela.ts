@@ -101,11 +101,11 @@ export class ActividadParcela {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
 
-  @Column({ name: 'created_by', type: 'int', nullable: true })
-  createdBy!: number | null;
+  @Column({ name: 'created_by', type: 'text', nullable: true })
+  createdBy!: string | null;
 
-  @Column({ name: 'updated_by', type: 'int', nullable: true })
-  updatedBy!: number | null;
+  @Column({ name: 'updated_by', type: 'text', nullable: true })
+  updatedBy!: string | null;
 
   @Column({ name: 'numero_actividad', type: 'integer', nullable: true })
   numeroActividad!: number;

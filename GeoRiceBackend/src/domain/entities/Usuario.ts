@@ -1,14 +1,12 @@
-import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn,
-} from 'typeorm';
+// Usuario.ts
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity('usuarios')
+@Entity({ name: 'usuarios', schema: 'public' })
 export class Usuario {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ type: 'varchar', length: 13, unique: true })
+  @Column({ type: 'varchar', length: 10, unique: true })
   cedula!: string;
 
   @Column({ type: 'varchar', length: 100 })
@@ -20,25 +18,26 @@ export class Usuario {
   @Column({ type: 'varchar', length: 50, unique: true })
   usuario!: string;
 
-  @Column({ name: 'password_hash', type: 'varchar', length: 255, select: false })
+  @Column({ name: 'password_hash', type: 'text', select: false })
   passwordHash!: string;
 
   @Column({ type: 'varchar', length: 20, default: 'socio' })
-  rol!: 'administrador' | 'socio';
+  rol!: string;
 
-  @Column({ type: 'varchar', length: 10, default: 'activo' })
-  estado!: 'activo' | 'inactivo';
+  @Column({ type: 'varchar', length: 20, default: 'activo' })
+  estado!: string;
 
-  @CreateDateColumn({ name: 'fecha_registro' })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  email!: string | null;
+
+  @Column({ name: 'fecha_registro', type: 'timestamp', default: () => 'NOW()' })
   fechaRegistro!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @Column({ name: 'updated_at', type: 'timestamp', default: () => 'NOW()' })
   updatedAt!: Date;
 
-  @Column({
-    name: 'updated_by',
-    type: 'integer',
-    nullable: true
-  })
-  updatedBy!: number | null;
+  // Getter para compatibilidad con AuthService que usa activo
+  get activo(): boolean {
+    return this.estado === 'activo';
+  }
 }

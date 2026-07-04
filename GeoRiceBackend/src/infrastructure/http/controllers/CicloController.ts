@@ -4,7 +4,9 @@ import { AppDataSource }       from '../../db/DataSource';
 import { CicloActividad }      from '../../../domain/entities/CicloActividad';
 import { logger }              from '../../../shared/logger';
 
-async function verifyParcelaAccess(parcelaId: number, usuarioId: number, rol: string): Promise<void> {
+const TIPOS_TODAS_FASES = ['riego', 'soca_riego'];
+
+async function verifyParcelaAccess(parcelaId: number, usuarioId: string, rol: string): Promise<void> {
   if (rol === 'administrador') return;
   const result = await AppDataSource.query(
     `SELECT id FROM parcelas WHERE id = $1 AND usuario_id = $2`, [parcelaId, usuarioId]
@@ -16,7 +18,7 @@ export class CicloController {
   async iniciar(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      const usuarioId = Number(req.user!.sub);
+      const usuarioId = req.user!.sub;
       await verifyParcelaAccess(parcelaId, usuarioId, req.user!.rol);
 
       const { tipo, fechaInicio, variedadSemilla, areaSembrada, observaciones } = req.body;
@@ -30,7 +32,7 @@ export class CicloController {
         variedadSemilla, areaSembrada, observaciones,
       });
 
-      logger.info(`✅ Ciclo ${resultado.ciclo.id} iniciado con ${resultado.actividades.length} actividades`);
+      logger.info(`Ciclo ${resultado.ciclo.id} iniciado con ${resultado.actividades.length} actividades`);
       res.status(201).json(resultado);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al iniciar ciclo';
@@ -42,7 +44,7 @@ export class CicloController {
   async getByParcela(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      await verifyParcelaAccess(parcelaId, Number(req.user!.sub), req.user!.rol);
+      await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
       const repo   = AppDataSource.getRepository(CicloActividad);
       const ciclos = await repo.find({ where: { parcelaId }, order: { fechaInicio: 'DESC' } });
       res.json(ciclos);
@@ -58,15 +60,69 @@ export class CicloController {
       const repo = AppDataSource.getRepository(CicloActividad);
       const ciclo = await repo.findOne({ where: { id } });
       if (!ciclo) { res.status(404).json({ error: 'Ciclo no encontrado' }); return; }
-      await verifyParcelaAccess(ciclo.parcelaId, Number(req.user!.sub), req.user!.rol);
+      await verifyParcelaAccess(ciclo.parcelaId, req.user!.sub, req.user!.rol);
       ciclo.estado   = 'completado';
       ciclo.fechaFin = new Date();
       await repo.save(ciclo);
-      logger.info(`✅ Ciclo ${id} finalizado`);
+      logger.info(`Ciclo ${id} finalizado`);
       res.json(ciclo);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al finalizar ciclo';
       logger.error('Error al finalizar ciclo:', message);
+      res.status(message.includes('autorizado') ? 403 : 500).json({ error: message });
+    }
+  }
+
+  async getFasesPorTipo(req: Request, res: Response): Promise<void> {
+    try {
+      const parcelaId = Number(req.params.parcelaId);
+      const tipo      = req.query.tipo as string;
+
+      if (!tipo) { res.status(400).json({ error: 'El parámetro tipo es obligatorio' }); return; }
+
+      await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
+
+      // Obtener el ciclo activo de la parcela
+      const cicloRepo   = AppDataSource.getRepository(CicloActividad);
+      const cicloActivo = await cicloRepo.findOne({
+        where: { parcelaId, estado: 'activo' },
+      });
+
+      if (!cicloActivo) {
+        res.status(404).json({ error: 'No hay ciclo activo en esta parcela' });
+        return;
+      }
+
+      let fases: any[];
+
+      if (TIPOS_TODAS_FASES.includes(tipo)) {
+        // Riego: mostrar TODAS las fases del ciclo
+        fases = await AppDataSource.query(`
+          SELECT f.codigo, f.nombre, f.orden_fase, f.orden_min AS orden_plantilla
+          FROM fases_ciclo f
+          WHERE f.tipo_ciclo = $1
+          ORDER BY f.orden_fase
+        `, [cicloActivo.tipo]);
+      } else {
+        // Fertilización, fumigación y otros ambiguos:
+        // mostrar solo las fases donde tiene sentido ese tipo de actividad
+        fases = await AppDataSource.query(`
+          SELECT f.codigo, f.nombre, f.orden_fase, p.orden AS orden_plantilla
+          FROM fases_ciclo f
+          JOIN plantillas_ciclo p
+            ON p.tipo_ciclo = f.tipo_ciclo
+            AND p.orden BETWEEN f.orden_min AND f.orden_max
+          WHERE f.tipo_ciclo = $1
+            AND p.tipo_actividad = $2
+          ORDER BY f.orden_fase
+        `, [cicloActivo.tipo, tipo]);
+      }
+
+      logger.info(`GET fases-por-tipo parcela=${parcelaId} tipo=${tipo} → ${fases.length} fases`);
+      res.json({ tipoCiclo: cicloActivo.tipo, fases });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al obtener fases';
+      logger.error('Error al obtener fases por tipo:', message);
       res.status(message.includes('autorizado') ? 403 : 500).json({ error: message });
     }
   }

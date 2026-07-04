@@ -14,16 +14,14 @@ import { ToggleUserStatus }  from '../application/usecases/usuarios/ToggleUserSt
 type FormMode = 'create' | 'edit';
 
 interface FormState {
-  cedula: string;
-  nombres: string;
+  nombres:   string;
   apellidos: string;
-  usuario: string;
-  password: string;
-  rol: 'administrador' | 'socio';
+  email:     string;
+  password:  string;
 }
 
 const EMPTY_FORM: FormState = {
-  cedula: '', nombres: '', apellidos: '', usuario: '', password: '', rol: 'socio',
+  nombres: '', apellidos: '', email: '', password: '',
 };
 
 const AdminUsuariosScreen: React.FC = () => {
@@ -34,7 +32,7 @@ const AdminUsuariosScreen: React.FC = () => {
 
   const [formVisible, setFormVisible] = useState(false);
   const [formMode,    setFormMode]    = useState<FormMode>('create');
-  const [editingId,   setEditingId]   = useState<number | null>(null);
+  const [editingId,   setEditingId]   = useState<string | null>(null);
   const [form,        setForm]        = useState<FormState>(EMPTY_FORM);
 
   const loadUsuarios = useCallback(async () => {
@@ -64,8 +62,8 @@ const AdminUsuariosScreen: React.FC = () => {
 
   const openEdit = (u: Usuario) => {
     setForm({
-      cedula: u.cedula, nombres: u.nombres, apellidos: u.apellidos,
-      usuario: u.usuario, password: '', rol: u.rol,
+      nombres: u.nombres, apellidos: u.apellidos,
+      email: u.email ?? '', password: '',
     });
     setFormMode('edit');
     setEditingId(u.id);
@@ -97,9 +95,9 @@ const AdminUsuariosScreen: React.FC = () => {
   };
 
   const handleSave = async () => {
-    const { cedula, nombres, apellidos, usuario, password, rol } = form;
-    if (!cedula.trim() || !nombres.trim() || !apellidos.trim() || !usuario.trim()) {
-      Alert.alert('Campos requeridos', 'Completa todos los campos obligatorios.');
+    const { nombres, apellidos, email, password } = form;
+    if (!nombres.trim() || !apellidos.trim() || !email.trim()) {
+      Alert.alert('Campos requeridos', 'Nombres, apellidos y correo son obligatorios.');
       return;
     }
     if (formMode === 'create' && !password.trim()) {
@@ -110,16 +108,15 @@ const AdminUsuariosScreen: React.FC = () => {
     try {
       if (formMode === 'create') {
         const dto: CreateUsuarioDto = {
-          cedula: cedula.trim(), nombres: nombres.trim(),
-          apellidos: apellidos.trim(), usuario: usuario.trim(),
-          password: password.trim(), rol,
+          nombres: nombres.trim(), apellidos: apellidos.trim(),
+          email: email.trim(), password: password.trim(),
         };
         await CreateUser(dto);
         Alert.alert('✅ Usuario creado');
       } else {
         const dto: UpdateUsuarioDto = {
-          cedula: cedula.trim(), nombres: nombres.trim(),
-          apellidos: apellidos.trim(), usuario: usuario.trim(), rol,
+          nombres: nombres.trim(), apellidos: apellidos.trim(),
+          email: email.trim(),
         };
         await UpdateUser(editingId!, dto);
         Alert.alert('✅ Usuario actualizado');
@@ -141,7 +138,7 @@ const AdminUsuariosScreen: React.FC = () => {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.cardNombre}>{u.nombres} {u.apellidos}</Text>
-          <Text style={styles.cardUsuario}>@{u.usuario}</Text>
+          <Text style={styles.cardEmail}>{u.email ?? '—'}</Text>
         </View>
         <View style={[styles.rolBadge, u.rol === 'administrador' && styles.rolBadgeAdmin]}>
           <Text style={[styles.rolBadgeText, u.rol === 'administrador' && styles.rolBadgeTextAdmin]}>
@@ -188,7 +185,7 @@ const AdminUsuariosScreen: React.FC = () => {
     <View style={styles.container}>
       <FlatList
         data={usuarios}
-        keyExtractor={u => String(u.id)}
+        keyExtractor={u => u.id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
         refreshing={refreshing}
@@ -222,14 +219,6 @@ const AdminUsuariosScreen: React.FC = () => {
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <TextInput
                 style={styles.input}
-                placeholder="Cédula *"
-                placeholderTextColor="#aaa"
-                value={form.cedula}
-                onChangeText={v => setForm(f => ({ ...f, cedula: v }))}
-                keyboardType="number-pad"
-              />
-              <TextInput
-                style={styles.input}
                 placeholder="Nombres *"
                 placeholderTextColor="#aaa"
                 value={form.nombres}
@@ -244,11 +233,12 @@ const AdminUsuariosScreen: React.FC = () => {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Usuario *"
+                placeholder="Correo electrónico *"
                 placeholderTextColor="#aaa"
-                value={form.usuario}
-                onChangeText={v => setForm(f => ({ ...f, usuario: v }))}
+                value={form.email}
+                onChangeText={v => setForm(f => ({ ...f, email: v }))}
                 autoCapitalize="none"
+                keyboardType="email-address"
               />
               {formMode === 'create' && (
                 <TextInput
@@ -260,19 +250,6 @@ const AdminUsuariosScreen: React.FC = () => {
                   secureTextEntry
                 />
               )}
-              <Text style={styles.fieldLabel}>Rol *</Text>
-              <View style={styles.rolSelector}>
-                {(['socio', 'administrador'] as const).map(r => (
-                  <TouchableOpacity
-                    key={r}
-                    style={[styles.rolOption, form.rol === r && styles.rolOptionActive]}
-                    onPress={() => setForm(f => ({ ...f, rol: r }))}>
-                    <Text style={[styles.rolOptionText, form.rol === r && styles.rolOptionTextActive]}>
-                      {r === 'administrador' ? 'Administrador' : 'Socio'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
             </ScrollView>
 
             <View style={styles.modalActions}>
@@ -317,7 +294,7 @@ const styles = StyleSheet.create({
   },
   avatarText:     { fontSize: 16, fontWeight: '700', color: Colors.verde },
   cardNombre:     { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
-  cardUsuario:    { fontSize: 12, color: Colors.grisTexto, marginTop: 1 },
+  cardEmail:      { fontSize: 12, color: Colors.grisTexto, marginTop: 1 },
   rolBadge: {
     backgroundColor: Colors.verdeClaro, borderRadius: 6,
     paddingHorizontal: 8, paddingVertical: 3,
@@ -370,15 +347,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10,
     fontSize: 15, color: '#1a1a1a',
   },
-  fieldLabel:    { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 6 },
-  rolSelector:   { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  rolOption: {
-    flex: 1, borderWidth: 1, borderColor: Colors.grisBorde,
-    borderRadius: 8, paddingVertical: 10, alignItems: 'center',
-  },
-  rolOptionActive:     { backgroundColor: Colors.verde, borderColor: Colors.verde },
-  rolOptionText:       { fontSize: 14, color: '#444', fontWeight: '500' },
-  rolOptionTextActive: { color: Colors.blanco, fontWeight: '700' },
   modalActions:  { flexDirection: 'row', gap: 10, marginTop: 8, paddingBottom: 8 },
   btnCancelar: {
     flex: 1, borderWidth: 1, borderColor: Colors.grisBorde,

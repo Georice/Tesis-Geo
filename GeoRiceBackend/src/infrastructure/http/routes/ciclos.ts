@@ -7,5 +7,6 @@ const controller = new CicloController();
 router.get('/',    (req, res) => controller.getByParcela(req, res));
 router.post('/',   (req, res) => controller.iniciar(req, res));
 router.put('/:id/finalizar', (req, res) => controller.finalizar(req, res));
+router.get('/fases-por-tipo', (req, res) => controller.getFasesPorTipo(req, res));
 
 export default router;

@@ -35,6 +35,13 @@ interface Producto {
   presentacionMl: string;
   precioPresentacion: string;
   precioUnitario: string;
+  abierto: boolean;
+}
+
+interface FaseDisponible {
+  codigo: string;
+  nombre: string;
+  ordenPlantilla: number;
 }
 
 const TIPOS: TipoActividad[] = [
@@ -50,19 +57,19 @@ const TIPO_EMOJI: Record<TipoActividad,string> = {
   cosecha_soca:'🏆', observacion:'📝',
 };
 const TIPO_LABEL: Record<TipoActividad,string> = {
-  preparacion_suelo:'Preparación del Suelo', inundacion:'Inundación',
+  preparacion_suelo:'Preparacion del Suelo', inundacion:'Inundacion',
   siembra_boleo:'Siembra Boleo', siembra_trasplante:'Siembra Trasplante',
-  riego:'Riego', fertilizacion:'Fertilización', fumigacion:'Fumigación',
+  riego:'Riego', fertilizacion:'Fertilizacion', fumigacion:'Fumigacion',
   deshierba:'Deshierba', cosecha:'Cosecha', rozar_quemar:'Rozar / Quemar',
-  soca_riego:'Soca Riego', soca_fertilizacion:'Soca Fertilización',
-  soca_fumigacion:'Soca Fumigación', cosecha_soca:'Cosecha Soca',
-  observacion:'Observación',
+  soca_riego:'Soca Riego', soca_fertilizacion:'Soca Fertilizacion',
+  soca_fumigacion:'Soca Fumigacion', cosecha_soca:'Cosecha Soca',
+  observacion:'Observacion',
 };
 const ESTADO_COLOR: Record<Estado,string> = {
   pendiente:'#9ca3af', en_proceso:'#3b82f6', completada: Colors.verde,
 };
 const ESTADO_LABEL: Record<Estado,string> = {
-  pendiente:'⏳ Pendiente', en_proceso:'🔵 En proceso', completada:'✅ Completada',
+  pendiente:'Pendiente', en_proceso:'En proceso', completada:'Completada',
 };
 
 const TIPOS_CON_PRODUCTOS: TipoActividad[]  = ['fertilizacion','fumigacion','soca_fertilizacion','soca_fumigacion'];
@@ -71,7 +78,8 @@ const TIPOS_COSECHA: TipoActividad[]        = ['cosecha','cosecha_soca'];
 const TIPOS_RIEGO: TipoActividad[]          = ['riego','soca_riego','inundacion'];
 const TIPOS_SIEMBRA: TipoActividad[]        = ['siembra_boleo','siembra_trasplante'];
 const TIPOS_CON_MAQUINARIA: TipoActividad[] = ['preparacion_suelo','rozar_quemar','cosecha','cosecha_soca','fumigacion','soca_fumigacion'];
-const TIPOS_PRODUCTO: TipoProducto[]        = ['herbicida','fungicida','insecticida','fertilizante','abono','corrector','bioestimulante','otro'];
+//const TIPOS_PRODUCTO: TipoProducto[]        = ['herbicida','fungicida','insecticida','fertilizante','abono','corrector','bioestimulante','otro'];
+const TIPOS_AMBIGUOS: string[]              = ['riego','fertilizacion','fumigacion','soca_riego','soca_fumigacion'];
 
 const MO_UNIDAD: Partial<Record<TipoActividad, UnidadManoObra>> = {
   fumigacion:'tanque', soca_fumigacion:'tanque',
@@ -97,6 +105,7 @@ const PRODUCTO_VACIO: Producto = {
   nombre:'', tipo:'herbicida', dosis:'', unidad:'',
   dosisPorTanque:'', dosisHa:'', dosisPorUnidadMo:'',
   presentacionMl:'', precioPresentacion:'', precioUnitario:'',
+  abierto: true,
 };
 
 const ORDEN_TIPO: Record<TipoActividad,number> = {
@@ -105,28 +114,6 @@ const ORDEN_TIPO: Record<TipoActividad,number> = {
   rozar_quemar:8, soca_riego:9, soca_fertilizacion:10, soca_fumigacion:11,
   cosecha_soca:12, cosecha:13, observacion:14,
 };
-
-const ORDEN_AMBIGUO: Record<string, Record<string, { primera: number; segunda: number }>> = {
-  siembra_boleo: {
-    riego:         { primera: 4, segunda: 10 },
-    fertilizacion: { primera: 5, segunda: 8 },
-    fumigacion:    { primera: 7, segunda: 9 },
-  },
-  siembra_trasplante: {
-    riego:         { primera: 4, segunda: 10 },
-    fertilizacion: { primera: 5, segunda: 8 },
-    fumigacion:    { primera: 7, segunda: 9 },
-  },
-  soca: {
-    soca_riego:      { primera: 2, segunda: 5 },
-    soca_fumigacion: { primera: 4, segunda: 6 },
-  },
-  resoca: {
-    soca_riego: { primera: 2, segunda: 4 },
-  },
-};
-
-const TIPOS_AMBIGUOS = ['riego', 'fertilizacion', 'fumigacion', 'soca_riego', 'soca_fumigacion'];
 
 const FASE_COLOR: Record<string, string> = {
   F1: '#D85A30', F2: '#BA7517', F3: '#378ADD',
@@ -161,9 +148,13 @@ const ActividadesScreen: React.FC = () => {
   const [actividadSel, setActividadSel] = useState<Actividad | null>(null);
   const [guardando, setGuardando]       = useState(false);
   const [modalTipo, setModalTipo]       = useState(false);
+  const [modalMetodo, setModalMetodo]   = useState(false);
   const [fasesAbiertas, setFasesAbiertas] = useState<Record<string, boolean>>({});
-  const [tipoCicloActivo, setTipoCicloActivo] = useState<string | null>(null);
-  const [aplicacionOrden, setAplicacionOrden] = useState<'primera' | 'segunda'>('primera');
+  const [_tipoCicloActivo, setTipoCicloActivo] = useState<string | null>(null);
+  const [fasesDisponibles, setFasesDisponibles] = useState<FaseDisponible[]>([]);
+  const [faseSeleccionada, setFaseSeleccionada] = useState<number | null>(null);
+  const [secProductos, setSecProductos] = useState(true);
+  const [metodosActuales, setMetodosActuales] = useState<string[]>([]);
 
   const [showPickerInicio, setShowPickerInicio] = useState(false);
   const [showPickerFin, setShowPickerFin]       = useState(false);
@@ -204,6 +195,24 @@ const ActividadesScreen: React.FC = () => {
   const [descripcionUnidadMo, setDescripcionUnidadMo] = useState('');
   const [precioTarea, setPrecioTarea] = useState('');
 
+  const cargarFasesPorTipo = useCallback(async (tipoActividad: string) => {
+    const pid = parcela?.p_id ?? parcela?.id;
+    if (!pid || !TIPOS_AMBIGUOS.includes(tipoActividad)) {
+      setFasesDisponibles([]);
+      setFaseSeleccionada(null);
+      return;
+    }
+    try {
+      const res = await apiFetch(`/parcelas/${pid}/ciclos/fases-por-tipo?tipo=${tipoActividad}`);
+      const data = await res.json();
+      setFasesDisponibles(data.fases ?? []);
+      setFaseSeleccionada(data.fases?.[0]?.ordenPlantilla ?? null);
+    } catch {
+      setFasesDisponibles([]);
+      setFaseSeleccionada(null);
+    }
+  }, [parcela]);
+
   useEffect(() => {
     const u = MO_UNIDAD[tipo] ?? 'jornal';
     setUnidadManoObra(u);
@@ -211,7 +220,29 @@ const ActividadesScreen: React.FC = () => {
     else if (u === 'saco')    setPrecioUnidadMo('2.50');
     else if (u === 'jornal')  setPrecioUnidadMo('15');
     else                      setPrecioUnidadMo('');
-  }, [tipo]);
+
+    if (tipo === 'fertilizacion' || tipo === 'soca_fertilizacion') {
+      setProductos(prev => prev.map(p => ({ ...p, tipo: 'fertilizante' as TipoProducto })));
+      setMetodosActuales(METODOS_APLIC);
+    } else if (tipo === 'fumigacion' || tipo === 'soca_fumigacion') {
+      setProductos(prev => prev.map(p => ({ ...p, tipo: 'insecticida' as TipoProducto })));
+      setMetodosActuales(METODOS_APLIC);
+    } else if (tipo === 'preparacion_suelo' || tipo === 'rozar_quemar') {
+      setMetodosActuales(METODOS_PREP);
+    } else if (TIPOS_RIEGO.includes(tipo)) {
+      setMetodosActuales(METODOS_RIEGO);
+    } else if (TIPOS_SIEMBRA.includes(tipo)) {
+      setMetodosActuales(METODOS_SIEMBRA);
+    } else if (TIPOS_COSECHA.includes(tipo)) {
+      setMetodosActuales(METODOS_COSECHA);
+    } else if (tipo === 'deshierba') {
+      setMetodosActuales(['manual','quimica']);
+    } else {
+      setMetodosActuales([]);
+    }
+    setMetodo('');
+    cargarFasesPorTipo(tipo);
+  }, [tipo, cargarFasesPorTipo]);
 
   const cargar = useCallback(async () => {
     const pid = parcela?.p_id ?? parcela?.id;
@@ -240,13 +271,13 @@ const ActividadesScreen: React.FC = () => {
       const data = await res.json();
       const activo = Array.isArray(data) ? data.find((c: any) => c.estado === 'activo') : null;
       setTipoCicloActivo(activo?.tipo ?? null);
-   } catch {
-  setTipoCicloActivo(null);
-}
+    } catch {
+      setTipoCicloActivo(null);
+    }
   }, [parcela]);
 
   useEffect(() => {
-    navigation.setOptions({ title: `Actividades · ${parcelaNombre}` });
+    navigation.setOptions({ title: `Actividades - ${parcelaNombre}` });
     cargar();
     cargarCicloActivo();
   }, [cargar, cargarCicloActivo, navigation, parcelaNombre]);
@@ -267,7 +298,9 @@ const ActividadesScreen: React.FC = () => {
     setPrecioUnidadMo('15'); setNumTrabajadores('');
     setDescripcionUnidadMo(''); setPrecioTarea('');
     setSecMaquinaria(false); setSecManoObra(false);
-    setAplicacionOrden('primera');
+    setSecProductos(true);
+    setFaseSeleccionada(null);
+    setFasesDisponibles([]);
   };
 
   const abrirNueva = () => { resetForm(); setActividadSel(null); setVista('nueva'); };
@@ -281,44 +314,31 @@ const ActividadesScreen: React.FC = () => {
     setMetodo(a.metodo ?? ''); setObservaciones(a.observaciones ?? '');
     setInsumo(a.insumo ?? ''); setCantidad(a.cantidad?.toString() ?? '');
     setUnidad(a.unidad ?? '');
-
     setLaminaAgua(a.detalleRiego?.laminaAgua?.toString() ?? '');
-
     setRendimientoHa(a.detalleCosecha?.rendimientoHa?.toString() ?? '');
     setTotalSacos(a.detalleCosecha?.totalSacos?.toString() ?? '');
     setHumedad(a.detalleCosecha?.humedad?.toString() ?? '');
     setPrecioQq(a.detalleCosecha?.precioQq?.toString() ?? '');
     setCostoCosecha(a.detalleCosecha?.costoCosecha?.toString() ?? '');
     setDestino(a.detalleCosecha?.destino ?? '');
-
     setPlagaDetectada(a.detalleFumigacion?.plagaDetectada ?? '');
     setNivelDano(a.detalleFumigacion?.nivelDano ?? '');
     setNivelAlerta(a.nivelAlerta ?? 'normal');
     setCapacidadTanque(a.detalleFumigacion?.capacidadTanque?.toString() ?? '200');
     setNumTanques(a.detalleFumigacion?.numTanques?.toString() ?? '');
-
     setTipoMaquinaria(a.detalleMaquinaria?.tipoMaquinaria ?? '');
     setUnidadCobro(a.detalleMaquinaria?.unidadCobro ?? '');
     setCantidadUnidades(a.detalleMaquinaria?.cantidadUnidades?.toString() ?? '');
     setCostoPorUnidad(a.detalleMaquinaria?.costoPorUnidad?.toString() ?? '');
-
     setUnidadManoObra((a.detalleManoObra?.unidadManoObra as UnidadManoObra) ?? (MO_UNIDAD[a.tipo as TipoActividad] ?? 'jornal'));
     setCantidadUnidadMo(a.detalleManoObra?.cantidadUnidadMo?.toString() ?? '');
     setPrecioUnidadMo(a.detalleManoObra?.precioUnidadMo?.toString() ?? '');
     setNumTrabajadores(a.detalleManoObra?.numTrabajadores?.toString() ?? '');
     setDescripcionUnidadMo(a.detalleManoObra?.descripcionUnidadMo ?? '');
     setPrecioTarea(a.detalleManoObra?.precioTarea?.toString() ?? '');
-
     setSecMaquinaria(!!a.detalleMaquinaria?.tipoMaquinaria);
     setSecManoObra(!!(a.detalleManoObra?.cantidadUnidadMo || a.detalleManoObra?.numTrabajadores));
-
-    if (a.ordenPlantilla != null && tipoCicloActivo) {
-      const mapa = ORDEN_AMBIGUO[tipoCicloActivo]?.[a.tipo];
-      if (mapa) {
-        setAplicacionOrden(a.ordenPlantilla === mapa.segunda ? 'segunda' : 'primera');
-      }
-    }
-
+    if (a.ordenPlantilla != null) setFaseSeleccionada(a.ordenPlantilla);
     setProductos(a.productos?.length
       ? a.productos.map((p: any) => ({
           nombre:             p.nombre,
@@ -331,6 +351,7 @@ const ActividadesScreen: React.FC = () => {
           presentacionMl:     p.presentacionMl     ? String(p.presentacionMl)                : '',
           precioPresentacion: p.precioPresentacion ? Number(p.precioPresentacion).toFixed(2) : '',
           precioUnitario:     p.precioUnitario     ? Number(p.precioUnitario).toFixed(2)     : '',
+          abierto:            false,
         }))
       : [{ ...PRODUCTO_VACIO }]);
     setVista('editando');
@@ -340,18 +361,14 @@ const ActividadesScreen: React.FC = () => {
     ? (Number(parcelaAreaHa) * 16).toFixed(1) : null;
 
   const costoInsumosCalc = productos.reduce((sum, p) => {
-    if (!p.precioPresentacion || !p.presentacionMl) return sum;
-    const precioUnit = Number(p.precioPresentacion) / (Number(p.presentacionMl) / 1000);
-    let cant = 0;
+    if (!p.precioPresentacion) return sum;
     if (TIPOS_CON_TANQUES.includes(tipo)) {
-      cant = p.dosisPorTanque
-        ? (Number(p.dosisPorTanque) / 1000) * Number(numTanques || 0) : 0;
-    } else {
-      cant = p.dosisPorUnidadMo && cantidadUnidadMo
-        ? Number(p.dosisPorUnidadMo) * Number(cantidadUnidadMo)
-        : (p.dosisHa ? Number(p.dosisHa) : 0);
+      if (!p.presentacionMl) return sum;
+      const precioUnit = Number(p.precioPresentacion) / (Number(p.presentacionMl) / 1000);
+      const cant = p.dosisPorTanque ? (Number(p.dosisPorTanque) / 1000) * Number(numTanques || 0) : 0;
+      return sum + (cant * precioUnit);
     }
-    return sum + (cant * precioUnit);
+    return sum + Number(p.precioPresentacion) * Number(cantidadUnidadMo || 0);
   }, 0);
 
   const costoManoObraCalc = (() => {
@@ -371,13 +388,10 @@ const ActividadesScreen: React.FC = () => {
     const numTareasVal = tipo === 'siembra_trasplante' && parcelaAreaHa
       ? Number((Number(parcelaAreaHa) * 16).toFixed(2)) : undefined;
 
-    const ordenPlantilla = TIPOS_AMBIGUOS.includes(tipo) && tipoCicloActivo
-      ? ORDEN_AMBIGUO[tipoCicloActivo]?.[tipo]?.[aplicacionOrden]
-      : undefined;
+    const ordenPlantilla = TIPOS_AMBIGUOS.includes(tipo) && faseSeleccionada != null
+      ? faseSeleccionada : undefined;
 
-    const detalleRiego = laminaAgua
-      ? { laminaAgua: Number(laminaAgua) }
-      : undefined;
+    const detalleRiego = laminaAgua ? { laminaAgua: Number(laminaAgua) } : undefined;
 
     const detalleFumigacion = TIPOS_CON_TANQUES.includes(tipo)
       ? {
@@ -396,14 +410,11 @@ const ActividadesScreen: React.FC = () => {
           precioQq:      precioQq      ? Number(precioQq)      : undefined,
           costoCosecha:  costoCosecha  ? Number(costoCosecha)  : undefined,
           destino:       destino       || undefined,
-          ingresoTotal:  (totalSacos && precioQq)
-            ? Number(totalSacos) * Number(precioQq) : undefined,
+          ingresoTotal:  (totalSacos && precioQq) ? Number(totalSacos) * Number(precioQq) : undefined,
         }
       : undefined;
 
-    const tieneManoObra = cantidadUnidadMo || numTrabajadores ||
-      (tipo === 'siembra_trasplante' && precioTarea);
-
+    const tieneManoObra = cantidadUnidadMo || numTrabajadores || (tipo === 'siembra_trasplante' && precioTarea);
     const detalleManoObra = tieneManoObra
       ? {
           unidadManoObra,
@@ -412,8 +423,8 @@ const ActividadesScreen: React.FC = () => {
           numTrabajadores:     numTrabajadores  ? Number(numTrabajadores)  : undefined,
           descripcionUnidadMo: descripcionUnidadMo || undefined,
           costoManoObra:       costoManoObraCalc || undefined,
-          numTareas:       numTareasVal,
-          precioTarea:     precioTarea ? Number(precioTarea) : undefined,
+          numTareas:           numTareasVal,
+          precioTarea:         precioTarea ? Number(precioTarea) : undefined,
           costoSembradores: tipo === 'siembra_trasplante' && numTareasVal && precioTarea
             ? numTareasVal * Number(precioTarea) : undefined,
         }
@@ -433,19 +444,20 @@ const ActividadesScreen: React.FC = () => {
       ? productos.filter(p => p.nombre.trim()).map(p => {
           const presentMl    = p.presentacionMl     ? Number(p.presentacionMl)     : null;
           const precioFrasco = p.precioPresentacion ? Number(p.precioPresentacion) : null;
-          const precioUnit   = presentMl && precioFrasco
-            ? precioFrasco / (presentMl / 1000) : null;
+          const precioUnit   = presentMl && precioFrasco ? precioFrasco / (presentMl / 1000) : null;
 
           let dosisTotal: number | undefined;
-          if (TIPOS_CON_TANQUES.includes(tipo) && p.dosisPorTanque && numTanques)
+          if (TIPOS_CON_TANQUES.includes(tipo) && p.dosisPorTanque && numTanques) {
             dosisTotal = (Number(p.dosisPorTanque) / 1000) * Number(numTanques);
-          else if (p.dosisPorUnidadMo && cantidadUnidadMo)
+          } else if ((tipo === 'fertilizacion' || tipo === 'soca_fertilizacion') && cantidadUnidadMo) {
+            dosisTotal = Number(cantidadUnidadMo);
+          } else if (p.dosisPorUnidadMo && cantidadUnidadMo) {
             dosisTotal = Number(p.dosisPorUnidadMo) * Number(cantidadUnidadMo);
-          else if (p.dosisHa)
+          } else if (p.dosisHa) {
             dosisTotal = Number(p.dosisHa);
+          }
 
-          const frascoUsados = dosisTotal && presentMl
-            ? dosisTotal / (presentMl / 1000) : undefined;
+          const frascoUsados = dosisTotal && presentMl ? dosisTotal / (presentMl / 1000) : undefined;
 
           return {
             nombre:             p.nombre.trim(),
@@ -494,7 +506,7 @@ const ActividadesScreen: React.FC = () => {
     try {
       await CreateActividad(parcelaId, buildPayload() as any);
       await cargar(); setVista('lista');
-      Alert.alert('✅ Actividad registrada');
+      Alert.alert('Actividad registrada');
     } catch (e: any) { Alert.alert('Error', e.message); }
     finally { setGuardando(false); }
   };
@@ -505,13 +517,13 @@ const ActividadesScreen: React.FC = () => {
     try {
       await UpdateActividad(parcelaId, actividadSel.id, buildPayload() as any);
       await cargar(); setVista('lista');
-      Alert.alert('✅ Actividad actualizada');
+      Alert.alert('Actividad actualizada');
     } catch (e: any) { Alert.alert('Error', e.message); }
     finally { setGuardando(false); }
   };
 
   const handleEliminar = (a: Actividad) => {
-    Alert.alert('Eliminar', '¿Estás seguro?', [
+    Alert.alert('Eliminar', 'Esta seguro?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: async () => {
         try { await DeleteActividad(parcelaId, a.id); await cargar(); }
@@ -527,6 +539,18 @@ const ActividadesScreen: React.FC = () => {
     } catch (e: any) { Alert.alert('Error', e.message); }
   };
 
+  const renderInput = (label: string, value: string, onChange: (v: string) => void,
+    opts?: { placeholder?: string; numeric?: boolean; multiline?: boolean }) => (
+    <>
+      <Text style={s.label}>{label}</Text>
+      <TextInput style={[s.input, opts?.multiline && { height:70, textAlignVertical:'top' }]}
+        value={value} onChangeText={onChange}
+        placeholder={opts?.placeholder ?? ''} placeholderTextColor="#aaa"
+        keyboardType={opts?.numeric ? 'numeric' : 'default'}
+        multiline={opts?.multiline} />
+    </>
+  );
+
   const renderChips = (opciones: string[], valor: string, onChange: (v: string) => void, label: string) => (
     <>
       <Text style={s.label}>{label}</Text>
@@ -537,18 +561,6 @@ const ActividadesScreen: React.FC = () => {
           </TouchableOpacity>
         ))}
       </View>
-    </>
-  );
-
-  const renderInput = (label: string, value: string, onChange: (v: string) => void,
-    opts?: { placeholder?: string; numeric?: boolean; multiline?: boolean }) => (
-    <>
-      <Text style={s.label}>{label}</Text>
-      <TextInput style={[s.input, opts?.multiline && { height:70, textAlignVertical:'top' }]}
-        value={value} onChangeText={onChange}
-        placeholder={opts?.placeholder ?? ''} placeholderTextColor="#aaa"
-        keyboardType={opts?.numeric ? 'numeric' : 'default'}
-        multiline={opts?.multiline} />
     </>
   );
 
@@ -574,11 +586,11 @@ const ActividadesScreen: React.FC = () => {
 
   const renderManoObra = () => {
     if (tipo === 'siembra_trasplante') {
-      return renderSeccion('👷 Sembradores (por tarea)', secManoObra, () => setSecManoObra(v => !v), (
+      return renderSeccion('Sembradores (por tarea)', secManoObra, () => setSecManoObra(v => !v), (
         <>
           <View style={s.calcBox}>
-            <Text style={s.calcLabel}>📐 Tareas calculadas:</Text>
-            <Text style={s.calcValor}>{numTareasCalculado ?? '—'} tareas ({parcelaAreaHa} ha × 16)</Text>
+            <Text style={s.calcLabel}>Tareas calculadas:</Text>
+            <Text style={s.calcValor}>{numTareasCalculado ?? '-'} tareas ({parcelaAreaHa} ha x 16)</Text>
           </View>
           <View style={{ flexDirection:'row', gap:8, marginTop:8 }}>
             <View style={{ flex:1 }}>
@@ -587,21 +599,21 @@ const ActividadesScreen: React.FC = () => {
           </View>
           {numTareasCalculado && precioTarea && (
             <View style={s.ingresoBox}>
-              <Text style={s.ingresoLabel}>💰 Total al grupo:</Text>
+              <Text style={s.ingresoLabel}>Total al grupo:</Text>
               <Text style={s.ingresoValor}>${(Number(numTareasCalculado) * Number(precioTarea)).toFixed(2)}</Text>
             </View>
           )}
-          <Text style={s.noteText}>El líder del grupo se encarga de dividir internamente.</Text>
+          <Text style={s.noteText}>El lider del grupo se encarga de dividir internamente.</Text>
         </>
       ));
     }
 
     if (TIPOS_CON_TANQUES.includes(tipo)) {
-      return renderSeccion('👷 Mano de obra (por tanque)', secManoObra, () => setSecManoObra(v => !v), (
+      return renderSeccion('Mano de obra (por tanque)', secManoObra, () => setSecManoObra(v => !v), (
         <>
           <View style={{ flexDirection:'row', gap:8 }}>
             <View style={{ flex:1 }}>
-              {renderInput('N° trabajadores', numTrabajadores, setNumTrabajadores, { numeric:true, placeholder:'Ej: 2' })}
+              {renderInput('N trabajadores', numTrabajadores, setNumTrabajadores, { numeric:true, placeholder:'Ej: 2' })}
             </View>
             <View style={{ flex:1 }}>
               {renderInput('Total tanques aplicados', cantidadUnidadMo, setCantidadUnidadMo, { numeric:true, placeholder:'Ej: 4' })}
@@ -617,7 +629,7 @@ const ActividadesScreen: React.FC = () => {
                 </Text>
               </View>
               <View style={[s.ingresoBox,{marginTop:6}]}>
-                <Text style={s.ingresoLabel}>💰 Total mano de obra:</Text>
+                <Text style={s.ingresoLabel}>Total mano de obra:</Text>
                 <Text style={s.ingresoValor}>${costoManoObraCalc.toFixed(2)}</Text>
               </View>
               {numTrabajadores && (
@@ -633,11 +645,11 @@ const ActividadesScreen: React.FC = () => {
     }
 
     if (TIPOS_CON_PRODUCTOS.includes(tipo)) {
-      return renderSeccion('👷 Mano de obra (por saco)', secManoObra, () => setSecManoObra(v => !v), (
+      return renderSeccion('Mano de obra (por saco)', secManoObra, () => setSecManoObra(v => !v), (
         <>
           <View style={{ flexDirection:'row', gap:8 }}>
             <View style={{ flex:1 }}>
-              {renderInput('N° trabajadores', numTrabajadores, setNumTrabajadores, { numeric:true, placeholder:'Ej: 4' })}
+              {renderInput('N trabajadores', numTrabajadores, setNumTrabajadores, { numeric:true, placeholder:'Ej: 4' })}
             </View>
             <View style={{ flex:1 }}>
               {renderInput('Total sacos echados', cantidadUnidadMo, setCantidadUnidadMo, { numeric:true, placeholder:'Ej: 25' })}
@@ -653,7 +665,7 @@ const ActividadesScreen: React.FC = () => {
                 </Text>
               </View>
               <View style={[s.ingresoBox,{marginTop:6}]}>
-                <Text style={s.ingresoLabel}>💰 Total mano de obra:</Text>
+                <Text style={s.ingresoLabel}>Total mano de obra:</Text>
                 <Text style={s.ingresoValor}>${costoManoObraCalc.toFixed(2)}</Text>
               </View>
               {numTrabajadores && (
@@ -668,14 +680,14 @@ const ActividadesScreen: React.FC = () => {
       ));
     }
 
-    return renderSeccion('👷 Mano de obra (jornales)', secManoObra, () => setSecManoObra(v => !v), (
+    return renderSeccion('Mano de obra (jornales)', secManoObra, () => setSecManoObra(v => !v), (
       <>
         <View style={{ flexDirection:'row', gap:8 }}>
           <View style={{ flex:1 }}>
-            {renderInput('N° trabajadores', numTrabajadores, setNumTrabajadores, { numeric:true, placeholder:'Ej: 3' })}
+            {renderInput('N trabajadores', numTrabajadores, setNumTrabajadores, { numeric:true, placeholder:'Ej: 3' })}
           </View>
           <View style={{ flex:1 }}>
-            {renderInput('N° días trabajados', cantidadUnidadMo, setCantidadUnidadMo, { numeric:true, placeholder:'Ej: 2' })}
+            {renderInput('N dias trabajados', cantidadUnidadMo, setCantidadUnidadMo, { numeric:true, placeholder:'Ej: 2' })}
           </View>
         </View>
         {renderInput('Pago por jornal ($)', precioUnidadMo, setPrecioUnidadMo, { numeric:true, placeholder:'15.00' })}
@@ -686,7 +698,7 @@ const ActividadesScreen: React.FC = () => {
               <Text style={s.calcValor}>{(Number(numTrabajadores)*Number(cantidadUnidadMo)).toFixed(0)} jornales</Text>
             </View>
             <View style={[s.ingresoBox,{marginTop:6}]}>
-              <Text style={s.ingresoLabel}>💰 Total mano de obra:</Text>
+              <Text style={s.ingresoLabel}>Total mano de obra:</Text>
               <Text style={s.ingresoValor}>${costoManoObraCalc.toFixed(2)}</Text>
             </View>
             <View style={s.calcBox}>
@@ -695,7 +707,7 @@ const ActividadesScreen: React.FC = () => {
             </View>
           </>
         )}
-        {unidadManoObra === 'otro' && renderInput('Descripción', descripcionUnidadMo, setDescripcionUnidadMo)}
+        {unidadManoObra === 'otro' && renderInput('Descripcion', descripcionUnidadMo, setDescripcionUnidadMo)}
       </>
     ));
   };
@@ -705,9 +717,9 @@ const ActividadesScreen: React.FC = () => {
       <View style={s.modalOverlay}>
         <View style={s.modalBox}>
           <View style={s.modalHeader}>
-            <Text style={s.modalTitulo}>Seleccionar tipo</Text>
+            <Text style={s.modalTitulo}>Tipo de actividad</Text>
             <TouchableOpacity onPress={() => setModalTipo(false)}>
-              <Text style={{ color:Colors.rojo, fontSize:16, fontWeight:'600' }}>✕</Text>
+              <Text style={{ color:Colors.rojo, fontSize:16, fontWeight:'600' }}>X</Text>
             </TouchableOpacity>
           </View>
           <ScrollView>
@@ -718,7 +730,68 @@ const ActividadesScreen: React.FC = () => {
                 <Text style={[s.modalItemText, tipo===t && { color:Colors.verde, fontWeight:'600' }]}>
                   {TIPO_LABEL[t]}
                 </Text>
-                {tipo === t && <Text style={{ color:Colors.verde }}>✓</Text>}
+                {tipo === t && <Text style={{ color:Colors.verde }}>OK</Text>}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const [modalTipoProducto, setModalTipoProducto] = useState<number | null>(null);
+
+  const renderModalTipoProducto = () => (
+  <Modal visible={modalTipoProducto !== null} transparent animationType="slide">
+    <View style={s.modalOverlay}>
+      <View style={s.modalBox}>
+        <View style={s.modalHeader}>
+          <Text style={s.modalTitulo}>Tipo de producto</Text>
+          <TouchableOpacity onPress={() => setModalTipoProducto(null)}>
+            <Text style={{ color:Colors.rojo, fontSize:16, fontWeight:'600' }}>X</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView>
+          {(['herbicida','fungicida','insecticida','fertilizante','abono','corrector','bioestimulante','otro'] as TipoProducto[]).map(tp => {
+            const idx = modalTipoProducto ?? 0;
+            const seleccionado = productos[idx]?.tipo === tp;
+            return (
+              <TouchableOpacity key={tp} style={[s.modalItem, seleccionado && s.modalItemOn]}
+                onPress={() => {
+                  setProductos(p => p.map((x,i) => i===idx ? {...x,tipo:tp} : x));
+                  setModalTipoProducto(null);
+                }}>
+                <Text style={[s.modalItemText, seleccionado && { color:Colors.verde, fontWeight:'600' }]}>
+                  {tp}
+                </Text>
+                {seleccionado && <Text style={{ color:Colors.verde }}>OK</Text>}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+    </View>
+  </Modal>
+);
+
+  const renderModalMetodo = () => (
+    <Modal visible={modalMetodo} transparent animationType="slide">
+      <View style={s.modalOverlay}>
+        <View style={s.modalBox}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitulo}>Metodo de aplicacion</Text>
+            <TouchableOpacity onPress={() => setModalMetodo(false)}>
+              <Text style={{ color:Colors.rojo, fontSize:16, fontWeight:'600' }}>X</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView>
+            {metodosActuales.map(m => (
+              <TouchableOpacity key={m} style={[s.modalItem, metodo===m && s.modalItemOn]}
+                onPress={() => { setMetodo(m); setModalMetodo(false); }}>
+                <Text style={[s.modalItemText, metodo===m && { color:Colors.verde, fontWeight:'600' }]}>
+                  {m}
+                </Text>
+                {metodo === m && <Text style={{ color:Colors.verde }}>OK</Text>}
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -733,36 +806,66 @@ const ActividadesScreen: React.FC = () => {
       <View key={item.id} style={[s.card,{borderLeftWidth:4,borderLeftColor:ESTADO_COLOR[est], marginTop:8}]}>
         <View style={s.cardRow}>
           <View style={s.numBadge}>
-            <Text style={s.numText}>#{item.numeroActividad ?? '—'}</Text>
+            <Text style={s.numText}>#{item.numeroActividad ?? '-'}</Text>
           </View>
           <Text style={s.emoji}>{TIPO_EMOJI[item.tipo as TipoActividad] ?? '📌'}</Text>
           <View style={{ flex:1 }}>
             <Text style={s.cardTitulo}>{TIPO_LABEL[item.tipo as TipoActividad] ?? item.tipo}</Text>
             {item.fechaInicio && (
               <Text style={s.cardSub}>
-                📅 {item.fechaInicio?.split('T')[0]}
-                {item.fechaFin ? ` → ${item.fechaFin?.split('T')[0]}` : ''}
+                {item.fechaInicio?.split('T')[0]}
+                {item.fechaFin ? ' -> ' + item.fechaFin?.split('T')[0] : ''}
               </Text>
             )}
-            {item.metodo && <Text style={s.cardMeta}>Método: {item.metodo}</Text>}
-            {item.detalleRiego?.laminaAgua != null && <Text style={s.cardMeta}>💧 Lámina: {item.detalleRiego.laminaAgua} cm</Text>}
-            {item.detalleFumigacion?.numTanques != null && <Text style={s.cardMeta}>🪣 {Number(item.detalleFumigacion.numTanques).toFixed(1)} tanques × {Number(item.detalleFumigacion.capacidadTanque ?? 200).toFixed(0)}L</Text>}
-
-            {item.detalleManoObra?.unidadManoObra === 'tarea' && item.detalleManoObra?.numTareas != null &&
-              <Text style={s.cardMeta}>👷 {Number(item.detalleManoObra.numTareas).toFixed(1)} tareas × ${Number(item.detalleManoObra.precioTarea).toFixed(2)}/tarea</Text>}
-            {item.detalleManoObra?.unidadManoObra === 'tanque' && item.detalleManoObra?.cantidadUnidadMo != null &&
-              <Text style={s.cardMeta}>👷 {item.detalleManoObra.numTrabajadores ?? '?'} pers. · {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(1)} tanques × ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}</Text>}
-            {item.detalleManoObra?.unidadManoObra === 'saco' && item.detalleManoObra?.cantidadUnidadMo != null &&
-              <Text style={s.cardMeta}>👷 {item.detalleManoObra.numTrabajadores ?? '?'} pers. · {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(0)} sacos × ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}</Text>}
-            {item.detalleManoObra?.unidadManoObra === 'jornal' && item.detalleManoObra?.cantidadUnidadMo != null &&
-              <Text style={s.cardMeta}>👷 {item.detalleManoObra.numTrabajadores ?? '?'} pers. · {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(0)} días × ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}</Text>}
-            {item.detalleManoObra?.pagoPorTrabajador != null &&
-              <Text style={[s.cardMeta,{color:Colors.tierra}]}>👤 Cada uno: ${Number(item.detalleManoObra.pagoPorTrabajador).toFixed(2)}</Text>}
-            {item.detalleManoObra?.costoManoObra != null && <Text style={[s.cardMeta,{color:Colors.tierra}]}>💰 Mano obra: ${Number(item.detalleManoObra.costoManoObra).toFixed(2)}</Text>}
-
-            {item.detalleMaquinaria?.tipoMaquinaria && <Text style={s.cardMeta}>🚜 {item.detalleMaquinaria.tipoMaquinaria}: {Number(item.detalleMaquinaria.cantidadUnidades).toFixed(1)} {item.detalleMaquinaria.unidadCobro} × ${Number(item.detalleMaquinaria.costoPorUnidad).toFixed(2)}</Text>}
-            {item.detalleMaquinaria?.costoMaquinaria != null && <Text style={[s.cardMeta,{color:Colors.tierra}]}>⚙️ Maquinaria: ${Number(item.detalleMaquinaria.costoMaquinaria).toFixed(2)}</Text>}
-
+            {item.metodo && <Text style={s.cardMeta}>Metodo: {item.metodo}</Text>}
+            {item.detalleRiego?.laminaAgua != null && (
+              <Text style={s.cardMeta}>Lamina: {item.detalleRiego.laminaAgua} cm</Text>
+            )}
+            {item.detalleFumigacion?.numTanques != null && (
+              <Text style={s.cardMeta}>
+                {Number(item.detalleFumigacion.numTanques).toFixed(1)} tanques x {Number(item.detalleFumigacion.capacidadTanque ?? 200).toFixed(0)}L
+              </Text>
+            )}
+            {item.detalleManoObra?.unidadManoObra === 'tarea' && item.detalleManoObra?.numTareas != null && (
+              <Text style={s.cardMeta}>
+                {Number(item.detalleManoObra.numTareas).toFixed(1)} tareas x ${Number(item.detalleManoObra.precioTarea).toFixed(2)}/tarea
+              </Text>
+            )}
+            {item.detalleManoObra?.unidadManoObra === 'tanque' && item.detalleManoObra?.cantidadUnidadMo != null && (
+              <Text style={s.cardMeta}>
+                {item.detalleManoObra.numTrabajadores ?? '?'} pers. - {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(1)} tanques x ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}
+              </Text>
+            )}
+            {item.detalleManoObra?.unidadManoObra === 'saco' && item.detalleManoObra?.cantidadUnidadMo != null && (
+              <Text style={s.cardMeta}>
+                {item.detalleManoObra.numTrabajadores ?? '?'} pers. - {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(0)} sacos x ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}
+              </Text>
+            )}
+            {item.detalleManoObra?.unidadManoObra === 'jornal' && item.detalleManoObra?.cantidadUnidadMo != null && (
+              <Text style={s.cardMeta}>
+                {item.detalleManoObra.numTrabajadores ?? '?'} pers. - {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(0)} dias x ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}
+              </Text>
+            )}
+            {item.detalleManoObra?.pagoPorTrabajador != null && (
+              <Text style={[s.cardMeta,{color:Colors.tierra}]}>
+                Cada uno: ${Number(item.detalleManoObra.pagoPorTrabajador).toFixed(2)}
+              </Text>
+            )}
+            {item.detalleManoObra?.costoManoObra != null && (
+              <Text style={[s.cardMeta,{color:Colors.tierra}]}>
+                Mano obra: ${Number(item.detalleManoObra.costoManoObra).toFixed(2)}
+              </Text>
+            )}
+            {item.detalleMaquinaria?.tipoMaquinaria && (
+              <Text style={s.cardMeta}>
+                {item.detalleMaquinaria.tipoMaquinaria}: {Number(item.detalleMaquinaria.cantidadUnidades).toFixed(1)} {item.detalleMaquinaria.unidadCobro} x ${Number(item.detalleMaquinaria.costoPorUnidad).toFixed(2)}
+              </Text>
+            )}
+            {item.detalleMaquinaria?.costoMaquinaria != null && (
+              <Text style={[s.cardMeta,{color:Colors.tierra}]}>
+                Maquinaria: ${Number(item.detalleMaquinaria.costoMaquinaria).toFixed(2)}
+              </Text>
+            )}
             {(item.productos?.length ?? 0) > 0 && (() => {
               let totalIns = 0;
               const lineas = (item.productos ?? []).map((p: any, idx: number) => {
@@ -770,17 +873,18 @@ const ActividadesScreen: React.FC = () => {
                 const costo = Number(p.dosisTotal) * Number(p.precioUnitario);
                 totalIns += costo;
                 const esTanque = !!p.dosisPorTanque;
-                const detalle = esTanque
-                  ? `${Number(p.dosisPorTanque).toFixed(0)}cc × ${Number(item.detalleFumigacion?.numTanques ?? 0).toFixed(1)} tanques = ${(Number(p.dosisTotal)*1000).toFixed(0)}cc = ${Number(p.dosisTotal).toFixed(2)}L × $${Number(p.precioUnitario).toFixed(2)}/L`
-                  : `${Number(p.dosisPorUnidadMo ?? 0).toFixed(1)}kg × ${Number(item.detalleManoObra?.cantidadUnidadMo ?? 0).toFixed(0)} sacos = ${Number(p.dosisTotal).toFixed(1)}kg × $${Number(p.precioUnitario).toFixed(2)}/kg`;
-                const frascos = p.frascoUsados
-                  ? ` · ${Number(p.frascoUsados).toFixed(2)} ${esTanque ? 'frascos' : 'sacos'}`
-                  : '';
+                let detalleTexto = '';
+                if (esTanque) {
+                  detalleTexto = Number(p.dosisPorTanque).toFixed(0) + 'cc x ' + Number(item.detalleFumigacion?.numTanques ?? 0).toFixed(1) + ' tanques = ' + Number(p.dosisTotal).toFixed(2) + 'L x $' + Number(p.precioUnitario).toFixed(2) + '/L';
+                } else {
+                  detalleTexto = Number(p.dosisTotal).toFixed(0) + ' sacos x $' + Number(p.precioUnitario).toFixed(2) + '/saco';
+                }
+                const frascosTxt = p.frascoUsados && esTanque ? ' - ' + Number(p.frascoUsados).toFixed(2) + ' frascos' : '';
                 return (
                   <View key={idx} style={{ marginTop:3 }}>
-                    <Text style={[s.cardMeta,{fontWeight:'600'}]}>🧪 {p.nombre}</Text>
-                    <Text style={[s.cardMeta,{color:'#666',fontSize:11}]}>{detalle}{frascos}</Text>
-                    <Text style={[s.cardMeta,{color:Colors.tierra}]}>= ${costo.toFixed(2)}</Text>
+                    <Text style={[s.cardMeta,{fontWeight:'600'}]}>{p.nombre}</Text>
+                    <Text style={[s.cardMeta,{color:'#666',fontSize:11}]}>{detalleTexto}{frascosTxt}</Text>
+                    <Text style={[s.cardMeta,{color:Colors.tierra}]}>${costo.toFixed(2)}</Text>
                   </View>
                 );
               }).filter(Boolean);
@@ -788,18 +892,25 @@ const ActividadesScreen: React.FC = () => {
                 <>
                   {lineas}
                   <Text style={[s.cardMeta,{color:Colors.tierra,fontWeight:'700',marginTop:4}]}>
-                    🧴 Total insumos: ${totalIns.toFixed(2)}
+                    Total insumos: ${totalIns.toFixed(2)}
                   </Text>
                 </>
               ) : null;
             })()}
-
-            {item.detalleCosecha?.totalSacos != null && <Text style={s.cardMeta}>📦 {Number(item.detalleCosecha.totalSacos).toFixed(0)} qq</Text>}
-            {item.detalleCosecha?.ingresoTotal != null && <Text style={[s.cardMeta,{color:Colors.verde,fontWeight:'700'}]}>💵 Ingreso: ${Number(item.detalleCosecha.ingresoTotal).toFixed(2)}</Text>}
-
-            {item.detalleFumigacion?.plagaDetectada && <Text style={[s.cardMeta,{color:Colors.rojo}]}>🐛 {item.detalleFumigacion.plagaDetectada} — {item.detalleFumigacion.nivelDano}</Text>}
-            {item.observaciones && <Text style={s.cardMeta}>📝 {item.observaciones}</Text>}
-
+            {item.detalleCosecha?.totalSacos != null && (
+              <Text style={s.cardMeta}>{Number(item.detalleCosecha.totalSacos).toFixed(0)} qq</Text>
+            )}
+            {item.detalleCosecha?.ingresoTotal != null && (
+              <Text style={[s.cardMeta,{color:Colors.verde,fontWeight:'700'}]}>
+                Ingreso: ${Number(item.detalleCosecha.ingresoTotal).toFixed(2)}
+              </Text>
+            )}
+            {item.detalleFumigacion?.plagaDetectada && (
+              <Text style={[s.cardMeta,{color:Colors.rojo}]}>
+                {item.detalleFumigacion.plagaDetectada} - {item.detalleFumigacion.nivelDano}
+              </Text>
+            )}
+            {item.observaciones && <Text style={s.cardMeta}>{item.observaciones}</Text>}
             {(() => {
               const mo  = Number(item.detalleManoObra?.costoManoObra   ?? 0);
               const maq = Number(item.detalleMaquinaria?.costoMaquinaria ?? 0);
@@ -810,12 +921,11 @@ const ActividadesScreen: React.FC = () => {
               const total = mo + maq + ins;
               return total > 0 ? (
                 <View style={[s.calcBox,{marginTop:6}]}>
-                  <Text style={s.calcLabel}>💰 COSTO TOTAL:</Text>
+                  <Text style={s.calcLabel}>COSTO TOTAL:</Text>
                   <Text style={s.calcValor}>${total.toFixed(2)}</Text>
                 </View>
               ) : null;
             })()}
-
             <TouchableOpacity
               style={[s.estadoBtn,{backgroundColor:ESTADO_COLOR[est],borderColor:ESTADO_COLOR[est],marginTop:8,alignSelf:'flex-start'}]}
               onPress={() => {
@@ -854,7 +964,7 @@ const ActividadesScreen: React.FC = () => {
             : (
               <ScrollView>
                 {grupos.map(({ fase, items }) => {
-                  const codigo  = fase?.codigo ?? '—';
+                  const codigo  = fase?.codigo ?? '-';
                   const abierta = fasesAbiertas[codigo] !== false;
                   const color   = FASE_COLOR[codigo] ?? Colors.grisTexto;
                   return (
@@ -869,7 +979,6 @@ const ActividadesScreen: React.FC = () => {
                         </View>
                         <Text style={{ color: Colors.grisTexto, fontSize: 16 }}>{abierta ? '▲' : '▼'}</Text>
                       </TouchableOpacity>
-
                       {abierta && items.map(item => renderTarjetaActividad(item))}
                     </View>
                   );
@@ -885,7 +994,7 @@ const ActividadesScreen: React.FC = () => {
     <ScrollView keyboardShouldPersistTaps="handled">
       <View style={s.header}>
         <TouchableOpacity onPress={() => setVista('lista')}>
-          <Text style={s.link}>← Volver</Text>
+          <Text style={s.link}>Volver</Text>
         </TouchableOpacity>
         <Text style={s.titulo}>{esEdicion ? 'Editar' : 'Nueva actividad'}</Text>
       </View>
@@ -894,7 +1003,7 @@ const ActividadesScreen: React.FC = () => {
       <TouchableOpacity style={s.dropdown} onPress={() => setModalTipo(true)}>
         <Text style={s.dropdownEmoji}>{TIPO_EMOJI[tipo]}</Text>
         <Text style={s.dropdownText}>{TIPO_LABEL[tipo]}</Text>
-        <Text style={s.dropdownArrow}>▼</Text>
+        <Text style={s.dropdownArrow}>V</Text>
       </TouchableOpacity>
 
       <Text style={s.label}>Estado</Text>
@@ -910,29 +1019,40 @@ const ActividadesScreen: React.FC = () => {
 
       {TIPOS_AMBIGUOS.includes(tipo) && (
         <>
-          <Text style={s.label}>¿Primera o segunda aplicación de esta etapa?</Text>
-          <View style={{ flexDirection:'row', gap:8, marginBottom:10 }}>
-            {(['primera', 'segunda'] as const).map(op => (
-              <TouchableOpacity key={op}
-                style={[s.chip, aplicacionOrden===op && s.chipOn]}
-                onPress={() => setAplicacionOrden(op)}>
-                <Text style={[s.chipText, aplicacionOrden===op && { color:'#fff' }]}>
-                  {op === 'primera' ? 'Primera aplicación' : 'Segunda aplicación'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {!tipoCicloActivo && (
-            <Text style={[s.noteText, { color: Colors.rojo }]}>
-              No se detectó ciclo activo en esta parcela; el orden puede no calcularse correctamente.
-            </Text>
-          )}
+          <Text style={s.label}>En que fase aplicas esta actividad?</Text>
+          {fasesDisponibles.length === 0
+            ? (
+              <Text style={[s.noteText, { color: Colors.rojo }]}>
+                No se detecto ciclo activo o no hay fases disponibles.
+              </Text>
+            )
+            : (
+              <View style={{ flexDirection:'row', flexWrap:'wrap', gap:8, marginBottom:10 }}>
+                {fasesDisponibles.map(f => (
+                  <TouchableOpacity key={f.ordenPlantilla}
+                    style={[s.chip, faseSeleccionada===f.ordenPlantilla && s.chipOn]}
+                    onPress={() => setFaseSeleccionada(f.ordenPlantilla)}>
+                    <Text style={[s.chipText, faseSeleccionada===f.ordenPlantilla && { color:'#fff' }]}>
+                      {f.codigo} - {f.nombre}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  style={[s.chip, faseSeleccionada===null && s.chipOn]}
+                  onPress={() => setFaseSeleccionada(null)}>
+                  <Text style={[s.chipText, faseSeleccionada===null && { color:'#fff' }]}>
+                    Adicional
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )
+          }
         </>
       )}
 
       <View style={{ flexDirection:'row', gap:8 }}>
-        <View style={{ flex:1 }}>{renderDatePicker('📅 Fecha inicio', dateInicio, () => setShowPickerInicio(true))}</View>
-        <View style={{ flex:1 }}>{renderDatePicker('📅 Fecha fin',    dateFin,    () => setShowPickerFin(true))}</View>
+        <View style={{ flex:1 }}>{renderDatePicker('Fecha inicio', dateInicio, () => setShowPickerInicio(true))}</View>
+        <View style={{ flex:1 }}>{renderDatePicker('Fecha fin',    dateFin,    () => setShowPickerFin(true))}</View>
       </View>
       {showPickerInicio && (
         <DateTimePicker value={dateInicio ?? new Date()} mode="date" display="default"
@@ -943,139 +1063,174 @@ const ActividadesScreen: React.FC = () => {
           onChange={(_, d) => { setShowPickerFin(false); if (d) setDateFin(d); }} />
       )}
 
-      {(tipo==='preparacion_suelo'||tipo==='rozar_quemar') && renderChips(METODOS_PREP, metodo, setMetodo, 'Método')}
-
-      {TIPOS_SIEMBRA.includes(tipo) && (
+      {metodosActuales.length > 0 && (
         <>
-          {renderChips(METODOS_SIEMBRA, metodo, setMetodo, 'Método')}
-          {tipo==='siembra_boleo' && (
-            <>
-              {renderInput('Variedad / Insumo', insumo, setInsumo, { placeholder:'Ej: IR-42' })}
-              {renderInput('Cantidad (kg)', cantidad, setCantidad, { numeric:true })}
-            </>
-          )}
+          <Text style={s.label}>Metodo</Text>
+          <TouchableOpacity style={s.dropdown} onPress={() => setModalMetodo(true)}>
+            <Text style={[s.dropdownText, !metodo && { color: '#aaa' }]}>
+              {metodo || 'Seleccionar metodo...'}
+            </Text>
+            <Text style={s.dropdownArrow}>V</Text>
+          </TouchableOpacity>
+        </>
+      )}
+
+      {tipo === 'siembra_boleo' && (
+        <>
+          {renderInput('Variedad / Insumo', insumo, setInsumo, { placeholder:'Ej: IR-42' })}
+          {renderInput('Cantidad (kg)', cantidad, setCantidad, { numeric:true })}
         </>
       )}
 
       {TIPOS_RIEGO.includes(tipo) && (
         <>
-          {renderChips(METODOS_RIEGO, metodo, setMetodo, 'Tipo de riego')}
-          {renderInput('Lámina de agua (cm)', laminaAgua, setLaminaAgua, { numeric:true })}
-          {renderInput('Duración (horas)', cantidad, setCantidad, { numeric:true })}
+          {renderInput('Lamina de agua (cm)', laminaAgua, setLaminaAgua, { numeric:true })}
+          {renderInput('Duracion (horas)', cantidad, setCantidad, { numeric:true })}
         </>
       )}
 
-      {TIPOS_CON_PRODUCTOS.includes(tipo) && (
+      {TIPOS_CON_PRODUCTOS.includes(tipo) && renderSeccion(
+        'Productos (' + productos.length + ')',
+        secProductos,
+        () => setSecProductos(v => !v),
         <>
-          {renderChips(METODOS_APLIC, metodo, setMetodo, 'Método aplicación')}
-          <Text style={s.label}>Productos *</Text>
           {productos.map((prod, i) => (
-            <View key={i} style={s.prodCard}>
-              <View style={s.prodHeader}>
-                <Text style={s.prodNum}>Producto {i + 1}</Text>
-                {productos.length > 1 && (
-                  <TouchableOpacity onPress={() => setProductos(p => p.filter((_,idx) => idx !== i))}>
-                    <Text style={{ color:Colors.rojo, fontSize:12 }}>✕ Quitar</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <TextInput style={s.input} value={prod.nombre}
-                onChangeText={v => setProductos(p => p.map((x,idx) => idx===i ? {...x,nombre:v} : x))}
-                placeholder="Nombre del producto" placeholderTextColor="#aaa" />
-
-              <View style={{ flexDirection:'row', flexWrap:'wrap', gap:6, marginBottom:8 }}>
-                {TIPOS_PRODUCTO.map(tp => (
-                  <TouchableOpacity key={tp} style={[s.chip, prod.tipo===tp && s.chipOn]}
-                    onPress={() => setProductos(p => p.map((x,idx) => idx===i ? {...x,tipo:tp} : x))}>
-                    <Text style={[s.chipText, prod.tipo===tp && { color:'#fff' }]}>{tp}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <View style={{ flexDirection:'row', gap:8 }}>
-                {TIPOS_CON_TANQUES.includes(tipo) ? (
-                  <View style={{ flex:1 }}>
-                    <Text style={s.labelSmall}>Dosis/tanque (cc)</Text>
-                    <TextInput style={s.input} value={prod.dosisPorTanque}
-                      onChangeText={v => setProductos(p => p.map((x,idx) => idx===i ? {...x,dosisPorTanque:v} : x))}
-                      placeholder="Ej: 500" placeholderTextColor="#aaa" keyboardType="numeric" />
-                  </View>
-                ) : (
-                  <View style={{ flex:1 }}>
-                    <Text style={s.labelSmall}>Dosis/saco echado (kg)</Text>
-                    <TextInput style={s.input} value={prod.dosisPorUnidadMo}
-                      onChangeText={v => setProductos(p => p.map((x,idx) => idx===i ? {...x,dosisPorUnidadMo:v} : x))}
-                      placeholder="Ej: 2" placeholderTextColor="#aaa" keyboardType="numeric" />
-                  </View>
-                )}
-                <View style={{ flex:1 }}>
-                  <Text style={s.labelSmall}>Unidad</Text>
-                  <TextInput style={s.input} value={prod.unidad}
-                    onChangeText={v => setProductos(p => p.map((x,idx) => idx===i ? {...x,unidad:v} : x))}
-                    placeholder={TIPOS_CON_TANQUES.includes(tipo) ? 'cc' : 'kg'} placeholderTextColor="#aaa" />
+            <View key={i} style={[s.prodCard, { marginTop: i > 0 ? 8 : 0 }]}>
+              <TouchableOpacity
+                style={s.prodHeader}
+                onPress={() => setProductos(p => p.map((x,idx) => idx===i ? {...x, abierto: !x.abierto} : x))}>
+                <Text style={s.prodNum}>
+                  {prod.nombre ? prod.nombre : 'Producto ' + (i + 1)}
+                </Text>
+                <View style={{ flexDirection:'row', gap:10, alignItems:'center' }}>
+                  {productos.length > 1 && (
+                    <TouchableOpacity onPress={() => setProductos(p => p.filter((_,idx) => idx !== i))}>
+                      <Text style={{ color:Colors.rojo, fontSize:12 }}>X</Text>
+                    </TouchableOpacity>
+                  )}
+                  <Text style={{ color:Colors.grisTexto, fontSize:14 }}>{prod.abierto ? '▲' : '▼'}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
 
-              <View style={{ flexDirection:'row', gap:8 }}>
-                <View style={{ flex:1 }}>
-                  <Text style={s.labelSmall}>
-                    {TIPOS_CON_TANQUES.includes(tipo) ? 'Presentación (ml)' : 'Presentación (g ej:50000=50kg)'}
-                  </Text>
-                  <TextInput style={s.input} value={prod.presentacionMl}
-                    onChangeText={v => setProductos(p => p.map((x,idx) => idx===i ? {...x,presentacionMl:v} : x))}
-                    placeholder={TIPOS_CON_TANQUES.includes(tipo) ? 'Ej: 1000' : 'Ej: 50000'}
-                    placeholderTextColor="#aaa" keyboardType="numeric" />
-                </View>
-                <View style={{ flex:1 }}>
-                  <Text style={s.labelSmall}>Precio frasco/saco ($)</Text>
-                  <TextInput style={s.input} value={prod.precioPresentacion}
-                    onChangeText={v => setProductos(p => p.map((x,idx) => idx===i ? {...x,precioPresentacion:v} : x))}
-                    placeholder="Ej: 17.00" placeholderTextColor="#aaa" keyboardType="numeric" />
-                </View>
-              </View>
+              {prod.abierto && (
+                <>
+                  <TextInput style={s.input} value={prod.nombre}
+                    onChangeText={v => setProductos(p => p.map((x,idx) => idx===i ? {...x,nombre:v} : x))}
+                    placeholder="Nombre del producto" placeholderTextColor="#aaa" />
 
-              {prod.presentacionMl && prod.precioPresentacion && (
-                <View style={s.calcBox}>
-                  <Text style={s.calcLabel}>
-                    {TIPOS_CON_TANQUES.includes(tipo) ? '$/L calculado:' : '$/kg calculado:'}
-                  </Text>
-                  <Text style={s.calcValor}>
-                    ${(Number(prod.precioPresentacion)/(Number(prod.presentacionMl)/1000)).toFixed(2)}
-                  </Text>
-                </View>
-              )}
+                 <Text style={s.labelSmall}>Tipo de producto</Text>
+<TouchableOpacity style={[s.dropdown, { paddingVertical:10, marginBottom:8 }]}
+  onPress={() => setModalTipoProducto(i)}>
+  <Text style={s.dropdownText}>{prod.tipo}</Text>
+  <Text style={s.dropdownArrow}>V</Text>
+</TouchableOpacity>
 
-              {prod.precioPresentacion && prod.presentacionMl &&
-               (prod.dosisPorTanque || prod.dosisPorUnidadMo) &&
-               (numTanques || cantidadUnidadMo) && (() => {
-                const precioUnit = Number(prod.precioPresentacion)/(Number(prod.presentacionMl)/1000);
-                let cant = 0; let detalle = ''; let frascosTxt = '';
-                if (TIPOS_CON_TANQUES.includes(tipo) && prod.dosisPorTanque && numTanques) {
-                  cant = (Number(prod.dosisPorTanque)/1000)*Number(numTanques);
-                  const f = cant/(Number(prod.presentacionMl)/1000);
-                  detalle = `${Number(prod.dosisPorTanque).toFixed(0)}cc × ${numTanques} tanq = ${(cant*1000).toFixed(0)}cc = ${cant.toFixed(2)}L`;
-                  frascosTxt = ` · ${f.toFixed(2)} frascos de ${prod.presentacionMl}ml`;
-                } else if (prod.dosisPorUnidadMo && cantidadUnidadMo) {
-                  cant = Number(prod.dosisPorUnidadMo)*Number(cantidadUnidadMo);
-                  const f = cant/(Number(prod.presentacionMl)/1000);
-                  detalle = `${Number(prod.dosisPorUnidadMo).toFixed(1)}kg × ${cantidadUnidadMo} sacos = ${cant.toFixed(1)}kg`;
-                  frascosTxt = ` · ${f.toFixed(2)} sacos de ${Number(prod.presentacionMl)/1000}kg`;
-                }
-                const costo = cant*precioUnit;
-                return (
-                  <>
-                    <Text style={[s.noteText,{marginTop:4}]}>{detalle}{frascosTxt}</Text>
-                    <View style={[s.calcBox,{marginTop:4}]}>
-                      <Text style={s.calcLabel}>Costo {prod.nombre||'producto'}:</Text>
-                      <Text style={s.calcValor}>${costo.toFixed(2)}</Text>
+                  <View style={{ flexDirection:'row', gap:8 }}>
+                    {TIPOS_CON_TANQUES.includes(tipo) ? (
+                      <View style={{ flex:1 }}>
+                        <Text style={s.labelSmall}>Dosis/tanque (cc)</Text>
+                        <TextInput style={s.input} value={prod.dosisPorTanque}
+                          onChangeText={v => setProductos(p => p.map((x,idx) => idx===i ? {...x,dosisPorTanque:v} : x))}
+                          placeholder="Ej: 500" placeholderTextColor="#aaa" keyboardType="numeric" />
+                      </View>
+                    ) : (
+                      <View style={{ flex:1 }}>
+                        <Text style={s.labelSmall}>Dosis/saco echado (kg)</Text>
+                        <TextInput style={s.input} value={prod.dosisPorUnidadMo}
+                          onChangeText={v => setProductos(p => p.map((x,idx) => idx===i ? {...x,dosisPorUnidadMo:v} : x))}
+                          placeholder="Ej: 2" placeholderTextColor="#aaa" keyboardType="numeric" />
+                      </View>
+                    )}
+                    <View style={{ flex:1 }}>
+                      <Text style={s.labelSmall}>Unidad</Text>
+                      <TextInput style={s.input} value={prod.unidad}
+                        onChangeText={v => setProductos(p => p.map((x,idx) => idx===i ? {...x,unidad:v} : x))}
+                        placeholder={TIPOS_CON_TANQUES.includes(tipo) ? 'cc' : 'kg'} placeholderTextColor="#aaa" />
                     </View>
-                  </>
-                );
-              })()}
+                  </View>
+
+                  <View style={{ flexDirection:'row', gap:8 }}>
+                    <View style={{ flex:1 }}>
+                      {TIPOS_CON_TANQUES.includes(tipo) ? (
+                        <>
+                          <Text style={s.labelSmall}>Presentacion (ml)</Text>
+                          <TextInput style={s.input} value={prod.presentacionMl}
+                            onChangeText={v => setProductos(p => p.map((x,idx) => idx===i ? {...x,presentacionMl:v} : x))}
+                            placeholder="Ej: 1000" placeholderTextColor="#aaa" keyboardType="numeric" />
+                        </>
+                      ) : (
+                        <>
+                          <Text style={s.labelSmall}>Tamano del saco</Text>
+                          <View style={{ flexDirection:'row', gap:8, marginBottom:8 }}>
+                            {['25000','50000'].map(val => (
+                              <TouchableOpacity key={val}
+                                style={[s.chip, prod.presentacionMl===val && s.chipOn]}
+                                onPress={() => setProductos(p => p.map((x,idx) => idx===i ? {...x, presentacionMl:val} : x))}>
+                                <Text style={[s.chipText, prod.presentacionMl===val && { color:'#fff' }]}>
+                                  {val === '25000' ? '25 kg' : '50 kg'}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </>
+                      )}
+                    </View>
+                    <View style={{ flex:1 }}>
+                      <Text style={s.labelSmall}>Precio frasco/saco ($)</Text>
+                      <TextInput style={s.input} value={prod.precioPresentacion}
+                        onChangeText={v => setProductos(p => p.map((x,idx) => idx===i ? {...x,precioPresentacion:v} : x))}
+                        placeholder="Ej: 17.00" placeholderTextColor="#aaa" keyboardType="numeric" />
+                    </View>
+                  </View>
+
+                  {prod.presentacionMl && prod.precioPresentacion && (
+                    <View style={s.calcBox}>
+                      <Text style={s.calcLabel}>
+                        {TIPOS_CON_TANQUES.includes(tipo) ? '$/L calculado:' : 'Precio/saco:'}
+                      </Text>
+                      <Text style={s.calcValor}>
+                        ${TIPOS_CON_TANQUES.includes(tipo)
+                          ? (Number(prod.precioPresentacion)/(Number(prod.presentacionMl)/1000)).toFixed(2)
+                          : Number(prod.precioPresentacion).toFixed(2)}
+                      </Text>
+                    </View>
+                  )}
+
+                  {prod.precioPresentacion && prod.presentacionMl &&
+                   (prod.dosisPorTanque || prod.dosisPorUnidadMo) &&
+                   (numTanques || cantidadUnidadMo) && (() => {
+                    let cant = 0;
+                    let detalleTexto = '';
+                    let frascosTxt = '';
+                    if (TIPOS_CON_TANQUES.includes(tipo) && prod.dosisPorTanque && numTanques) {
+                      cant = (Number(prod.dosisPorTanque)/1000)*Number(numTanques);
+                      const f = cant/(Number(prod.presentacionMl)/1000);
+                      detalleTexto = Number(prod.dosisPorTanque).toFixed(0) + 'cc x ' + numTanques + ' tanq = ' + cant.toFixed(2) + 'L';
+                      frascosTxt = ' - ' + f.toFixed(2) + ' frascos';
+                    } else if (cantidadUnidadMo) {
+                      cant = Number(cantidadUnidadMo);
+                      detalleTexto = cant.toFixed(0) + ' sacos';
+                    }
+                    const precioUnit = TIPOS_CON_TANQUES.includes(tipo)
+                      ? Number(prod.precioPresentacion)/(Number(prod.presentacionMl)/1000)
+                      : Number(prod.precioPresentacion);
+                    const costo = cant * precioUnit;
+                    return (
+                      <>
+                        <Text style={[s.noteText,{marginTop:4}]}>{detalleTexto}{frascosTxt}</Text>
+                        <View style={[s.calcBox,{marginTop:4}]}>
+                          <Text style={s.calcLabel}>Costo {prod.nombre||'producto'}:</Text>
+                          <Text style={s.calcValor}>${costo.toFixed(2)}</Text>
+                        </View>
+                      </>
+                    );
+                  })()}
+                </>
+              )}
             </View>
           ))}
-          <TouchableOpacity style={s.btnAgregar} onPress={() => setProductos(p => [...p, { ...PRODUCTO_VACIO }])}>
+          <TouchableOpacity style={s.btnAgregar}
+            onPress={() => setProductos(p => [...p, { ...PRODUCTO_VACIO }])}>
             <Text style={s.btnAgregarText}>+ Agregar producto</Text>
           </TouchableOpacity>
         </>
@@ -1083,13 +1238,13 @@ const ActividadesScreen: React.FC = () => {
 
       {TIPOS_CON_TANQUES.includes(tipo) && (
         <View style={s.seccionCard}>
-          <Text style={s.seccionTitulo}>🪣 Datos del tanque</Text>
+          <Text style={s.seccionTitulo}>Datos del tanque</Text>
           <View style={{ flexDirection:'row', gap:8 }}>
             <View style={{ flex:1 }}>
               {renderInput('Capacidad (L)', capacidadTanque, setCapacidadTanque, { numeric:true, placeholder:'200' })}
             </View>
             <View style={{ flex:1 }}>
-              {renderInput('Nº tanques', numTanques, setNumTanques, { numeric:true, placeholder:'Ej: 4' })}
+              {renderInput('N tanques', numTanques, setNumTanques, { numeric:true, placeholder:'Ej: 4' })}
             </View>
           </View>
           {capacidadTanque && numTanques && (
@@ -1101,11 +1256,8 @@ const ActividadesScreen: React.FC = () => {
         </View>
       )}
 
-      {tipo==='deshierba' && renderChips(['manual','quimica'], metodo, setMetodo, 'Método')}
-
       {TIPOS_COSECHA.includes(tipo) && (
         <>
-          {renderChips(METODOS_COSECHA, metodo, setMetodo, 'Método cosecha')}
           {renderInput('Rendimiento (t/ha)', rendimientoHa, setRendimientoHa, { numeric:true })}
           {renderInput('Total sacos (qq)', totalSacos, setTotalSacos, { numeric:true })}
           {renderInput('Humedad (%)', humedad, setHumedad, { numeric:true })}
@@ -1114,7 +1266,7 @@ const ActividadesScreen: React.FC = () => {
           {renderChips(DESTINOS, destino, setDestino, 'Destino')}
           {totalSacos && precioQq && (
             <View style={s.ingresoBox}>
-              <Text style={s.ingresoLabel}>💰 Ingreso estimado:</Text>
+              <Text style={s.ingresoLabel}>Ingreso estimado:</Text>
               <Text style={s.ingresoValor}>${(Number(totalSacos)*Number(precioQq)).toFixed(2)}</Text>
             </View>
           )}
@@ -1124,12 +1276,12 @@ const ActividadesScreen: React.FC = () => {
       {(tipo==='fumigacion'||tipo==='soca_fumigacion'||tipo==='observacion') && (
         <>
           {renderInput('Plaga detectada', plagaDetectada, setPlagaDetectada, { placeholder:'Ej: sogata' })}
-          {plagaDetectada ? renderChips(NIVELES_DANO, nivelDano, setNivelDano, 'Nivel de daño') : null}
+          {plagaDetectada ? renderChips(NIVELES_DANO, nivelDano, setNivelDano, 'Nivel de dano') : null}
         </>
       )}
       {tipo==='observacion' && renderChips(NIVELES_ALERTA, nivelAlerta, setNivelAlerta, 'Nivel de alerta')}
 
-      {TIPOS_CON_MAQUINARIA.includes(tipo) && renderSeccion('🚜 Maquinaria', secMaquinaria, () => setSecMaquinaria(v => !v), (
+      {TIPOS_CON_MAQUINARIA.includes(tipo) && renderSeccion('Maquinaria', secMaquinaria, () => setSecMaquinaria(v => !v), (
         <>
           {renderChips(TIPOS_MAQUINARIA, tipoMaquinaria, (v) => {
             setTipoMaquinaria(v);
@@ -1140,12 +1292,12 @@ const ActividadesScreen: React.FC = () => {
             <>
               {renderChips(UNIDADES_COBRO[tipoMaquinaria]??['hora','hectarea','saco'], unidadCobro, setUnidadCobro, 'Unidad de cobro')}
               <View style={{ flexDirection:'row', gap:8 }}>
-                <View style={{ flex:1 }}>{renderInput(`Cantidad (${unidadCobro||'u'})`, cantidadUnidades, setCantidadUnidades, { numeric:true })}</View>
-                <View style={{ flex:1 }}>{renderInput(`$ por ${unidadCobro||'u'}`, costoPorUnidad, setCostoPorUnidad, { numeric:true })}</View>
+                <View style={{ flex:1 }}>{renderInput('Cantidad (' + (unidadCobro||'u') + ')', cantidadUnidades, setCantidadUnidades, { numeric:true })}</View>
+                <View style={{ flex:1 }}>{renderInput('$ por ' + (unidadCobro||'u'), costoPorUnidad, setCostoPorUnidad, { numeric:true })}</View>
               </View>
               {cantidadUnidades && costoPorUnidad && (
                 <View style={s.calcBox}>
-                  <Text style={s.calcLabel}>⚙️ Costo maquinaria:</Text>
+                  <Text style={s.calcLabel}>Costo maquinaria:</Text>
                   <Text style={s.calcValor}>${costoMaquinariaCalc.toFixed(2)}</Text>
                 </View>
               )}
@@ -1158,12 +1310,12 @@ const ActividadesScreen: React.FC = () => {
 
       {costoTotalCalc > 0 && (
         <View style={[s.seccionCard,{backgroundColor:Colors.verdeClaro,borderColor:Colors.verdeBorder}]}>
-          <Text style={[s.seccionTitulo,{color:Colors.verde,marginBottom:8}]}>💰 Resumen de costos</Text>
-          {costoManoObraCalc   > 0 && <Text style={s.resumenFila}>👷 Mano de obra:  ${costoManoObraCalc.toFixed(2)}</Text>}
-          {costoMaquinariaCalc > 0 && <Text style={s.resumenFila}>🚜 Maquinaria:    ${costoMaquinariaCalc.toFixed(2)}</Text>}
-          {costoInsumosCalc    > 0 && <Text style={s.resumenFila}>🧴 Insumos:       ${costoInsumosCalc.toFixed(2)}</Text>}
+          <Text style={[s.seccionTitulo,{color:Colors.verde,marginBottom:8}]}>Resumen de costos</Text>
+          {costoManoObraCalc   > 0 && <Text style={s.resumenFila}>Mano de obra:  ${costoManoObraCalc.toFixed(2)}</Text>}
+          {costoMaquinariaCalc > 0 && <Text style={s.resumenFila}>Maquinaria:    ${costoMaquinariaCalc.toFixed(2)}</Text>}
+          {costoInsumosCalc    > 0 && <Text style={s.resumenFila}>Insumos:       ${costoInsumosCalc.toFixed(2)}</Text>}
           <View style={[s.calcBox,{marginTop:6}]}>
-            <Text style={[s.calcLabel,{fontSize:14,fontWeight:'700'}]}>TOTAACTIVIDAD:</Text>
+            <Text style={[s.calcLabel,{fontSize:14,fontWeight:'700'}]}>TOTAL ACTIVIDAD:</Text>
             <Text style={[s.calcValor,{fontSize:16}]}>${costoTotalCalc.toFixed(2)}</Text>
           </View>
         </View>
@@ -1186,6 +1338,8 @@ const ActividadesScreen: React.FC = () => {
     <KeyboardAvoidingView style={{ flex:1 }} behavior={Platform.OS==='ios' ? 'padding' : 'height'}>
       <View style={s.container}>
         {renderModalTipo()}
+        {renderModalTipoProducto()}
+        {renderModalMetodo()}
         {vista==='lista'    && renderLista()}
         {vista==='nueva'    && renderFormulario(false)}
         {vista==='editando' && renderFormulario(true)}
@@ -1232,8 +1386,8 @@ const s = StyleSheet.create({
   modalItemEmoji:{ fontSize:22 },
   modalItemText: { flex:1, fontSize:15, color:'#333' },
   prodCard:      { backgroundColor:Colors.blanco, borderRadius:10, padding:12, marginBottom:10, borderWidth:0.5, borderColor:Colors.grisBorde },
-  prodHeader:    { flexDirection:'row', justifyContent:'space-between', marginBottom:8 },
-  prodNum:       { fontSize:13, fontWeight:'600', color:'#333' },
+  prodHeader:    { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:8 },
+  prodNum:       { fontSize:13, fontWeight:'600', color:'#333', flex:1 },
   btnAgregar:    { borderWidth:0.5, borderColor:Colors.verde, borderRadius:8, paddingVertical:10, alignItems:'center', marginBottom:10 },
   btnAgregarText:{ color:Colors.verde, fontWeight:'600' },
   seccionCard:   { backgroundColor:Colors.blanco, borderRadius:12, borderWidth:0.5, borderColor:Colors.grisBorde, padding:14, marginTop:12 },

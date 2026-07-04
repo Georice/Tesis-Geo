@@ -1,3 +1,4 @@
+// RefreshToken.ts
 import {
   Entity, PrimaryGeneratedColumn, Column,
   ManyToOne, JoinColumn, CreateDateColumn,
@@ -9,10 +10,10 @@ export class RefreshToken {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ name: 'usuario_id' })
+  @Column({ name: 'usuario_id', type: 'int' })
   usuarioId!: number;
 
-  @ManyToOne(() => Usuario, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Usuario, { onDelete: 'CASCADE', eager: false })
   @JoinColumn({ name: 'usuario_id' })
   usuario!: Usuario;
 
