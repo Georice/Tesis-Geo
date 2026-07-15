@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
+  View, Text, TextInput, TouchableOpacity, Image,
   StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+
+const loginLogo = require('../assets/login_logo.png');
 
 const LoginScreen = () => {
   const { login }              = useAuth();
@@ -28,7 +30,7 @@ const LoginScreen = () => {
   return (
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={s.card}>
-        <Text style={s.logo}>🌾</Text>
+        <Image source={loginLogo} style={s.logo} resizeMode="contain" />
         <Text style={s.titulo}>GeoRice</Text>
         <Text style={s.subtitulo}>Sistema de Georreferenciación Agrícola</Text>
 
@@ -71,7 +73,7 @@ const s = StyleSheet.create({
   card:      { backgroundColor: '#fff', borderRadius: 16, padding: 28,
                shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
                shadowOpacity: 0.1, shadowRadius: 12, elevation: 8 },
-  logo:      { fontSize: 52, textAlign: 'center', marginBottom: 4 },
+  logo:      { width: 160, height: 160, alignSelf: 'center', marginBottom: 4 },
   titulo:    { fontSize: 28, fontWeight: '800', color: '#1a5c2a', textAlign: 'center', marginBottom: 4 },
   subtitulo: { fontSize: 13, color: '#888', textAlign: 'center', marginBottom: 28 },
   input:     { borderWidth: 1, borderColor: '#ddd', borderRadius: 10,

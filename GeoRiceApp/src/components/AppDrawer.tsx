@@ -6,11 +6,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { MenuItem } from '../domain/entities/MenuItem';
+import Icon from './Icon';
 
 const DRAWER_WIDTH = Math.min(Dimensions.get('window').width * 0.78, 300);
 const PILL_WIDTH   = 40;
 
-const logoGeoRice = require('../assets/logo_georice.png');
+const logoGeoRice = require('../assets/login_logo.png');
 
 interface Props {
   visible: boolean;
@@ -105,7 +106,12 @@ const AppDrawer: React.FC<Props> = ({
                       style={styles.menuItem}
                       onPress={() => handleItemPress(item.action)}
                       activeOpacity={0.7}>
-                      <Text style={styles.menuItemIcon}>{item.icon}</Text>
+                      <Icon
+                        name={item.icon}
+                        size={20}
+                        color={item.action === 'logout' ? Colors.rojo : '#1a1a1a'}
+                        style={styles.menuItemIcon}
+                      />
                       <Text style={[
                         styles.menuItemLabel,
                         item.action === 'logout' && styles.menuItemLabelLogout,
@@ -126,7 +132,7 @@ const AppDrawer: React.FC<Props> = ({
               onPress={onClose}
               activeOpacity={1}>
               <View style={styles.closePill}>
-                <Text style={styles.closePillIcon}>‹</Text>
+                <Icon name="chevron-left" size={22} color={Colors.verde} style={styles.closePillIcon} />
               </View>
             </TouchableOpacity>
 

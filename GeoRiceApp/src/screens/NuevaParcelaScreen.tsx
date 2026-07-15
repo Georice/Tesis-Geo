@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
+import IconLabel from '../components/IconLabel';
 
 interface Props {
   vertices: number[][];
@@ -27,14 +28,14 @@ const NuevaParcelaScreen: React.FC<Props> = ({
       placeholder="Propietario" placeholderTextColor="#aaa" />
     <View style={s.row}>
       <TouchableOpacity style={s.btnSec} onPress={onLimpiar}>
-        <Text style={s.btnSecText}>🗑 Limpiar</Text>
+        <IconLabel icon="delete" label="Limpiar" textStyle={s.btnSecText} />
       </TouchableOpacity>
       <TouchableOpacity style={s.btnSec} onPress={onSyncOffline}>
-        <Text style={s.btnSecText}>☁ Sync</Text>
+        <IconLabel icon="cloud-sync-outline" label="Sync" textStyle={s.btnSecText} />
       </TouchableOpacity>
       <TouchableOpacity style={[s.btn, vertices.length < 3 && { opacity: 0.4 }]}
         onPress={onGuardar} disabled={vertices.length < 3}>
-        <Text style={s.btnText}>💾 Guardar</Text>
+        <IconLabel icon="content-save" label="Guardar" textStyle={s.btnText} />
       </TouchableOpacity>
     </View>
   </>

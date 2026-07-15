@@ -15,6 +15,7 @@ import { CreateActividad } from '../application/usecases/actividad/CreateActivid
 import { UpdateActividad } from '../application/usecases/actividad/UpdateActividad';
 import { DeleteActividad } from '../application/usecases/actividad/DeleteActividad';
 import { apiFetch } from '../infrastructure/repositories/ApiClient';
+import Icon from '../components/Icon';
 
 type Nav   = NativeStackNavigationProp<RootStackParamList, 'Actividades'>;
 type Route = RouteProp<RootStackParamList, 'Actividades'>;
@@ -50,11 +51,17 @@ const TIPOS: TipoActividad[] = [
   'rozar_quemar','soca_riego','soca_fertilizacion','soca_fumigacion',
   'cosecha_soca','cosecha','observacion',
 ];
-const TIPO_EMOJI: Record<TipoActividad,string> = {
-  preparacion_suelo:'🚜', inundacion:'🌊', siembra_boleo:'🌱', siembra_trasplante:'🌿',
-  riego:'💧', fertilizacion:'🌾', fumigacion:'🧪', deshierba:'✂️', cosecha:'🏆',
-  rozar_quemar:'🔥', soca_riego:'💧', soca_fertilizacion:'🌾', soca_fumigacion:'🧪',
-  cosecha_soca:'🏆', observacion:'📝',
+const TIPO_ICON: Record<TipoActividad,string> = {
+  preparacion_suelo:'tractor', inundacion:'waves', siembra_boleo:'sprout', siembra_trasplante:'leaf',
+  riego:'water', fertilizacion:'barley', fumigacion:'flask', deshierba:'scissors-cutting', cosecha:'trophy',
+  rozar_quemar:'fire', soca_riego:'water', soca_fertilizacion:'barley', soca_fumigacion:'flask',
+  cosecha_soca:'trophy', observacion:'note-text',
+};
+const TIPO_COLOR: Record<TipoActividad,string> = {
+  preparacion_suelo:'#92400e', inundacion:'#0284c7', siembra_boleo:Colors.verde, siembra_trasplante:'#16a34a',
+  riego:'#0ea5e9', fertilizacion:'#d97706', fumigacion:'#9333ea', deshierba:'#64748b', cosecha:'#eab308',
+  rozar_quemar:'#dc2626', soca_riego:'#0ea5e9', soca_fertilizacion:'#d97706', soca_fumigacion:'#9333ea',
+  cosecha_soca:'#eab308', observacion:'#475569',
 };
 const TIPO_LABEL: Record<TipoActividad,string> = {
   preparacion_suelo:'Preparacion del Suelo', inundacion:'Inundacion',
@@ -592,7 +599,7 @@ const ActividadesScreen: React.FC = () => {
       <Text style={s.label}>{label}</Text>
       <TouchableOpacity style={s.dateBtn} onPress={onShow}>
         <Text style={s.dateBtnText}>{date ? fmt(date) : 'Seleccionar fecha'}</Text>
-        <Text style={{ fontSize:16 }}>📅</Text>
+        <Icon name="calendar-month" size={16} color={Colors.grisTexto} />
       </TouchableOpacity>
     </>
   );
@@ -749,7 +756,7 @@ const ActividadesScreen: React.FC = () => {
             {TIPOS.map(t => (
               <TouchableOpacity key={t} style={[s.modalItem, tipo===t && s.modalItemOn]}
                 onPress={() => { setTipo(t); setModalTipo(false); }}>
-                <Text style={s.modalItemEmoji}>{TIPO_EMOJI[t]}</Text>
+                <Icon name={TIPO_ICON[t]} size={20} color={TIPO_COLOR[t]} style={s.modalItemEmoji} />
                 <Text style={[s.modalItemText, tipo===t && { color:Colors.verde, fontWeight:'600' }]}>
                   {TIPO_LABEL[t]}
                 </Text>
@@ -822,7 +829,7 @@ const ActividadesScreen: React.FC = () => {
       </View>
     </Modal>
   );
-  
+
 const renderTarjetaActividad = (item: Actividad) => {
   const est = (item.estado ?? 'pendiente') as Estado;
   return (
@@ -831,7 +838,7 @@ const renderTarjetaActividad = (item: Actividad) => {
         <View style={s.numBadge}>
           <Text style={s.numText}>#{item.numeroActividad ?? '-'}</Text>
         </View>
-        <Text style={s.emoji}>{TIPO_EMOJI[item.tipo as TipoActividad] ?? '📌'}</Text>
+        <Icon name={TIPO_ICON[item.tipo as TipoActividad] ?? 'map-marker'} size={26} color={TIPO_COLOR[item.tipo as TipoActividad] ?? '#1a2b16'} style={s.emoji} />
         <View style={{ flex:1 }}>
           <Text style={s.cardTitulo}>{TIPO_LABEL[item.tipo as TipoActividad] ?? item.tipo}</Text>
           {item.fechaInicio && (
@@ -943,8 +950,8 @@ const renderTarjetaActividad = (item: Actividad) => {
           </TouchableOpacity>
         </View>
         <View>
-          <TouchableOpacity onPress={() => abrirEditar(item)} style={s.iconBtn}><Text>✏️</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => handleEliminar(item)} style={s.iconBtn}><Text>🗑️</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => abrirEditar(item)} style={s.iconBtn}><Icon name="pencil" size={18} color={Colors.grisTexto} /></TouchableOpacity>
+            <TouchableOpacity onPress={() => handleEliminar(item)} style={s.iconBtn}><Icon name="delete" size={18} color={Colors.rojo} /></TouchableOpacity>
         </View>
       </View>
     </View>
@@ -1172,7 +1179,7 @@ const renderTarjetaActividad = (item: Actividad) => {
 
       <Text style={s.label}>Tipo de actividad *</Text>
       <TouchableOpacity style={s.dropdown} onPress={() => setModalTipo(true)}>
-        <Text style={s.dropdownEmoji}>{TIPO_EMOJI[tipo]}</Text>
+        <Icon name={TIPO_ICON[tipo]} size={18} color={TIPO_COLOR[tipo]} style={s.dropdownEmoji} />
         <Text style={s.dropdownText}>{TIPO_LABEL[tipo]}</Text>
         <Text style={s.dropdownArrow}>V</Text>
       </TouchableOpacity>
@@ -1200,7 +1207,7 @@ const renderTarjetaActividad = (item: Actividad) => {
             : (
               <View style={{ flexDirection:'row', flexWrap:'wrap', gap:8, marginBottom:10 }}>
                {fasesDisponibles.map((f, idx) => (
-  <TouchableOpacity key={f.ordenPlantilla ?? idx}
+                    <TouchableOpacity key={f.ordenPlantilla ?? idx}
                     style={[s.chip, faseSeleccionada===f.ordenPlantilla && s.chipOn]}
                     onPress={() => setFaseSeleccionada(f.ordenPlantilla)}>
                     <Text style={[s.chipText, faseSeleccionada===f.ordenPlantilla && { color:'#fff' }]}>

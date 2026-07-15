@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
+import Icon from './Icon';
 
 interface Props {
   onMenuPress: () => void;
@@ -13,7 +14,7 @@ const AppHeader: React.FC<Props> = ({ onMenuPress }) => {
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
       <TouchableOpacity onPress={onMenuPress} style={styles.menuBtn} activeOpacity={0.7}>
-        <Text style={styles.menuIcon}>☰</Text>
+        <Icon name="menu" size={22} color={Colors.blanco} />
       </TouchableOpacity>
       <Text style={styles.title}>GeoRice</Text>
       <View style={styles.end} />
@@ -41,10 +42,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 22,
-  },
-  menuIcon: {
-    fontSize: 22,
-    color: Colors.blanco,
   },
   title: {
     flex: 1,

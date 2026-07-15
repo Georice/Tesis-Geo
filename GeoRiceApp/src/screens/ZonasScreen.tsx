@@ -14,6 +14,8 @@ import { GetZonas } from '../application/usecases/zona/GetZonas';
 import { UpdateZona } from '../application/usecases/zona/UpdateZona';
 import { DeleteZona } from '../application/usecases/zona/DeleteZona';
 import { GetParcelas } from '../application/usecases/parcela/GetParcelas';
+import Icon from '../components/Icon';
+import IconLabel from '../components/IconLabel';
 //import { UpdateParcela } from '../application/usecases/parcela/UpdateParcela';
 
 type Nav  = NativeStackNavigationProp<RootStackParamList, 'Zonas'>;
@@ -68,7 +70,7 @@ const ZonasScreen: React.FC = () => {
         nombre: formNombre, descripcion: formDescripcion,
       });
       await cargar(); setVista('lista');
-      Alert.alert('✅ Zona actualizada');
+      Alert.alert('Zona actualizada');
     } catch (e: any) { Alert.alert('Error', e.message); }
     finally { setGuardando(false); }
   };
@@ -80,7 +82,7 @@ const ZonasScreen: React.FC = () => {
         try {
           await DeleteZona(zonaId(zona));
           await cargar(); setVista('lista');
-          Alert.alert('✅ Zona eliminada');
+          Alert.alert('Zona eliminada');
         } catch (e: any) { Alert.alert('Error', e.message); }
       }},
     ]);
@@ -104,12 +106,15 @@ const ZonasScreen: React.FC = () => {
         <TouchableOpacity style={s.btnPrimario} onPress={() => {
   navigation.navigate('Dashboard', { accion: 'dibujarZona' });
 }}>
-          <Text style={s.btnText}>✏️ Dibujar zona</Text>
+          <IconLabel icon="pencil" label="Dibujar zona" textStyle={s.btnText} />
         </TouchableOpacity>
       </View>
-      <Text style={s.infoText}>
-        ℹ️ Toca "Dibujar zona" para trazar el área en el mapa.
-      </Text>
+      <View style={s.infoRow}>
+        <Icon name="information-outline" size={14} color={Colors.grisTexto} />
+        <Text style={[s.infoText, { marginLeft: 4, flexShrink: 1 }]}>
+          Toca "Dibujar zona" para trazar el área en el mapa.
+        </Text>
+      </View>
       {loading
         ? <ActivityIndicator size="large" color={Colors.verde} style={{ marginTop: 40 }} />
         : zonas.length === 0
@@ -132,10 +137,10 @@ const ZonasScreen: React.FC = () => {
                       </View>
                       <View>
                         <TouchableOpacity onPress={() => abrirEditar(item)} style={s.iconBtn}>
-                          <Text>✏️</Text>
+                          <Icon name="pencil" size={18} color={Colors.grisTexto} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => handleEliminar(item)} style={s.iconBtn}>
-                          <Text>🗑️</Text>
+                          <Icon name="delete" size={18} color={Colors.rojo} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -152,7 +157,7 @@ const ZonasScreen: React.FC = () => {
     <ScrollView keyboardShouldPersistTaps="handled">
       <View style={s.header}>
         <TouchableOpacity onPress={() => setVista('lista')}>
-          <Text style={s.link}>← Volver</Text>
+          <IconLabel icon="arrow-left" label="Volver" textStyle={s.link} />
         </TouchableOpacity>
         <Text style={s.titulo}>Editar zona</Text>
       </View>
@@ -183,7 +188,7 @@ const ZonasScreen: React.FC = () => {
     <>
       <View style={s.header}>
         <TouchableOpacity onPress={() => setVista('lista')}>
-          <Text style={s.link}>← Volver</Text>
+          <IconLabel icon="arrow-left" label="Volver" textStyle={s.link} />
         </TouchableOpacity>
         <Text style={s.titulo}>{zonaNombre(zonaSeleccionada)}</Text>
         <TouchableOpacity onPress={() => handleEliminar(zonaSeleccionada)}>
@@ -193,7 +198,7 @@ const ZonasScreen: React.FC = () => {
 
       <TouchableOpacity style={[s.btnPrimario, { marginBottom: 12 }]}
         onPress={() => navigation.navigate('Dashboard', { accion: 'editarZona', zona: zonaSeleccionada })}>
-        <Text style={[s.btnText, { textAlign: 'center' }]}>🗺️ Editar geometría en el mapa</Text>
+        <IconLabel icon="map" label="Editar geometría en el mapa" textStyle={[s.btnText, { textAlign: 'center' }]} style={{ justifyContent: 'center' }} />
       </TouchableOpacity>
 
       {zonaDesc(zonaSeleccionada)
@@ -220,7 +225,7 @@ const ZonasScreen: React.FC = () => {
                   </Text>
                 </View>
                 <View style={[s.check, s.checkOn]}>
-                  <Text style={s.checkMark}>✓</Text>
+                  <Icon name="check" size={14} color="#fff" />
                 </View>
               </View>
             )}
@@ -247,6 +252,7 @@ const s = StyleSheet.create({
                    alignItems: 'center', marginBottom: 8 },
   titulo:        { fontSize: 20, fontWeight: '600', color: '#1a2b16' },
   link:          { fontSize: 14, color: Colors.verde, fontWeight: '500' },
+  infoRow:       { flexDirection: 'row', alignItems: 'center' },
   infoText:      { fontSize: 12, color: Colors.grisTexto, marginBottom: 12, fontStyle: 'italic' },
   btnPrimario:   { backgroundColor: Colors.verde, borderRadius: 10,
                    paddingVertical: 12, paddingHorizontal: 16 },
@@ -280,7 +286,6 @@ const s = StyleSheet.create({
   check:         { width: 24, height: 24, borderRadius: 6, borderWidth: 2,
                    borderColor: Colors.grisBorde, justifyContent: 'center', alignItems: 'center' },
   checkOn:       { backgroundColor: Colors.verde, borderColor: Colors.verde },
-  checkMark:     { color: '#fff', fontSize: 14, fontWeight: '700' },
 });
 
 export default ZonasScreen;

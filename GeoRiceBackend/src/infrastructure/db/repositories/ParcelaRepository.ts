@@ -79,7 +79,7 @@ export class ParcelaRepository implements IParcelaRepository {
       : (data.usuarioId ?? ctx.usuarioId);
 
     const [propietarioUser] = await AppDataSource.query(
-      `SELECT nombre || ' ' || apellido AS nombre FROM public.usuarios WHERE id = $1`,
+      `SELECT nombres || ' ' || apellidos AS nombre FROM public.usuarios WHERE id = $1`,
       [propietarioId]
     );
     const propietarioNombre = propietarioUser?.nombre ?? ctx.nombreCompleto;
@@ -133,7 +133,7 @@ export class ParcelaRepository implements IParcelaRepository {
     // Solo admin puede reasignar propietario
     if (ctx.rol === 'administrador' && data.usuarioId != null) {
       const [newOwner] = await AppDataSource.query(
-        `SELECT nombre || ' ' || apellido AS nombre FROM public.usuarios WHERE id = $${params.length + 1}`,
+        `SELECT nombres || ' ' || apellidos AS nombre FROM public.usuarios WHERE id = $${params.length + 1}`,
         [...params, data.usuarioId]
       );
       params.push(data.usuarioId);

@@ -7,7 +7,8 @@ import AppHeader from '../components/AppHeader';
 import AppDrawer from '../components/AppDrawer';
 import { GetUserMenuByRole } from '../application/usecases/auth/GetUserMenuByRole';
 import { MenuAction } from '../domain/entities/MenuItem';
-//import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import Icon from '../components/Icon';
+import IconLabel from '../components/IconLabel';
 import Mapbox from '@rnmapbox/maps';
 import turfArea from '@turf/area';
 import { booleanWithin } from '@turf/turf';
@@ -297,7 +298,7 @@ const DashboardScreen = () => {
         } catch { return false; }
       });
       if (!dentroDeZona) {
-        Alert.alert('⚠️ Fuera de zona',
+        Alert.alert('Fuera de zona',
           'La parcela debe estar completamente dentro de una zona registrada.',
           [
             { text: 'Ir a Zonas', onPress: () => navigation.navigate('Zonas') },
@@ -312,13 +313,13 @@ const DashboardScreen = () => {
     const parcelaData = { nombre: nombre.trim(), cultivo: 'Arroz', estado: 'activo', geometria };
     try {
       await CreateParcela(parcelaData);
-      Alert.alert('✅ Parcela guardada', `Área: ${getArea(vertices)} ha`);
+      Alert.alert('Parcela guardada', `Área: ${getArea(vertices)} ha`);
       setVertices([]); setNombre('');
       fetchParcelas();
     } catch (e: any) {
       const msg = e.message ?? 'Error al guardar';
       if (msg.includes('zona')) {
-        Alert.alert('⚠️ Fuera de zona',
+        Alert.alert('Fuera de zona',
           'La parcela debe estar dentro de una zona registrada.',
           [
             { text: 'Ir a Zonas', onPress: () => navigation.navigate('Zonas') },
@@ -326,7 +327,7 @@ const DashboardScreen = () => {
           ]
         );
       } else if (msg.includes('superpone')) {
-        Alert.alert('⚠️ Solapamiento', 'La parcela se superpone con una existente.');
+        Alert.alert('Solapamiento', 'La parcela se superpone con una existente.');
       } else {
         try {
           const stored = await AsyncStorage.getItem('offlineParcelas');
@@ -349,7 +350,7 @@ const DashboardScreen = () => {
         propietario: editingData.propietario?.trim() || undefined,
         cultivo:     editingData.cultivo?.trim()     || undefined,
       });
-      Alert.alert('✅ Datos actualizados');
+      Alert.alert('Datos actualizados');
       setEditingData(null); setSelectedParcela(null); fetchParcelas();
     } catch { Alert.alert('Error de conexión'); }
   };
@@ -372,13 +373,13 @@ const DashboardScreen = () => {
     try {
       const data = await UpdateParcelaGeometry(parcelaEditandoId, geometria);
       const area = (data as any).area_ha ?? '';
-      Alert.alert('✅ Geometría actualizada', area ? `Área: ${area} ha` : '');
+      Alert.alert('Geometría actualizada', area ? `Área: ${area} ha` : '');
       setEditingGeometry([]); setParcelaEditandoId(null); setSelectedParcela(null);
       fetchParcelas();
     } catch (e: any) {
       const msg = e.message ?? '';
-      if (msg.includes('zona')) Alert.alert('⚠️ Fuera de zona', 'La parcela debe estar dentro de una zona.');
-      else if (msg.includes('superpone')) Alert.alert('⚠️ Solapamiento', 'Se superpone con otra parcela.');
+      if (msg.includes('zona')) Alert.alert('Fuera de zona', 'La parcela debe estar dentro de una zona.');
+      else if (msg.includes('superpone')) Alert.alert('Solapamiento', 'Se superpone con otra parcela.');
       else Alert.alert('Error de conexión');
     }
   };
@@ -441,10 +442,10 @@ const DashboardScreen = () => {
     try {
       if (editandoCapaId) {
         await UpdateCapa(editandoCapaId, parcelaId, { tipo: tipoCapa, geometria });
-        Alert.alert('✅ Capa actualizada');
+        Alert.alert('Capa actualizada');
       } else {
         await CreateCapa(parcelaId, { tipo: tipoCapa, geometria });
-        Alert.alert('✅ Capa guardada');
+        Alert.alert('Capa guardada');
       }
       setDibujandoCapa(false); setVerticesCapa([]); setParcelaParaCapa(null);
       setEditandoCapaId(null); setSelectedParcela(null);
@@ -460,7 +461,7 @@ const DashboardScreen = () => {
     const geometria = { type: 'Polygon', coordinates: [[...verticesZona, verticesZona[0]]] };
     try {
       const result = await CreateZona({ nombre: nombreZona.trim(), descripcion: descripcionZona.trim(), geometria });
-      Alert.alert('✅ Zona guardada', `${(result as any).parcelasAsignadas ?? 0} parcelas asignadas`);
+      Alert.alert('Zona guardada', `${(result as any).parcelasAsignadas ?? 0} parcelas asignadas`);
       setDibujandoZona(false); setVerticesZona([]); setNombreZona(''); setDescripcionZona('');
       fetchZonas(); fetchParcelas();
     } catch (e: any) { Alert.alert('Error', e.message ?? 'Error al guardar zona'); }
@@ -488,7 +489,7 @@ const DashboardScreen = () => {
     const geometria = { type: 'Polygon', coordinates: [[...verticesZonaEdit, verticesZonaEdit[0]]] };
     try {
       const result = await UpdateZona(editandoZonaId, { geometria });
-      Alert.alert('✅ Zona actualizada', `${(result as any).parcelasAsignadas ?? 0} parcelas asignadas`);
+      Alert.alert('Zona actualizada', `${(result as any).parcelasAsignadas ?? 0} parcelas asignadas`);
       setEditandoZonaId(null); setEditandoZonaNombre(''); setVerticesZonaEdit([]);
       fetchZonas(); fetchParcelas();
     } catch (e: any) { Alert.alert('Error', e.message ?? 'Error al actualizar zona'); }
@@ -660,13 +661,13 @@ const DashboardScreen = () => {
             animationMode: 'flyTo',
             animationDuration: 1000,
           })}>
-          <Text style={{ fontSize: 20 }}>📍</Text>
+          <Icon name="map-marker" size={20} color="#1a5c2a" />
         </TouchableOpacity>
 
         {modoPanel !== 'parcela' && !dibujandoCapa && !dibujandoZona && !editandoZonaId && (
           <TouchableOpacity style={styles.btnZonas}
             onPress={() => navigation.navigate('Zonas')}>
-            <Text style={styles.btnZonasTexto}>🗺 Zonas</Text>
+            <IconLabel icon="map" label="Zonas" textStyle={styles.btnZonasTexto} />
           </TouchableOpacity>
         )}
 
@@ -684,9 +685,11 @@ const DashboardScreen = () => {
           }>
             {modoPanel === 'nuevaCapa' && (
               <>
-                <Text style={styles.panelTitulo}>
-                  {editandoCapaId ? '🧩 Editando capa' : '🧩 Nueva capa — toca el mapa para dibujar'}
-                </Text>
+                <IconLabel
+                  icon="puzzle"
+                  label={editandoCapaId ? 'Editando capa' : 'Nueva capa — toca el mapa para dibujar'}
+                  textStyle={styles.panelTitulo}
+                />
                 <Text style={styles.panelSub}>Parcela: {parcelaParaCapa?.p_nombre ?? parcelaParaCapa?.nombre}</Text>
                 <View style={styles.tipoRow}>
                   {(['activo','descanso','lindero'] as const).map(t => (
@@ -702,15 +705,15 @@ const DashboardScreen = () => {
                 <Text style={styles.panelInfo}>Vértices: {verticesCapa.length} · Área: {getArea(verticesCapa)} ha</Text>
                 <View style={styles.btnRow}>
                   <TouchableOpacity style={styles.btnSecundario} onPress={() => setVerticesCapa(v => v.slice(0, -1))}>
-                    <Text style={styles.btnSecTexto}>↩ Deshacer</Text>
+                    <IconLabel icon="undo" label="Deshacer" textStyle={styles.btnSecTexto} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.btnSecundario}
                     onPress={() => { setDibujandoCapa(false); setVerticesCapa([]); setParcelaParaCapa(null); setEditandoCapaId(null); }}>
-                    <Text style={[styles.btnSecTexto, { color: 'red' }]}>✕ Cancelar</Text>
+                    <IconLabel icon="close" label="Cancelar" textStyle={[styles.btnSecTexto, { color: 'red' }]} />
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.btnPrimario, verticesCapa.length < 3 && { opacity: 0.4 }]}
                     onPress={saveCapa} disabled={verticesCapa.length < 3}>
-                    <Text style={styles.btnTexto}>💾 Guardar</Text>
+                    <IconLabel icon="content-save" label="Guardar" textStyle={styles.btnTexto} />
                   </TouchableOpacity>
                 </View>
               </>
@@ -718,7 +721,7 @@ const DashboardScreen = () => {
 
             {modoPanel === 'nuevaZona' && (
               <>
-                <Text style={styles.panelTitulo}>🗺 Nueva zona — toca el mapa para dibujar</Text>
+                <IconLabel icon="map" label="Nueva zona — toca el mapa para dibujar" textStyle={styles.panelTitulo} />
                 <TextInput style={styles.input} value={nombreZona} onChangeText={setNombreZona}
                   placeholder="Nombre de la zona *" placeholderTextColor="#aaa" />
                 <TextInput style={styles.input} value={descripcionZona} onChangeText={setDescripcionZona}
@@ -726,15 +729,15 @@ const DashboardScreen = () => {
                 <Text style={styles.panelInfo}>Vértices: {verticesZona.length} · Área: {getArea(verticesZona)} ha</Text>
                 <View style={styles.btnRow}>
                   <TouchableOpacity style={styles.btnSecundario} onPress={() => setVerticesZona(v => v.slice(0, -1))}>
-                    <Text style={styles.btnSecTexto}>↩ Deshacer</Text>
+                    <IconLabel icon="undo" label="Deshacer" textStyle={styles.btnSecTexto} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.btnSecundario}
                     onPress={() => { setDibujandoZona(false); setVerticesZona([]); setNombreZona(''); setDescripcionZona(''); }}>
-                    <Text style={[styles.btnSecTexto, { color: 'red' }]}>✕ Cancelar</Text>
+                    <IconLabel icon="close" label="Cancelar" textStyle={[styles.btnSecTexto, { color: 'red' }]} />
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.btnPrimario, (verticesZona.length < 3 || !nombreZona.trim()) && { opacity: 0.4 }]}
                     onPress={saveZona} disabled={verticesZona.length < 3 || !nombreZona.trim()}>
-                    <Text style={styles.btnTexto}>💾 Guardar</Text>
+                    <IconLabel icon="content-save" label="Guardar" textStyle={styles.btnTexto} />
                   </TouchableOpacity>
                 </View>
               </>
@@ -742,20 +745,20 @@ const DashboardScreen = () => {
 
             {modoPanel === 'editarZona' && (
               <>
-                <Text style={styles.panelTitulo}>🗺 Editando: {editandoZonaNombre}</Text>
+                <IconLabel icon="map" label={`Editando: ${editandoZonaNombre}`} textStyle={styles.panelTitulo} />
                 <Text style={styles.panelSub}>Arrastra vértices o toca el mapa para agregar</Text>
                 <Text style={styles.panelInfo}>Vértices: {verticesZonaEdit.length} · Área: {getArea(verticesZonaEdit)} ha</Text>
                 <View style={styles.btnRow}>
                   <TouchableOpacity style={styles.btnSecundario} onPress={() => setVerticesZonaEdit(v => v.slice(0, -1))}>
-                    <Text style={styles.btnSecTexto}>↩ Deshacer</Text>
+                    <IconLabel icon="undo" label="Deshacer" textStyle={styles.btnSecTexto} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.btnSecundario}
                     onPress={() => { setEditandoZonaId(null); setEditandoZonaNombre(''); setVerticesZonaEdit([]); }}>
-                    <Text style={[styles.btnSecTexto, { color: 'red' }]}>✕ Cancelar</Text>
+                    <IconLabel icon="close" label="Cancelar" textStyle={[styles.btnSecTexto, { color: 'red' }]} />
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.btnPrimario, verticesZonaEdit.length < 3 && { opacity: 0.4 }]}
                     onPress={saveZonaGeometry} disabled={verticesZonaEdit.length < 3}>
-                    <Text style={styles.btnTexto}>💾 Guardar</Text>
+                    <IconLabel icon="content-save" label="Guardar" textStyle={styles.btnTexto} />
                   </TouchableOpacity>
                 </View>
               </>
@@ -795,7 +798,7 @@ const DashboardScreen = () => {
 
             {modoPanel === 'parcela' && activeTab === 'mapa' && (
               <>
-                <Text style={[styles.panelTitulo, { marginBottom: 4 }]}>🗺 Vista general</Text>
+                <IconLabel icon="map" label="Vista general" textStyle={[styles.panelTitulo, { marginBottom: 4 }]} />
                 <View style={[styles.infoRow, { marginVertical: 10 }]}>
                   <View style={styles.infoStat}>
                     <Text style={styles.infoNum}>{parcelas.length}</Text>
@@ -824,25 +827,25 @@ const DashboardScreen = () => {
               <TouchableOpacity
                 style={[styles.tabItem, activeTab === 'mapa' && styles.tabActive]}
                 onPress={() => { setActiveTab('mapa'); setVertices([]); }}>
-                <Text style={styles.tabIcon}>🗺</Text>
+                <Icon name="map" size={18} color="#2563eb" style={styles.tabIcon} />
                 <Text style={[styles.tabLabel, activeTab === 'mapa' && styles.tabLabelActive]}>Mapa</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.tabItem}
                 onPress={() => navigation.navigate('Zonas')}>
-                <Text style={styles.tabIcon}>📍</Text>
+                <Icon name="map-marker" size={18} color="#f59e0b" style={styles.tabIcon} />
                 <Text style={styles.tabLabel}>Zonas</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.tabItem, activeTab === 'parcelas' && styles.tabActive]}
                 onPress={() => setActiveTab('parcelas')}>
-                <Text style={styles.tabIcon}>🌾</Text>
+                <Icon name="barley" size={18} color="#16a34a" style={styles.tabIcon} />
                 <Text style={[styles.tabLabel, activeTab === 'parcelas' && styles.tabLabelActive]}>Parcelas</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.tabItem}
                 onPress={syncOfflineParcelas}>
-                <Text style={styles.tabIcon}>☁️</Text>
+                <Icon name="weather-cloudy" size={18} color="#0891b2" style={styles.tabIcon} />
                 <Text style={styles.tabLabel}>Sincronizar</Text>
               </TouchableOpacity>
             </View>

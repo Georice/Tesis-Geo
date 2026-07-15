@@ -10,6 +10,8 @@ import { Colors } from '../theme/colors';
 import { Capa } from '../domain/entities/Capa';
 import { GetCapas } from '../application/usecases/capa/GetCapas';
 import { DeleteCapa } from '../application/usecases/capa/DeleteCapa';
+import Icon from '../components/Icon';
+import IconLabel from '../components/IconLabel';
 
 type Nav   = NativeStackNavigationProp<RootStackParamList, 'Capas'>;
 type Route = RouteProp<RootStackParamList, 'Capas'>;
@@ -55,9 +57,10 @@ const CapasScreen: React.FC = () => {
 
   return (
     <View style={s.container}>
-      <View style={s.infoCard}>
-        <Text style={s.infoText}>
-          🌿 NDVI mide la salud del cultivo. Valores cercanos a 1.0 indican vegetación muy saludable.
+      <View style={[s.infoCard, s.infoRow]}>
+        <Icon name="leaf" size={16} color={Colors.verde} />
+        <Text style={[s.infoText, { marginLeft: 6, flexShrink: 1 }]}>
+          NDVI mide la salud del cultivo. Valores cercanos a 1.0 indican vegetación muy saludable.
         </Text>
       </View>
 
@@ -74,7 +77,7 @@ const CapasScreen: React.FC = () => {
             ts: Date.now(),
           });
         }}>
-          <Text style={s.btnText}>✏️ Dibujar capa</Text>
+          <IconLabel icon="pencil" label="Dibujar capa" textStyle={s.btnText} />
         </TouchableOpacity>
       </View>
 
@@ -122,10 +125,10 @@ const CapasScreen: React.FC = () => {
                           ts: Date.now(),
                         })}
                         style={s.iconBtn}>
-                        <Text>✏️</Text>
+                        <Icon name="pencil" size={18} color={Colors.grisTexto} />
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => handleEliminar(item)} style={s.iconBtn}>
-                        <Text>🗑️</Text>
+                        <Icon name="delete" size={18} color={Colors.rojo} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -147,6 +150,7 @@ const s = StyleSheet.create({
   btnText:      { color: '#fff', fontWeight: '600', fontSize: 13 },
   infoCard:     { backgroundColor: Colors.verdeClaro, borderRadius: 12, padding: 12,
                   borderWidth: 0.5, borderColor: Colors.verdeBorder, marginBottom: 12 },
+  infoRow:      { flexDirection: 'row', alignItems: 'center' },
   infoText:     { fontSize: 12, color: Colors.verde },
   card:         { backgroundColor: Colors.blanco, borderRadius: 12, padding: 14,
                   marginBottom: 10, borderWidth: 0.5, borderColor: Colors.grisBorde },

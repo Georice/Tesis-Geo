@@ -2,7 +2,6 @@
 -- PostgreSQL database dump
 --
 
-\restrict av3YbWJWfoigujhAvLhP6tQhI4tuf9dRghZTQvSoqgeeTqOgpmGsOFOADxPBYHm
 
 -- Dumped from database version 17.9
 -- Dumped by pg_dump version 17.9
@@ -10,7 +9,6 @@
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
-SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -33,46 +31,10 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types and functions';
 
 
---
--- Name: EstadoDocumento; Type: TYPE; Schema: public; Owner: postgres
---
-
-CREATE TYPE public."EstadoDocumento" AS ENUM (
-    'ACTIVO',
-    'ENVIADO',
-    'EMITIDO',
-    'ARCHIVADO'
-);
 
 
-ALTER TYPE public."EstadoDocumento" OWNER TO postgres;
-
---
--- Name: EstadoMulta; Type: TYPE; Schema: public; Owner: postgres
---
-
-CREATE TYPE public."EstadoMulta" AS ENUM (
-    'PENDIENTE',
-    'PAGADA',
-    'EXONERADA'
-);
 
 
-ALTER TYPE public."EstadoMulta" OWNER TO postgres;
-
---
--- Name: EstadoReunion; Type: TYPE; Schema: public; Owner: postgres
---
-
-CREATE TYPE public."EstadoReunion" AS ENUM (
-    'PROGRAMADA',
-    'EN_CURSO',
-    'FINALIZADA',
-    'CANCELADA'
-);
-
-
-ALTER TYPE public."EstadoReunion" OWNER TO postgres;
 
 --
 -- Name: EstadoSocio; Type: TYPE; Schema: public; Owner: postgres
@@ -85,20 +47,9 @@ CREATE TYPE public."EstadoSocio" AS ENUM (
 );
 
 
-ALTER TYPE public."EstadoSocio" OWNER TO postgres;
-
---
--- Name: ModalidadReunion; Type: TYPE; Schema: public; Owner: postgres
---
-
-CREATE TYPE public."ModalidadReunion" AS ENUM (
-    'PRESENCIAL',
-    'VIRTUAL',
-    'MIXTA'
-);
 
 
-ALTER TYPE public."ModalidadReunion" OWNER TO postgres;
+
 
 --
 -- Name: NivelAcceso; Type: TYPE; Schema: public; Owner: postgres
@@ -112,7 +63,6 @@ CREATE TYPE public."NivelAcceso" AS ENUM (
 );
 
 
-ALTER TYPE public."NivelAcceso" OWNER TO postgres;
 
 --
 -- Name: RolSocio; Type: TYPE; Schema: public; Owner: postgres
@@ -128,34 +78,9 @@ CREATE TYPE public."RolSocio" AS ENUM (
 );
 
 
-ALTER TYPE public."RolSocio" OWNER TO postgres;
-
---
--- Name: TipoDocumento; Type: TYPE; Schema: public; Owner: postgres
---
-
-CREATE TYPE public."TipoDocumento" AS ENUM (
-    'RESOLUCION',
-    'OFICIO',
-    'CERTIFICADO',
-    'SOLICITUD',
-    'ACTA'
-);
 
 
-ALTER TYPE public."TipoDocumento" OWNER TO postgres;
 
---
--- Name: TipoReunion; Type: TYPE; Schema: public; Owner: postgres
---
-
-CREATE TYPE public."TipoReunion" AS ENUM (
-    'ORDINARIA',
-    'EXTRAORDINARIA'
-);
-
-
-ALTER TYPE public."TipoReunion" OWNER TO postgres;
 
 --
 -- Name: fn_asignar_fase(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -227,7 +152,6 @@ END;
 $$;
 
 
-ALTER FUNCTION public.fn_asignar_fase() OWNER TO postgres;
 
 --
 -- Name: FUNCTION fn_asignar_fase(); Type: COMMENT; Schema: public; Owner: postgres
@@ -261,7 +185,6 @@ END;
 $$;
 
 
-ALTER FUNCTION public.fn_asignar_numero_actividad() OWNER TO postgres;
 
 --
 -- Name: fn_calcular_costo_mano_obra(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -297,7 +220,6 @@ END;
 $$;
 
 
-ALTER FUNCTION public.fn_calcular_costo_mano_obra() OWNER TO postgres;
 
 --
 -- Name: fn_calcular_costo_maquinaria(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -315,7 +237,6 @@ END;
 $$;
 
 
-ALTER FUNCTION public.fn_calcular_costo_maquinaria() OWNER TO postgres;
 
 --
 -- Name: fn_recalcular_costo_producto(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -367,7 +288,6 @@ END;
 $_$;
 
 
-ALTER FUNCTION public.fn_recalcular_costo_producto() OWNER TO postgres;
 
 --
 -- Name: fn_recalcular_costo_total(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -387,7 +307,6 @@ END;
 $$;
 
 
-ALTER FUNCTION public.fn_recalcular_costo_total() OWNER TO postgres;
 
 --
 -- Name: fn_set_updated_at(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -403,7 +322,6 @@ END;
 $$;
 
 
-ALTER FUNCTION public.fn_set_updated_at() OWNER TO postgres;
 
 SET default_tablespace = '';
 
@@ -473,7 +391,6 @@ CREATE TABLE public.actividades_parcela (
 );
 
 
-ALTER TABLE public.actividades_parcela OWNER TO postgres;
 
 --
 -- Name: COLUMN actividades_parcela.numero_actividad; Type: COMMENT; Schema: public; Owner: postgres
@@ -579,7 +496,6 @@ CREATE SEQUENCE public.actividades_parcela_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.actividades_parcela_id_seq OWNER TO postgres;
 
 --
 -- Name: actividades_parcela_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -607,7 +523,6 @@ CREATE TABLE public.capas_parcela (
 );
 
 
-ALTER TABLE public.capas_parcela OWNER TO postgres;
 
 --
 -- Name: capas_parcela_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -622,7 +537,6 @@ CREATE SEQUENCE public.capas_parcela_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.capas_parcela_id_seq OWNER TO postgres;
 
 --
 -- Name: capas_parcela_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -653,7 +567,6 @@ CREATE TABLE public.ciclos_actividad (
 );
 
 
-ALTER TABLE public.ciclos_actividad OWNER TO postgres;
 
 --
 -- Name: ciclos_actividad_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -668,7 +581,6 @@ CREATE SEQUENCE public.ciclos_actividad_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.ciclos_actividad_id_seq OWNER TO postgres;
 
 --
 -- Name: ciclos_actividad_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -694,7 +606,6 @@ CREATE TABLE public.detalle_cosecha (
 );
 
 
-ALTER TABLE public.detalle_cosecha OWNER TO postgres;
 
 --
 -- Name: TABLE detalle_cosecha; Type: COMMENT; Schema: public; Owner: postgres
@@ -712,7 +623,6 @@ CREATE TABLE public.detalle_fertilizacion (
 );
 
 
-ALTER TABLE public.detalle_fertilizacion OWNER TO postgres;
 
 --
 -- Name: TABLE detalle_fertilizacion; Type: COMMENT; Schema: public; Owner: postgres
@@ -735,7 +645,6 @@ CREATE TABLE public.detalle_fumigacion (
 );
 
 
-ALTER TABLE public.detalle_fumigacion OWNER TO postgres;
 
 --
 -- Name: TABLE detalle_fumigacion; Type: COMMENT; Schema: public; Owner: postgres
@@ -766,7 +675,6 @@ CREATE TABLE public.detalle_mano_obra (
 );
 
 
-ALTER TABLE public.detalle_mano_obra OWNER TO postgres;
 
 --
 -- Name: TABLE detalle_mano_obra; Type: COMMENT; Schema: public; Owner: postgres
@@ -797,7 +705,6 @@ CREATE TABLE public.detalle_maquinaria (
 );
 
 
-ALTER TABLE public.detalle_maquinaria OWNER TO postgres;
 
 --
 -- Name: TABLE detalle_maquinaria; Type: COMMENT; Schema: public; Owner: postgres
@@ -816,7 +723,6 @@ CREATE TABLE public.detalle_riego (
 );
 
 
-ALTER TABLE public.detalle_riego OWNER TO postgres;
 
 --
 -- Name: TABLE detalle_riego; Type: COMMENT; Schema: public; Owner: postgres
@@ -845,7 +751,6 @@ CREATE TABLE public.fases_ciclo (
 );
 
 
-ALTER TABLE public.fases_ciclo OWNER TO postgres;
 
 --
 -- Name: TABLE fases_ciclo; Type: COMMENT; Schema: public; Owner: postgres
@@ -888,7 +793,6 @@ CREATE SEQUENCE public.fases_ciclo_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.fases_ciclo_id_seq OWNER TO postgres;
 
 --
 -- Name: fases_ciclo_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -922,7 +826,6 @@ CREATE TABLE public.parcelas (
 );
 
 
-ALTER TABLE public.parcelas OWNER TO postgres;
 
 --
 -- Name: parcelas_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -937,7 +840,6 @@ CREATE SEQUENCE public.parcelas_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.parcelas_id_seq OWNER TO postgres;
 
 --
 -- Name: parcelas_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -962,7 +864,6 @@ CREATE TABLE public.plantillas_ciclo (
 );
 
 
-ALTER TABLE public.plantillas_ciclo OWNER TO postgres;
 
 --
 -- Name: TABLE plantillas_ciclo; Type: COMMENT; Schema: public; Owner: postgres
@@ -984,7 +885,6 @@ CREATE SEQUENCE public.plantillas_ciclo_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.plantillas_ciclo_id_seq OWNER TO postgres;
 
 --
 -- Name: plantillas_ciclo_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1019,7 +919,6 @@ CREATE TABLE public.productos_actividad (
 );
 
 
-ALTER TABLE public.productos_actividad OWNER TO postgres;
 
 --
 -- Name: COLUMN productos_actividad.precio_unitario; Type: COMMENT; Schema: public; Owner: postgres
@@ -1083,7 +982,6 @@ CREATE SEQUENCE public.productos_actividad_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.productos_actividad_id_seq OWNER TO postgres;
 
 --
 -- Name: productos_actividad_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1106,7 +1004,6 @@ CREATE TABLE public.refresh_tokens (
 );
 
 
-ALTER TABLE public.refresh_tokens OWNER TO postgres;
 
 --
 -- Name: refresh_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -1121,7 +1018,6 @@ CREATE SEQUENCE public.refresh_tokens_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.refresh_tokens_id_seq OWNER TO postgres;
 
 --
 -- Name: refresh_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1152,7 +1048,6 @@ CREATE TABLE public.socios (
 );
 
 
-ALTER TABLE public.socios OWNER TO postgres;
 
 --
 -- Name: socios_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -1167,7 +1062,6 @@ CREATE SEQUENCE public.socios_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.socios_id_seq OWNER TO postgres;
 
 --
 -- Name: socios_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1198,7 +1092,6 @@ CREATE TABLE public.usuarios (
 );
 
 
-ALTER TABLE public.usuarios OWNER TO postgres;
 
 --
 -- Name: usuarios_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -1213,7 +1106,6 @@ CREATE SEQUENCE public.usuarios_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.usuarios_id_seq OWNER TO postgres;
 
 --
 -- Name: usuarios_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -1254,7 +1146,6 @@ CREATE VIEW public.v_costos_actividad AS
    FROM public.actividades_parcela a;
 
 
-ALTER VIEW public.v_costos_actividad OWNER TO postgres;
 
 --
 -- Name: VIEW v_costos_actividad; Type: COMMENT; Schema: public; Owner: postgres
@@ -1280,7 +1171,6 @@ CREATE TABLE public.zonas (
 );
 
 
-ALTER TABLE public.zonas OWNER TO postgres;
 
 --
 -- Name: zonas_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -1295,7 +1185,6 @@ CREATE SEQUENCE public.zonas_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.zonas_id_seq OWNER TO postgres;
 
 --
 -- Name: zonas_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -2072,9 +1961,70 @@ ALTER TABLE ONLY public.zonas
     ADD CONSTRAINT zonas_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE RESTRICT;
 
 
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- COMPATIBILIDAD MAGNARICE (compañero Crisspa)
+-- Tablas propias de MagnaRice (Prisma: id TEXT, camelCase), renombradas con
+-- sufijo _magnarice para no chocar con usuarios/socios de GeoRice (id INTEGER,
+-- snake_case, usadas por Usuario.ts y el login con cédula/usuario).
+-- Reutilizan los ENUMs RolSocio/NivelAcceso/EstadoSocio ya creados arriba.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS public.usuarios_magnarice (
+    id text NOT NULL,
+    email text NOT NULL,
+    password text NOT NULL,
+    nombre text NOT NULL,
+    apellido text NOT NULL,
+    activo boolean DEFAULT true NOT NULL,
+    "createdAt" timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "updatedAt" timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+ALTER TABLE ONLY public.usuarios_magnarice
+    ADD CONSTRAINT usuarios_magnarice_pkey PRIMARY KEY (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS usuarios_magnarice_email_key ON public.usuarios_magnarice USING btree (email);
+
+CREATE TABLE IF NOT EXISTS public.socios_magnarice (
+    id text NOT NULL,
+    cedula character varying(10) NOT NULL,
+    nombre text NOT NULL,
+    apellido text NOT NULL,
+    email text,
+    telefono text DEFAULT ''::text NOT NULL,
+    direccion text,
+    rol public."RolSocio" DEFAULT 'SOCIO'::public."RolSocio" NOT NULL,
+    "nivelAcceso" public."NivelAcceso" DEFAULT 'MIEMBRO'::public."NivelAcceso" NOT NULL,
+    estado public."EstadoSocio" DEFAULT 'ACTIVO'::public."EstadoSocio" NOT NULL,
+    "fechaIngreso" timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "createdAt" timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "updatedAt" timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "usuarioId" text
+);
+
+ALTER TABLE ONLY public.socios_magnarice
+    ADD CONSTRAINT socios_magnarice_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.socios_magnarice
+    ADD CONSTRAINT "socios_magnarice_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES public.usuarios_magnarice(id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS socios_magnarice_cedula_key ON public.socios_magnarice USING btree (cedula);
+CREATE UNIQUE INDEX IF NOT EXISTS socios_magnarice_email_key ON public.socios_magnarice USING btree (email);
+CREATE UNIQUE INDEX IF NOT EXISTS socios_magnarice_usuarioId_key ON public.socios_magnarice USING btree ("usuarioId");
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- PERMISOS
+-- ═══════════════════════════════════════════════════════════════════════════
+
+GRANT ALL ON ALL TABLES IN SCHEMA public TO managerice;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO managerice;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO managerice;
+
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict av3YbWJWfoigujhAvLhP6tQhI4tuf9dRghZTQvSoqgeeTqOgpmGsOFOADxPBYHm
 

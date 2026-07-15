@@ -10,6 +10,7 @@ import { GetUsers }          from '../application/usecases/usuarios/GetUsers';
 import { CreateUser }        from '../application/usecases/usuarios/CreateUser';
 import { UpdateUser }        from '../application/usecases/usuarios/UpdateUser';
 import { ToggleUserStatus }  from '../application/usecases/usuarios/ToggleUserStatus';
+import IconLabel from '../components/IconLabel';
 
 type FormMode = 'create' | 'edit';
 
@@ -215,18 +216,20 @@ const AdminUsuariosScreen: React.FC = () => {
         </View>
         <View style={styles.cardActions}>
           <TouchableOpacity style={styles.actionBtn} onPress={() => openEdit(u)} activeOpacity={0.7}>
-            <Text style={styles.actionBtnText}>✏️ Editar</Text>
+            <IconLabel icon="pencil" label="Editar" textStyle={styles.actionBtnText} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, u.estado === 'activo' ? styles.actionBtnDanger : styles.actionBtnSuccess]}
             onPress={() => handleToggle(u)}
             activeOpacity={0.7}>
-            <Text style={[
-              styles.actionBtnText,
-              u.estado === 'activo' ? styles.actionTextDanger : styles.actionTextSuccess,
-            ]}>
-              {u.estado === 'activo' ? '🔒 Desactivar' : '🔓 Activar'}
-            </Text>
+            <IconLabel
+              icon={u.estado === 'activo' ? 'lock' : 'lock-open'}
+              label={u.estado === 'activo' ? 'Desactivar' : 'Activar'}
+              textStyle={[
+                styles.actionBtnText,
+                u.estado === 'activo' ? styles.actionTextDanger : styles.actionTextSuccess,
+              ]}
+            />
           </TouchableOpacity>
         </View>
       </View>
