@@ -13,15 +13,27 @@ import { ToggleUserStatus }  from '../application/usecases/usuarios/ToggleUserSt
 
 type FormMode = 'create' | 'edit';
 
+// interface FormState {
+//   nombres:   string;
+//   apellidos: string;
+//   email:     string;
+//   password:  string;
+// }
+
+// const EMPTY_FORM: FormState = {
+//   nombres: '', apellidos: '', email: '', password: '',
+// };
+
 interface FormState {
   nombres:   string;
   apellidos: string;
+  cedula:    string;
   email:     string;
   password:  string;
 }
 
 const EMPTY_FORM: FormState = {
-  nombres: '', apellidos: '', email: '', password: '',
+  nombres: '', apellidos: '', cedula: '', email: '', password: '',
 };
 
 const AdminUsuariosScreen: React.FC = () => {
@@ -60,15 +72,25 @@ const AdminUsuariosScreen: React.FC = () => {
     setFormVisible(true);
   };
 
+  // const openEdit = (u: Usuario) => {
+  //   setForm({
+  //     nombres: u.nombres, apellidos: u.apellidos,
+  //     email: u.email ?? '', password: '',
+  //   });
+  //   setFormMode('edit');
+  //   setEditingId(u.id);
+  //   setFormVisible(true);
+  // };
   const openEdit = (u: Usuario) => {
-    setForm({
-      nombres: u.nombres, apellidos: u.apellidos,
-      email: u.email ?? '', password: '',
-    });
-    setFormMode('edit');
-    setEditingId(u.id);
-    setFormVisible(true);
-  };
+  setForm({
+    nombres: u.nombres, apellidos: u.apellidos,
+    cedula: u.cedula ?? '',
+    email: u.email ?? '', password: '',
+  });
+  setFormMode('edit');
+  setEditingId(u.id);
+  setFormVisible(true);
+};
 
   const handleToggle = (u: Usuario) => {
     const estaActivo = u.estado === 'activo';
@@ -94,41 +116,79 @@ const AdminUsuariosScreen: React.FC = () => {
     );
   };
 
+  // const handleSave = async () => {
+  //   const { nombres, apellidos, email, password } = form;
+  //   if (!nombres.trim() || !apellidos.trim() || !email.trim()) {
+  //     Alert.alert('Campos requeridos', 'Nombres, apellidos y correo son obligatorios.');
+  //     return;
+  //   }
+  //   if (formMode === 'create' && !password.trim()) {
+  //     Alert.alert('Contraseña requerida', 'Ingresa una contraseña para el nuevo usuario.');
+  //     return;
+  //   }
+  //   setSaving(true);
+  //   try {
+  //     if (formMode === 'create') {
+  //       const dto: CreateUsuarioDto = {
+  //         nombres: nombres.trim(), apellidos: apellidos.trim(),
+  //         email: email.trim(), password: password.trim(),
+  //       };
+  //       await CreateUser(dto);
+  //       Alert.alert('✅ Usuario creado');
+  //     } else {
+  //       const dto: UpdateUsuarioDto = {
+  //         nombres: nombres.trim(), apellidos: apellidos.trim(),
+  //         email: email.trim(),
+  //       };
+  //       await UpdateUser(editingId!, dto);
+  //       Alert.alert('✅ Usuario actualizado');
+  //     }
+  //     setFormVisible(false);
+  //     await loadUsuarios();
+  //   } catch (e: any) {
+  //     Alert.alert('Error', e.message ?? 'No se pudo guardar');
+  //   } finally {
+  //     setSaving(false);
+  //   }
+  // };
+
   const handleSave = async () => {
-    const { nombres, apellidos, email, password } = form;
-    if (!nombres.trim() || !apellidos.trim() || !email.trim()) {
-      Alert.alert('Campos requeridos', 'Nombres, apellidos y correo son obligatorios.');
-      return;
+  const { nombres, apellidos, cedula, email, password } = form;
+  if (!nombres.trim() || !apellidos.trim() || !cedula.trim()) {
+    Alert.alert('Campos requeridos', 'Nombres, apellidos y cedula son obligatorios.');
+    return;
+  }
+  if (formMode === 'create' && !password.trim()) {
+    Alert.alert('Contrasena requerida', 'Ingresa una contrasena para el nuevo usuario.');
+    return;
+  }
+  setSaving(true);
+  try {
+    if (formMode === 'create') {
+      const dto: CreateUsuarioDto = {
+        nombres: nombres.trim(), apellidos: apellidos.trim(),
+        cedula: cedula.trim(),
+        email: email.trim() || undefined,
+        password: password.trim(),
+      };
+      await CreateUser(dto);
+      Alert.alert('Usuario creado');
+    } else {
+      const dto: UpdateUsuarioDto = {
+        nombres: nombres.trim(), apellidos: apellidos.trim(),
+        email: email.trim() || undefined,
+      };
+      await UpdateUser(editingId!, dto);
+      Alert.alert('Usuario actualizado');
     }
-    if (formMode === 'create' && !password.trim()) {
-      Alert.alert('Contraseña requerida', 'Ingresa una contraseña para el nuevo usuario.');
-      return;
-    }
-    setSaving(true);
-    try {
-      if (formMode === 'create') {
-        const dto: CreateUsuarioDto = {
-          nombres: nombres.trim(), apellidos: apellidos.trim(),
-          email: email.trim(), password: password.trim(),
-        };
-        await CreateUser(dto);
-        Alert.alert('✅ Usuario creado');
-      } else {
-        const dto: UpdateUsuarioDto = {
-          nombres: nombres.trim(), apellidos: apellidos.trim(),
-          email: email.trim(),
-        };
-        await UpdateUser(editingId!, dto);
-        Alert.alert('✅ Usuario actualizado');
-      }
-      setFormVisible(false);
-      await loadUsuarios();
-    } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'No se pudo guardar');
-    } finally {
-      setSaving(false);
-    }
-  };
+    setFormVisible(false);
+    await loadUsuarios();
+  } catch (e: any) {
+    Alert.alert('Error', e.message ?? 'No se pudo guardar');
+  } finally {
+    setSaving(false);
+  }
+};
 
   const renderItem = ({ item: u }: { item: Usuario }) => (
     <View style={styles.card}>
@@ -231,6 +291,16 @@ const AdminUsuariosScreen: React.FC = () => {
                 value={form.apellidos}
                 onChangeText={v => setForm(f => ({ ...f, apellidos: v }))}
               />
+
+              <TextInput
+  style={styles.input}
+  placeholder="Cedula *"
+  placeholderTextColor="#aaa"
+  value={form.cedula}
+  onChangeText={v => setForm(f => ({ ...f, cedula: v }))}
+  keyboardType="numeric"
+  maxLength={10}
+/>
               <TextInput
                 style={styles.input}
                 placeholder="Correo electrónico *"

@@ -195,23 +195,46 @@ const ActividadesScreen: React.FC = () => {
   const [descripcionUnidadMo, setDescripcionUnidadMo] = useState('');
   const [precioTarea, setPrecioTarea] = useState('');
 
+  // const cargarFasesPorTipo = useCallback(async (tipoActividad: string) => {
+  //   const pid = parcela?.p_id ?? parcela?.id;
+  //   if (!pid || !TIPOS_AMBIGUOS.includes(tipoActividad)) {
+  //     setFasesDisponibles([]);
+  //     setFaseSeleccionada(null);
+  //     return;
+  //   }
+  //   try {
+  //     const res = await apiFetch(`/parcelas/${pid}/ciclos/fases-por-tipo?tipo=${tipoActividad}`);
+  //     const data = await res.json();
+  //     setFasesDisponibles(data.fases ?? []);
+  //     setFaseSeleccionada(data.fases?.[0]?.ordenPlantilla ?? null);
+  //   } catch {
+  //     setFasesDisponibles([]);
+  //     setFaseSeleccionada(null);
+  //   }
+  // }, [parcela]);
+
   const cargarFasesPorTipo = useCallback(async (tipoActividad: string) => {
-    const pid = parcela?.p_id ?? parcela?.id;
-    if (!pid || !TIPOS_AMBIGUOS.includes(tipoActividad)) {
-      setFasesDisponibles([]);
-      setFaseSeleccionada(null);
-      return;
-    }
-    try {
-      const res = await apiFetch(`/parcelas/${pid}/ciclos/fases-por-tipo?tipo=${tipoActividad}`);
-      const data = await res.json();
-      setFasesDisponibles(data.fases ?? []);
-      setFaseSeleccionada(data.fases?.[0]?.ordenPlantilla ?? null);
-    } catch {
-      setFasesDisponibles([]);
-      setFaseSeleccionada(null);
-    }
-  }, [parcela]);
+  const pid = parcela?.p_id ?? parcela?.id;
+  if (!pid || !TIPOS_AMBIGUOS.includes(tipoActividad)) {
+    setFasesDisponibles([]);
+    setFaseSeleccionada(null);
+    return;
+  }
+  try {
+    const res = await apiFetch(`/parcelas/${pid}/ciclos/fases-por-tipo?tipo=${tipoActividad}`);
+    const data = await res.json();
+    const fases = (data.fases ?? []).map((f: any) => ({
+      codigo:         f.codigo,
+      nombre:         f.nombre,
+      ordenPlantilla: f.orden_plantilla ?? f.ordenPlantilla,
+    }));
+    setFasesDisponibles(fases);
+    setFaseSeleccionada(fases[0]?.ordenPlantilla ?? null);
+  } catch {
+    setFasesDisponibles([]);
+    setFaseSeleccionada(null);
+  }
+}, [parcela]);
 
   useEffect(() => {
     const u = MO_UNIDAD[tipo] ?? 'jornal';
@@ -799,150 +822,298 @@ const ActividadesScreen: React.FC = () => {
       </View>
     </Modal>
   );
-
-  const renderTarjetaActividad = (item: Actividad) => {
-    const est = (item.estado ?? 'pendiente') as Estado;
-    return (
-      <View key={item.id} style={[s.card,{borderLeftWidth:4,borderLeftColor:ESTADO_COLOR[est], marginTop:8}]}>
-        <View style={s.cardRow}>
-          <View style={s.numBadge}>
-            <Text style={s.numText}>#{item.numeroActividad ?? '-'}</Text>
-          </View>
-          <Text style={s.emoji}>{TIPO_EMOJI[item.tipo as TipoActividad] ?? '📌'}</Text>
-          <View style={{ flex:1 }}>
-            <Text style={s.cardTitulo}>{TIPO_LABEL[item.tipo as TipoActividad] ?? item.tipo}</Text>
-            {item.fechaInicio && (
-              <Text style={s.cardSub}>
-                {item.fechaInicio?.split('T')[0]}
-                {item.fechaFin ? ' -> ' + item.fechaFin?.split('T')[0] : ''}
-              </Text>
-            )}
-            {item.metodo && <Text style={s.cardMeta}>Metodo: {item.metodo}</Text>}
-            {item.detalleRiego?.laminaAgua != null && (
-              <Text style={s.cardMeta}>Lamina: {item.detalleRiego.laminaAgua} cm</Text>
-            )}
-            {item.detalleFumigacion?.numTanques != null && (
-              <Text style={s.cardMeta}>
-                {Number(item.detalleFumigacion.numTanques).toFixed(1)} tanques x {Number(item.detalleFumigacion.capacidadTanque ?? 200).toFixed(0)}L
-              </Text>
-            )}
-            {item.detalleManoObra?.unidadManoObra === 'tarea' && item.detalleManoObra?.numTareas != null && (
-              <Text style={s.cardMeta}>
-                {Number(item.detalleManoObra.numTareas).toFixed(1)} tareas x ${Number(item.detalleManoObra.precioTarea).toFixed(2)}/tarea
-              </Text>
-            )}
-            {item.detalleManoObra?.unidadManoObra === 'tanque' && item.detalleManoObra?.cantidadUnidadMo != null && (
-              <Text style={s.cardMeta}>
-                {item.detalleManoObra.numTrabajadores ?? '?'} pers. - {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(1)} tanques x ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}
-              </Text>
-            )}
-            {item.detalleManoObra?.unidadManoObra === 'saco' && item.detalleManoObra?.cantidadUnidadMo != null && (
-              <Text style={s.cardMeta}>
-                {item.detalleManoObra.numTrabajadores ?? '?'} pers. - {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(0)} sacos x ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}
-              </Text>
-            )}
-            {item.detalleManoObra?.unidadManoObra === 'jornal' && item.detalleManoObra?.cantidadUnidadMo != null && (
-              <Text style={s.cardMeta}>
-                {item.detalleManoObra.numTrabajadores ?? '?'} pers. - {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(0)} dias x ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}
-              </Text>
-            )}
-            {item.detalleManoObra?.pagoPorTrabajador != null && (
-              <Text style={[s.cardMeta,{color:Colors.tierra}]}>
-                Cada uno: ${Number(item.detalleManoObra.pagoPorTrabajador).toFixed(2)}
-              </Text>
-            )}
-            {item.detalleManoObra?.costoManoObra != null && (
-              <Text style={[s.cardMeta,{color:Colors.tierra}]}>
-                Mano obra: ${Number(item.detalleManoObra.costoManoObra).toFixed(2)}
-              </Text>
-            )}
-            {item.detalleMaquinaria?.tipoMaquinaria && (
-              <Text style={s.cardMeta}>
-                {item.detalleMaquinaria.tipoMaquinaria}: {Number(item.detalleMaquinaria.cantidadUnidades).toFixed(1)} {item.detalleMaquinaria.unidadCobro} x ${Number(item.detalleMaquinaria.costoPorUnidad).toFixed(2)}
-              </Text>
-            )}
-            {item.detalleMaquinaria?.costoMaquinaria != null && (
-              <Text style={[s.cardMeta,{color:Colors.tierra}]}>
-                Maquinaria: ${Number(item.detalleMaquinaria.costoMaquinaria).toFixed(2)}
-              </Text>
-            )}
-            {(item.productos?.length ?? 0) > 0 && (() => {
-              let totalIns = 0;
-              const lineas = (item.productos ?? []).map((p: any, idx: number) => {
-                if (!p.precioUnitario || !p.dosisTotal) return null;
-                const costo = Number(p.dosisTotal) * Number(p.precioUnitario);
-                totalIns += costo;
-                const esTanque = !!p.dosisPorTanque;
-                let detalleTexto = '';
-                if (esTanque) {
-                  detalleTexto = Number(p.dosisPorTanque).toFixed(0) + 'cc x ' + Number(item.detalleFumigacion?.numTanques ?? 0).toFixed(1) + ' tanques = ' + Number(p.dosisTotal).toFixed(2) + 'L x $' + Number(p.precioUnitario).toFixed(2) + '/L';
-                } else {
-                  detalleTexto = Number(p.dosisTotal).toFixed(0) + ' sacos x $' + Number(p.precioUnitario).toFixed(2) + '/saco';
-                }
-                const frascosTxt = p.frascoUsados && esTanque ? ' - ' + Number(p.frascoUsados).toFixed(2) + ' frascos' : '';
-                return (
-                  <View key={idx} style={{ marginTop:3 }}>
-                    <Text style={[s.cardMeta,{fontWeight:'600'}]}>{p.nombre}</Text>
-                    <Text style={[s.cardMeta,{color:'#666',fontSize:11}]}>{detalleTexto}{frascosTxt}</Text>
-                    <Text style={[s.cardMeta,{color:Colors.tierra}]}>${costo.toFixed(2)}</Text>
-                  </View>
-                );
-              }).filter(Boolean);
-              return lineas.length > 0 ? (
-                <>
-                  {lineas}
-                  <Text style={[s.cardMeta,{color:Colors.tierra,fontWeight:'700',marginTop:4}]}>
-                    Total insumos: ${totalIns.toFixed(2)}
-                  </Text>
-                </>
-              ) : null;
-            })()}
-            {item.detalleCosecha?.totalSacos != null && (
-              <Text style={s.cardMeta}>{Number(item.detalleCosecha.totalSacos).toFixed(0)} qq</Text>
-            )}
-            {item.detalleCosecha?.ingresoTotal != null && (
-              <Text style={[s.cardMeta,{color:Colors.verde,fontWeight:'700'}]}>
-                Ingreso: ${Number(item.detalleCosecha.ingresoTotal).toFixed(2)}
-              </Text>
-            )}
-            {item.detalleFumigacion?.plagaDetectada && (
-              <Text style={[s.cardMeta,{color:Colors.rojo}]}>
-                {item.detalleFumigacion.plagaDetectada} - {item.detalleFumigacion.nivelDano}
-              </Text>
-            )}
-            {item.observaciones && <Text style={s.cardMeta}>{item.observaciones}</Text>}
-            {(() => {
+  
+const renderTarjetaActividad = (item: Actividad) => {
+  const est = (item.estado ?? 'pendiente') as Estado;
+  return (
+    <View key={item.id} style={[s.card,{borderLeftWidth:4,borderLeftColor:ESTADO_COLOR[est], marginTop:8}]}>
+      <View style={s.cardRow}>
+        <View style={s.numBadge}>
+          <Text style={s.numText}>#{item.numeroActividad ?? '-'}</Text>
+        </View>
+        <Text style={s.emoji}>{TIPO_EMOJI[item.tipo as TipoActividad] ?? '📌'}</Text>
+        <View style={{ flex:1 }}>
+          <Text style={s.cardTitulo}>{TIPO_LABEL[item.tipo as TipoActividad] ?? item.tipo}</Text>
+          {item.fechaInicio && (
+            <Text style={s.cardSub}>
+              {item.fechaInicio?.split('T')[0]}
+              {item.fechaFin ? ' -> ' + item.fechaFin?.split('T')[0] : ''}
+            </Text>
+          )}
+          {item.metodo && <Text style={s.cardMeta}>Metodo: {item.metodo}</Text>}
+          {item.detalleRiego?.laminaAgua != null && (
+            <Text style={s.cardMeta}>Lamina: {item.detalleRiego.laminaAgua} cm</Text>
+          )}
+          {item.detalleFumigacion?.numTanques != null && (
+            <Text style={s.cardMeta}>
+              {Number(item.detalleFumigacion.numTanques).toFixed(1)} tanques x {Number(item.detalleFumigacion.capacidadTanque ?? 200).toFixed(0)}L
+            </Text>
+          )}
+          {item.detalleManoObra?.unidadManoObra === 'tarea' && item.detalleManoObra?.numTareas != null && (
+            <Text style={s.cardMeta}>
+              {Number(item.detalleManoObra.numTareas).toFixed(1)} tareas x ${Number(item.detalleManoObra.precioTarea).toFixed(2)}/tarea
+            </Text>
+          )}
+          {item.detalleManoObra?.unidadManoObra === 'tanque' && item.detalleManoObra?.cantidadUnidadMo != null && (
+            <Text style={s.cardMeta}>
+              {item.detalleManoObra.numTrabajadores ?? '?'} pers. - {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(1)} tanques x ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}
+            </Text>
+          )}
+          {item.detalleManoObra?.unidadManoObra === 'saco' && item.detalleManoObra?.cantidadUnidadMo != null && (
+            <Text style={s.cardMeta}>
+              {item.detalleManoObra.numTrabajadores ?? '?'} pers. - {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(0)} sacos x ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}
+            </Text>
+          )}
+          {item.detalleManoObra?.unidadManoObra === 'jornal' && item.detalleManoObra?.cantidadUnidadMo != null && (
+            <Text style={s.cardMeta}>
+              {item.detalleManoObra.numTrabajadores ?? '?'} pers. - {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(0)} dias x ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}
+            </Text>
+          )}
+          {item.detalleManoObra?.costoManoObra != null && (
+            <Text style={[s.cardMeta,{color:Colors.tierra}]}>
+              Mano obra: ${Number(item.detalleManoObra.costoManoObra).toFixed(2)}
+            </Text>
+          )}
+          {item.detalleMaquinaria?.tipoMaquinaria && (
+            <Text style={s.cardMeta}>
+              {item.detalleMaquinaria.tipoMaquinaria}: {Number(item.detalleMaquinaria.cantidadUnidades).toFixed(1)} {item.detalleMaquinaria.unidadCobro} x ${Number(item.detalleMaquinaria.costoPorUnidad).toFixed(2)}
+            </Text>
+          )}
+          {item.detalleMaquinaria?.costoMaquinaria != null && (
+            <Text style={[s.cardMeta,{color:Colors.tierra}]}>
+              Maquinaria: ${Number(item.detalleMaquinaria.costoMaquinaria).toFixed(2)}
+            </Text>
+          )}
+          {(item.productos?.length ?? 0) > 0 && (
+            <Text style={s.cardMeta}>
+              {(item.productos ?? []).map((p: any) => p.nombre).filter(Boolean).join(', ')}
+            </Text>
+          )}
+          {item.detalleCosecha?.totalSacos != null && (
+            <Text style={s.cardMeta}>{Number(item.detalleCosecha.totalSacos).toFixed(0)} qq</Text>
+          )}
+          {item.detalleCosecha?.ingresoTotal != null && (
+            <Text style={[s.cardMeta,{color:Colors.verde,fontWeight:'700'}]}>
+              Ingreso: ${Number(item.detalleCosecha.ingresoTotal).toFixed(2)}
+            </Text>
+          )}
+          {item.detalleFumigacion?.plagaDetectada && (
+            <Text style={[s.cardMeta,{color:Colors.rojo}]}>
+              {item.detalleFumigacion.plagaDetectada} - {item.detalleFumigacion.nivelDano}
+            </Text>
+          )}
+          {item.observaciones && <Text style={s.cardMeta}>{item.observaciones}</Text>}
+          {(() => {
+            let total = Number(item.costoTotalActividad ?? 0);
+            if (!total) {
               const mo  = Number(item.detalleManoObra?.costoManoObra   ?? 0);
               const maq = Number(item.detalleMaquinaria?.costoMaquinaria ?? 0);
+              const esTanque = TIPOS_CON_TANQUES.includes(item.tipo as TipoActividad);
+              const numTanquesItem = Number(item.detalleFumigacion?.numTanques ?? 0);
+              const cantidadUnidadMoItem = Number(item.detalleManoObra?.cantidadUnidadMo ?? 0);
               const ins = (item.productos ?? []).reduce((sum: number, p: any) => {
-                if (!p.precioUnitario || !p.dosisTotal) return sum;
-                return sum + Number(p.dosisTotal) * Number(p.precioUnitario);
+                const precioPresentacion = Number(p.precioPresentacion ?? p.precio_presentacion ?? 0);
+                if (!precioPresentacion) return sum;
+                if (esTanque) {
+                  const presentacionMl = Number(p.presentacionMl ?? p.presentacion_ml ?? 0);
+                  const dosisPorTanque = Number(p.dosisPorTanque ?? p.dosis_por_tanque ?? 0);
+                  if (!presentacionMl || !dosisPorTanque) return sum;
+                  const precioUnit = precioPresentacion / (presentacionMl / 1000);
+                  const cant = (dosisPorTanque / 1000) * numTanquesItem;
+                  return sum + cant * precioUnit;
+                }
+                return sum + precioPresentacion * cantidadUnidadMoItem;
               }, 0);
-              const total = mo + maq + ins;
-              return total > 0 ? (
-                <View style={[s.calcBox,{marginTop:6}]}>
-                  <Text style={s.calcLabel}>COSTO TOTAL:</Text>
-                  <Text style={s.calcValor}>${total.toFixed(2)}</Text>
-                </View>
-              ) : null;
-            })()}
-            <TouchableOpacity
-              style={[s.estadoBtn,{backgroundColor:ESTADO_COLOR[est],borderColor:ESTADO_COLOR[est],marginTop:8,alignSelf:'flex-start'}]}
-              onPress={() => {
-                const sig: Record<Estado,Estado> = { pendiente:'en_proceso', en_proceso:'completada', completada:'pendiente' };
-                cambiarEstadoRapido(item, sig[est]);
-              }}>
-              <Text style={[s.estadoBtnText,{color:'#fff'}]}>{ESTADO_LABEL[est]}</Text>
-            </TouchableOpacity>
-          </View>
-          <View>
-            <TouchableOpacity onPress={() => abrirEditar(item)} style={s.iconBtn}><Text>✏️</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => handleEliminar(item)} style={s.iconBtn}><Text>🗑️</Text></TouchableOpacity>
-          </View>
+              total = mo + maq + ins;
+            }
+            return total > 0 ? (
+              <View style={[s.calcBox,{marginTop:6}]}>
+                <Text style={s.calcLabel}>COSTO TOTAL:</Text>
+                <Text style={s.calcValor}>${total.toFixed(2)}</Text>
+              </View>
+            ) : null;
+          })()}
+          <TouchableOpacity
+            style={[s.estadoBtn,{backgroundColor:ESTADO_COLOR[est],borderColor:ESTADO_COLOR[est],marginTop:8,alignSelf:'flex-start'}]}
+            onPress={() => {
+              const sig: Record<Estado,Estado> = { pendiente:'en_proceso', en_proceso:'completada', completada:'pendiente' };
+              cambiarEstadoRapido(item, sig[est]);
+            }}>
+            <Text style={[s.estadoBtnText,{color:'#fff'}]}>{ESTADO_LABEL[est]}</Text>
+          </TouchableOpacity>
+        </View>
+        <View>
+          <TouchableOpacity onPress={() => abrirEditar(item)} style={s.iconBtn}><Text>✏️</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => handleEliminar(item)} style={s.iconBtn}><Text>🗑️</Text></TouchableOpacity>
         </View>
       </View>
-    );
-  };
+    </View>
+  );
+};
+//   const renderTarjetaActividad = (item: Actividad) => {
+//     const est = (item.estado ?? 'pendiente') as Estado;
+//     return (
+//       <View key={item.id} style={[s.card,{borderLeftWidth:4,borderLeftColor:ESTADO_COLOR[est], marginTop:8}]}>
+//         <View style={s.cardRow}>
+//           <View style={s.numBadge}>
+//             <Text style={s.numText}>#{item.numeroActividad ?? '-'}</Text>
+//           </View>
+//           <Text style={s.emoji}>{TIPO_EMOJI[item.tipo as TipoActividad] ?? '📌'}</Text>
+//           <View style={{ flex:1 }}>
+//             <Text style={s.cardTitulo}>{TIPO_LABEL[item.tipo as TipoActividad] ?? item.tipo}</Text>
+//             {item.fechaInicio && (
+//               <Text style={s.cardSub}>
+//                 {item.fechaInicio?.split('T')[0]}
+//                 {item.fechaFin ? ' -> ' + item.fechaFin?.split('T')[0] : ''}
+//               </Text>
+//             )}
+//             {item.metodo && <Text style={s.cardMeta}>Metodo: {item.metodo}</Text>}
+//             {item.detalleRiego?.laminaAgua != null && (
+//               <Text style={s.cardMeta}>Lamina: {item.detalleRiego.laminaAgua} cm</Text>
+//             )}
+//             {item.detalleFumigacion?.numTanques != null && (
+//               <Text style={s.cardMeta}>
+//                 {Number(item.detalleFumigacion.numTanques).toFixed(1)} tanques x {Number(item.detalleFumigacion.capacidadTanque ?? 200).toFixed(0)}L
+//               </Text>
+//             )}
+//             {item.detalleManoObra?.unidadManoObra === 'tarea' && item.detalleManoObra?.numTareas != null && (
+//               <Text style={s.cardMeta}>
+//                 {Number(item.detalleManoObra.numTareas).toFixed(1)} tareas x ${Number(item.detalleManoObra.precioTarea).toFixed(2)}/tarea
+//               </Text>
+//             )}
+//             {item.detalleManoObra?.unidadManoObra === 'tanque' && item.detalleManoObra?.cantidadUnidadMo != null && (
+//               <Text style={s.cardMeta}>
+//                 {item.detalleManoObra.numTrabajadores ?? '?'} pers. - {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(1)} tanques x ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}
+//               </Text>
+//             )}
+//             {item.detalleManoObra?.unidadManoObra === 'saco' && item.detalleManoObra?.cantidadUnidadMo != null && (
+//               <Text style={s.cardMeta}>
+//                 {item.detalleManoObra.numTrabajadores ?? '?'} pers. - {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(0)} sacos x ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}
+//               </Text>
+//             )}
+//             {item.detalleManoObra?.unidadManoObra === 'jornal' && item.detalleManoObra?.cantidadUnidadMo != null && (
+//               <Text style={s.cardMeta}>
+//                 {item.detalleManoObra.numTrabajadores ?? '?'} pers. - {Number(item.detalleManoObra.cantidadUnidadMo).toFixed(0)} dias x ${Number(item.detalleManoObra.precioUnidadMo).toFixed(2)}
+//               </Text>
+//             )}
+//             {item.detalleManoObra?.pagoPorTrabajador != null && (
+//               <Text style={[s.cardMeta,{color:Colors.tierra}]}>
+//                 Cada uno: ${Number(item.detalleManoObra.pagoPorTrabajador).toFixed(2)}
+//               </Text>
+//             )}
+//             {item.detalleManoObra?.costoManoObra != null && (
+//               <Text style={[s.cardMeta,{color:Colors.tierra}]}>
+//                 Mano obra: ${Number(item.detalleManoObra.costoManoObra).toFixed(2)}
+//               </Text>
+//             )}
+//             {item.detalleMaquinaria?.tipoMaquinaria && (
+//               <Text style={s.cardMeta}>
+//                 {item.detalleMaquinaria.tipoMaquinaria}: {Number(item.detalleMaquinaria.cantidadUnidades).toFixed(1)} {item.detalleMaquinaria.unidadCobro} x ${Number(item.detalleMaquinaria.costoPorUnidad).toFixed(2)}
+//               </Text>
+//             )}
+//             {item.detalleMaquinaria?.costoMaquinaria != null && (
+//               <Text style={[s.cardMeta,{color:Colors.tierra}]}>
+//                 Maquinaria: ${Number(item.detalleMaquinaria.costoMaquinaria).toFixed(2)}
+//               </Text>
+//             )}
+//             {(item.productos?.length ?? 0) > 0 && (() => {
+//               let totalIns = 0;
+//               const lineas = (item.productos ?? []).map((p: any, idx: number) => {
+//                 if (!p.precioUnitario || !p.dosisTotal) return null;
+//                 const costo = Number(p.dosisTotal) * Number(p.precioUnitario);
+//                 totalIns += costo;
+//                 // const esTanque = !!p.dosisPorTanque;
+//                 // // let detalleTexto = '';
+//                 // // if (esTanque) {
+//                 // //   detalleTexto = Number(p.dosisPorTanque).toFixed(0) + 'cc x ' + Number(item.detalleFumigacion?.numTanques ?? 0).toFixed(1) + ' tanques = ' + Number(p.dosisTotal).toFixed(2) + 'L x $' + Number(p.precioUnitario).toFixed(2) + '/L';
+//                 // // } else {
+//                 // //   detalleTexto = Number(p.dosisTotal).toFixed(0) + ' sacos x $' + Number(p.precioUnitario).toFixed(2) + '/saco';
+//                 // // }
+
+//                 // let detalleTexto = '';
+//                 // if (esTanque) {
+//                 //   detalleTexto = Number(p.dosisPorTanque).toFixed(0) + 'cc x ' + Number(item.detalleFumigacion?.numTanques ?? 0).toFixed(1) + ' tanques = ' + Number(p.dosisTotal).toFixed(2) + 'L x $' + Number(p.precioUnitario).toFixed(2) + '/L';
+//                 // } else {
+//                 //   detalleTexto = Number(p.dosisTotal).toFixed(0) + ' sacos x $' + Number(p.precioUnitario).toFixed(2) + '/saco';
+//                 // }
+
+//                 const esFertilizante = p.tipo === 'fertilizante' || p.tipo === 'abono';
+// const esTanque = !!p.dosisPorTanque && !esFertilizante;
+// let detalleTexto = '';
+// if (esTanque) {
+//   detalleTexto = Number(p.dosisPorTanque).toFixed(0) + 'cc x ' + Number(item.detalleFumigacion?.numTanques ?? 0).toFixed(1) + ' tanques = ' + Number(p.dosisTotal).toFixed(2) + 'L x $' + Number(p.precioUnitario).toFixed(2) + '/L';
+// // } else if (esFertilizante) {
+// //   detalleTexto = Number(item.detalleManoObra?.cantidadUnidadMo ?? p.dosisTotal).toFixed(0) + ' sacos x $' + Number(p.precioUnitario).toFixed(2) + '/saco';
+// } else if (esFertilizante) {
+//   detalleTexto = Number(item.detalleManoObra?.cantidadUnidadMo ?? p.dosisTotal).toFixed(0) + ' sacos x $' + Number(p.precioUnitario).toFixed(2) + '/saco';
+
+// } else {
+//   detalleTexto = Number(p.dosisTotal).toFixed(0) + ' x $' + Number(p.precioUnitario).toFixed(2);
+// }
+//                 const frascosTxt = p.frascoUsados && esTanque ? ' - ' + Number(p.frascoUsados).toFixed(2) + ' frascos' : '';
+//                 return (
+//                   <View key={idx} style={{ marginTop:3 }}>
+//                     <Text style={[s.cardMeta,{fontWeight:'600'}]}>{p.nombre}</Text>
+//                     <Text style={[s.cardMeta,{color:'#666',fontSize:11}]}>{detalleTexto}{frascosTxt}</Text>
+//                     <Text style={[s.cardMeta,{color:Colors.tierra}]}>${costo.toFixed(2)}</Text>
+//                   </View>
+//                 );
+//               }).filter(Boolean);
+//               return lineas.length > 0 ? (
+//                 <>
+//                   {lineas}
+//                   <Text style={[s.cardMeta,{color:Colors.tierra,fontWeight:'700',marginTop:4}]}>
+//                     Total insumos: ${totalIns.toFixed(2)}
+//                   </Text>
+//                 </>
+//               ) : null;
+//             })()}
+//             {item.detalleCosecha?.totalSacos != null && (
+//               <Text style={s.cardMeta}>{Number(item.detalleCosecha.totalSacos).toFixed(0)} qq</Text>
+//             )}
+//             {item.detalleCosecha?.ingresoTotal != null && (
+//               <Text style={[s.cardMeta,{color:Colors.verde,fontWeight:'700'}]}>
+//                 Ingreso: ${Number(item.detalleCosecha.ingresoTotal).toFixed(2)}
+//               </Text>
+//             )}
+//             {item.detalleFumigacion?.plagaDetectada && (
+//               <Text style={[s.cardMeta,{color:Colors.rojo}]}>
+//                 {item.detalleFumigacion.plagaDetectada} - {item.detalleFumigacion.nivelDano}
+//               </Text>
+//             )}
+//             {item.observaciones && <Text style={s.cardMeta}>{item.observaciones}</Text>}
+//             {(() => {
+//               const mo  = Number(item.detalleManoObra?.costoManoObra   ?? 0);
+//               const maq = Number(item.detalleMaquinaria?.costoMaquinaria ?? 0);
+//               const ins = (item.productos ?? []).reduce((sum: number, p: any) => {
+//                 if (!p.precioUnitario || !p.dosisTotal) return sum;
+//                 return sum + Number(p.dosisTotal) * Number(p.precioUnitario);
+//               }, 0);
+//               const total = mo + maq + ins;
+//               return total > 0 ? (
+//                 <View style={[s.calcBox,{marginTop:6}]}>
+//                   <Text style={s.calcLabel}>COSTO TOTAL:</Text>
+//                   <Text style={s.calcValor}>${total.toFixed(2)}</Text>
+//                 </View>
+//               ) : null;
+//             })()}
+//             <TouchableOpacity
+//               style={[s.estadoBtn,{backgroundColor:ESTADO_COLOR[est],borderColor:ESTADO_COLOR[est],marginTop:8,alignSelf:'flex-start'}]}
+//               onPress={() => {
+//                 const sig: Record<Estado,Estado> = { pendiente:'en_proceso', en_proceso:'completada', completada:'pendiente' };
+//                 cambiarEstadoRapido(item, sig[est]);
+//               }}>
+//               <Text style={[s.estadoBtnText,{color:'#fff'}]}>{ESTADO_LABEL[est]}</Text>
+//             </TouchableOpacity>
+//           </View>
+//           <View>
+//             <TouchableOpacity onPress={() => abrirEditar(item)} style={s.iconBtn}><Text>✏️</Text></TouchableOpacity>
+//             <TouchableOpacity onPress={() => handleEliminar(item)} style={s.iconBtn}><Text>🗑️</Text></TouchableOpacity>
+//           </View>
+//         </View>
+//       </View>
+//     );
+//   };
 
   const renderLista = () => {
     const grupos = agruparPorFase(actividades);
@@ -1028,8 +1199,8 @@ const ActividadesScreen: React.FC = () => {
             )
             : (
               <View style={{ flexDirection:'row', flexWrap:'wrap', gap:8, marginBottom:10 }}>
-                {fasesDisponibles.map(f => (
-                  <TouchableOpacity key={f.ordenPlantilla}
+               {fasesDisponibles.map((f, idx) => (
+  <TouchableOpacity key={f.ordenPlantilla ?? idx}
                     style={[s.chip, faseSeleccionada===f.ordenPlantilla && s.chipOn]}
                     onPress={() => setFaseSeleccionada(f.ordenPlantilla)}>
                     <Text style={[s.chipText, faseSeleccionada===f.ordenPlantilla && { color:'#fff' }]}>
@@ -1338,8 +1509,9 @@ const ActividadesScreen: React.FC = () => {
     <KeyboardAvoidingView style={{ flex:1 }} behavior={Platform.OS==='ios' ? 'padding' : 'height'}>
       <View style={s.container}>
         {renderModalTipo()}
-        {renderModalTipoProducto()}
         {renderModalMetodo()}
+        {renderModalTipoProducto()}
+
         {vista==='lista'    && renderLista()}
         {vista==='nueva'    && renderFormulario(false)}
         {vista==='editando' && renderFormulario(true)}

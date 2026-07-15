@@ -2,6 +2,7 @@ export interface Usuario {
   id:        string;
   nombres:   string;
   apellidos: string;
+   cedula?:   string;
   email:     string | null;
   rol:       'administrador' | 'socio';
   estado:    'activo' | 'inactivo';
@@ -10,12 +11,14 @@ export interface Usuario {
 export interface CreateUsuarioDto {
   nombres:   string;
   apellidos: string;
-  email:     string;
+  email?:     string;
+   cedula?:   string;
   password:  string;
 }
 
 export interface UpdateUsuarioDto {
   nombres?:   string;
   apellidos?: string;
+   cedula?:   string;
   email?:     string;
 }

@@ -65,8 +65,21 @@ export class AuthService {
     // );
     // const rol = (socioRows[0]?.rol ?? 'socio') as 'administrador' | 'socio';
 
-    const socioRows = await AppDataSource.query(
-  `SELECT COALESCE(CASE s.nivel_acceso WHEN 'ADMIN' THEN 'administrador' ELSE 'socio' END, u.rol) AS rol
+//     const socioRows = await AppDataSource.query(
+//   `SELECT COALESCE(CASE s.nivel_acceso WHEN 'ADMIN' THEN 'administrador' ELSE 'socio' END, u.rol) AS rol
+//    FROM usuarios u
+//    LEFT JOIN socios s ON s.usuario_id = u.id
+//    WHERE u.id = $1 LIMIT 1`,
+//   [record.usuario.id],
+// );
+
+const socioRows = await AppDataSource.query(
+  `SELECT 
+    CASE 
+      WHEN s.nivel_acceso = 'ADMIN' THEN 'administrador'
+      WHEN s.id IS NULL THEN u.rol
+      ELSE 'socio'
+    END AS rol
    FROM usuarios u
    LEFT JOIN socios s ON s.usuario_id = u.id
    WHERE u.id = $1 LIMIT 1`,
