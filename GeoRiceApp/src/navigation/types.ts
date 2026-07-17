@@ -6,4 +6,5 @@ export type RootStackParamList = {
   Capas:          { parcela: any };
   IniciarCiclo:   { parcela: any };
   AdminUsuarios:  undefined;
+  Reportes:       undefined;
 };

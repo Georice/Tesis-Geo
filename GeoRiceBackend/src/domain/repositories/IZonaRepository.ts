@@ -7,4 +7,5 @@ export interface IZonaRepository {
   update(id: number, data: any, ctx: AuthContext): Promise<any | null>;
   delete(id: number, ctx: AuthContext): Promise<boolean>;
   assignParcelasInsideZona(zonaId: number): Promise<number>;
+  hasOverlap(geometria: object, excludeId?: number): Promise<boolean>;
 }

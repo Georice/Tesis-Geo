@@ -36,6 +36,9 @@ export class Usuario {
   @Column({ name: 'updated_at', type: 'timestamp', default: () => 'NOW()' })
   updatedAt!: Date;
 
+  @Column({ name: 'updated_by', type: 'text', nullable: true })
+  updatedBy!: string | null;
+
   // Getter para compatibilidad con AuthService que usa activo
   get activo(): boolean {
     return this.estado === 'activo';

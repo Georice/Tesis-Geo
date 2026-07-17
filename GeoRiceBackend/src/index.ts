@@ -15,6 +15,7 @@ import zonasRoutes      from './infrastructure/http/routes/zonas';
 import capasRoutes      from './infrastructure/http/routes/capas';
 import actividadesRoutes from './infrastructure/http/routes/actividades';
 import ciclosRoutes     from './infrastructure/http/routes/ciclos';
+import reportesRoutes   from './infrastructure/http/routes/reportes';
 
 dotenv.config();
 
@@ -50,6 +51,11 @@ app.use('/api/zonas',       authenticate, zonasRoutes);
 app.use('/api/capas',       authenticate, capasRoutes);
 app.use('/api/actividades', authenticate, actividadesRoutes);
 
+// Reportes: cada ruta interna trae su propio middleware (/resumen exige el
+// header Authorization; /export/* aceptan también ?token= porque se abren
+// con Linking.openURL desde el navegador del dispositivo).
+app.use('/api/reportes', reportesRoutes);
+
 // ── Iniciar ─────────────────────────────────────────────────────────────
 AppDataSource.initialize()
   .then(() => {
@@ -62,6 +68,7 @@ AppDataSource.initialize()
       logger.info('Sync:   GET  /api/sync | GET /api/sync?since=ISO8601');
       logger.info('Users:  GET/POST /api/usuarios (admin only)');
       logger.info('Data:   /api/parcelas | /api/zonas | /api/capas | /api/actividades');
+      logger.info('Reportes: GET /api/reportes/resumen | /api/reportes/export/excel | /api/reportes/export/pdf');
     });
   })
   .catch((error) => logger.error('Error al conectar la base de datos:', error));

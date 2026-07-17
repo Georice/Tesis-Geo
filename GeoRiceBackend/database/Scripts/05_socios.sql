@@ -13,31 +13,31 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 -- ENUMs de MagnaRice (se ignoran silenciosamente si ya existen)
-DO $$ BEGIN CREATE TYPE "RolSocio" AS ENUM ('PRESIDENTE','SECRETARIA','TESORERO','VOCAL','SOCIO','INDEPENDIENTE');
+DO $$ BEGIN CREATE TYPE public."RolSocio" AS ENUM ('PRESIDENTE','SECRETARIA','TESORERO','VOCAL','SOCIO','INDEPENDIENTE');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-DO $$ BEGIN CREATE TYPE "NivelAcceso" AS ENUM ('ADMIN','DIRECTIVO','MIEMBRO','SOLO_VISTA');
+DO $$ BEGIN CREATE TYPE public."NivelAcceso" AS ENUM ('ADMIN','DIRECTIVO','MIEMBRO','SOLO_VISTA');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-DO $$ BEGIN CREATE TYPE "EstadoSocio" AS ENUM ('ACTIVO','INACTIVO','SUSPENDIDO');
+DO $$ BEGIN CREATE TYPE public."EstadoSocio" AS ENUM ('ACTIVO','INACTIVO','SUSPENDIDO');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-DO $$ BEGIN CREATE TYPE "TipoDocumento" AS ENUM ('RESOLUCION','OFICIO','CERTIFICADO','SOLICITUD','ACTA');
+DO $$ BEGIN CREATE TYPE public."TipoDocumento" AS ENUM ('RESOLUCION','OFICIO','CERTIFICADO','SOLICITUD','ACTA');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-DO $$ BEGIN CREATE TYPE "EstadoDocumento" AS ENUM ('ACTIVO','ENVIADO','EMITIDO','ARCHIVADO');
+DO $$ BEGIN CREATE TYPE public."EstadoDocumento" AS ENUM ('ACTIVO','ENVIADO','EMITIDO','ARCHIVADO');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-DO $$ BEGIN CREATE TYPE "TipoReunion" AS ENUM ('ORDINARIA','EXTRAORDINARIA');
+DO $$ BEGIN CREATE TYPE public."TipoReunion" AS ENUM ('ORDINARIA','EXTRAORDINARIA');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-DO $$ BEGIN CREATE TYPE "ModalidadReunion" AS ENUM ('PRESENCIAL','VIRTUAL','MIXTA');
+DO $$ BEGIN CREATE TYPE public."ModalidadReunion" AS ENUM ('PRESENCIAL','VIRTUAL','MIXTA');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-DO $$ BEGIN CREATE TYPE "EstadoReunion" AS ENUM ('PROGRAMADA','EN_CURSO','FINALIZADA','CANCELADA');
+DO $$ BEGIN CREATE TYPE public."EstadoReunion" AS ENUM ('PROGRAMADA','EN_CURSO','FINALIZADA','CANCELADA');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-DO $$ BEGIN CREATE TYPE "EstadoMulta" AS ENUM ('PENDIENTE','PAGADA','EXONERADA');
+DO $$ BEGIN CREATE TYPE public."EstadoMulta" AS ENUM ('PENDIENTE','PAGADA','EXONERADA');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Tabla socios (adaptada a INTEGER para FK con usuarios.id)
@@ -49,9 +49,9 @@ CREATE TABLE IF NOT EXISTS public.socios (
     email         TEXT          UNIQUE,
     telefono      TEXT          NOT NULL DEFAULT '',
     direccion     TEXT,
-    rol           "RolSocio"    NOT NULL DEFAULT 'SOCIO',
-    nivel_acceso  "NivelAcceso" NOT NULL DEFAULT 'MIEMBRO',
-    estado        "EstadoSocio" NOT NULL DEFAULT 'ACTIVO',
+    rol           public."RolSocio"    NOT NULL DEFAULT 'SOCIO',
+    nivel_acceso  public."NivelAcceso" NOT NULL DEFAULT 'MIEMBRO',
+    estado        public."EstadoSocio" NOT NULL DEFAULT 'ACTIVO',
     fecha_ingreso TIMESTAMP     NOT NULL DEFAULT NOW(),
     created_at    TIMESTAMP     NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMP     NOT NULL DEFAULT NOW(),

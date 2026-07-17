@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   StyleSheet, View, Text, TouchableOpacity, Alert, TextInput,
   KeyboardAvoidingView, Platform,
@@ -14,7 +14,7 @@ import turfArea from '@turf/area';
 import { booleanWithin } from '@turf/turf';
 import { type Polygon } from 'geojson';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../context/AuthContext';
@@ -115,6 +115,8 @@ const DashboardScreen = () => {
   const handleDrawerAction = (action: MenuAction) => {
     if (action === 'adminUsuarios') {
       navigation.navigate('AdminUsuarios');
+    } else if (action === 'reportes') {
+      navigation.navigate('Reportes');
     } else if (action === 'logout') {
       Alert.alert(
         'Cerrar sesión',
@@ -169,6 +171,14 @@ const DashboardScreen = () => {
     syncOfflineParcelas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchParcelas();
+      fetchZonas();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+  );
 
   useEffect(() => {
     const params = route.params as any;
@@ -853,8 +863,7 @@ const DashboardScreen = () => {
         </View>}
 
         {menuParcela && (
-  <View style={styles.parcelaSheet}>
-    <View style={styles.sheetHandle} />
+  <View style={styles.parcelaSheet} pointerEvents="box-none">
     <ParcelaDetalleScreen
 
       parcela={menuParcela}
@@ -951,13 +960,7 @@ const styles = StyleSheet.create({
   btnSecTexto:  { fontSize: 13, color: '#444' },
   input:        { borderWidth: 1, borderColor: '#ccc', borderRadius: 8,
                   paddingHorizontal: 12, paddingVertical: 8, marginBottom: 8, fontSize: 15 },
-  parcelaSheet: { position: 'absolute', bottom: 10, left: 10, right: 10,
-                  backgroundColor: 'rgba(255,255,255,0.98)', borderRadius: 20,
-                  padding: 16, paddingTop: 10, elevation: 12,
-                  shadowColor: '#000', shadowOffset: { width: 0, height: -2 },
-                  shadowOpacity: 0.12, shadowRadius: 8 },
-  sheetHandle:  { width: 40, height: 4, backgroundColor: '#ddd', borderRadius: 2,
-                  alignSelf: 'center', marginBottom: 14 },
+  parcelaSheet: { position: 'absolute', bottom: 10, left: 10, right: 10 },
   btnUbicacion: { position: 'absolute', top: 10, right: 12,
                   backgroundColor: 'rgba(255,255,255,0.95)',
                   width: 42, height: 42, borderRadius: 21,

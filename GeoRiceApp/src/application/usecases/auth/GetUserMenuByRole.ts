@@ -3,6 +3,7 @@ import { MenuItem } from '../../../domain/entities/MenuItem';
 export const GetUserMenuByRole = (rol: 'administrador' | 'socio'): MenuItem[] => {
   const items: MenuItem[] = [
     { id: 'inicio', label: 'Inicio', icon: 'home', action: 'inicio' },
+    { id: 'reportes', label: 'Reportes', icon: 'file-chart', action: 'reportes' },
   ];
   if (rol === 'administrador') {
     items.push({

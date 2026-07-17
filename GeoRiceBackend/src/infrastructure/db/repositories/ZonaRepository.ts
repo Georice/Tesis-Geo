@@ -37,6 +37,13 @@ export class ZonaRepository implements IZonaRepository {
   }
 
   async create(data: any, ctx: AuthContext): Promise<any> {
+    let geom: any = null;
+    if (data.geometria) {
+      geom = this.closeRing(data.geometria);
+      const overlap = await this.hasOverlap(geom);
+      if (overlap) throw new Error('La zona se superpone con una zona existente');
+    }
+
     const zona = this.repo.create({
       usuarioId:  ctx.usuarioId,
       nombre:     data.nombre,
@@ -46,8 +53,7 @@ export class ZonaRepository implements IZonaRepository {
     });
     const saved = await this.repo.save(zona);
 
-    if (data.geometria) {
-      const geom = this.closeRing(data.geometria);
+    if (geom) {
       await AppDataSource.query(
         `UPDATE zonas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
         [JSON.stringify(geom), saved.id]
@@ -74,6 +80,9 @@ export class ZonaRepository implements IZonaRepository {
 
     if (data.geometria) {
       const geom = this.closeRing(data.geometria);
+      const overlap = await this.hasOverlap(geom, id);
+      if (overlap) throw new Error('La nueva geometría se superpone con una zona existente');
+
       await AppDataSource.query(
         `UPDATE zonas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
         [JSON.stringify(geom), id]
@@ -89,6 +98,23 @@ export class ZonaRepository implements IZonaRepository {
     await this.verifyOwnership(id, ctx);
     const result = await this.repo.delete(id);
     return (result.affected ?? 0) > 0;
+  }
+
+  async hasOverlap(geometria: object, excludeId?: number): Promise<boolean> {
+    const params: any[] = [JSON.stringify(geometria)];
+    let excludeClause = '';
+    if (excludeId) {
+      params.push(excludeId);
+      excludeClause = `AND id != $${params.length}`;
+    }
+    const result = await AppDataSource.query(`
+      SELECT COUNT(*)::int AS total
+      FROM zonas
+      WHERE ST_Intersects(geometria, ST_GeomFromGeoJSON($1))
+        AND NOT ST_Touches(geometria, ST_GeomFromGeoJSON($1))
+        ${excludeClause}
+    `, params);
+    return (result[0]?.total ?? 0) > 0;
   }
 
   async assignParcelasInsideZona(zonaId: number): Promise<number> {
