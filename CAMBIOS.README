@@ -1,0 +1,15 @@
+
+18/07/2026
+- Refactor de las 16 entidades del backend a arquitectura hexagonal: dominio puro con patrón Factory (create()), capa de Types/DTOs separada,
+  modelos TypeORM y mappers en infraestructura, controllers desacoplados del dominio.
+- Sistema de sincronización offline-first: descarga completa de datos al iniciar sesión (parcelas, zonas, capas, actividades, ciclos, productos),
+  caché local persistente, y trabajo sin conexión con reintento automático al recuperar señal.
+- Creación optimista local-first de parcelas, zonas, actividades y ciclos sin conexión: se muestran de inmediato con id temporal y se sincronizan solas al volver la señal, respetando dependencias entre ellas (p. ej. actividades de una parcela recién creada offline).
+- Cola de operaciones pendientes con reintento multi-pasada, resolviendo dependencias entre creaciones encadenadas (parcela → zona/actividad/ciclo).
+- Visibilidad de errores de sincronización: cuando el servidor rechaza una operación encolada (p. ej. "ya existe un ciclo activo"), el motivo se guarda y se muestra al usuario en vez de quedar pendiente sin explicación.
+- Menú de opciones (3 puntos) en la barra superior: estado de sincronización (filtrado por usuario actual), borrado de caché no enviada (solo afecta lo propio, no lo de otros usuarios ni lo ya sincronizado), y versión de la app.
+- Validación de superposición geométrica: ya no se pueden crear parcelas ni zonas encima de otras existentes.
+- Formulario de nueva parcela: campo renombrado a "Nombre de la parcela" y propietario autocompletado (no editable) con el usuario actual.
+- Corrección de bugs: fase de actividad no se mostraba en caché (faltaba el join), error 500 al listar usuarios (factory de Usuario exigía contraseña en una consulta que no la trae), reportes/admin de usuarios sin manejo offline adecuado, actividades sueltas (sin ciclo) bloqueadas indebidamente por un trigger de base de datos, sincronización incremental que no refrescaba datos ya corregidos en el backend.
+- Mensajes de error saneados: ya no se menciona "servidor" ni jerga técnica interna en alertas al usuario; solo se indica falta de conexión cuando aplica.
+- Corrección de fechas: el filtro de reportes y el selector de fecha en actividades usaban conversión UTC (toISOString()), lo que corría el día seleccionado según la hora local (Ecuador UTC-5). Ahora se usan siempre los componentes locales de la fecha, tanto al mostrar como al enviar y releer datos.

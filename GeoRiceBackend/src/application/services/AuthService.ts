@@ -2,8 +2,8 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
+import { IRefreshTokenRepository } from '../../domain/repositories/IRefreshTokenRepository';
 import { AppDataSource } from '../../infrastructure/db/DataSource';
-import { RefreshToken } from '../../domain/entities/RefreshToken';
 
 export interface JwtPayload {
   sub:       string;
@@ -13,9 +13,10 @@ export interface JwtPayload {
 }
 
 export class AuthService {
-  private refreshRepo = AppDataSource.getRepository(RefreshToken);
-
-  constructor(private readonly userRepo: IUserRepository) {}
+  constructor(
+    private readonly userRepo: IUserRepository,
+    private readonly refreshTokenRepo: IRefreshTokenRepository,
+  ) {}
 
   async login(email: string, password: string) {
     const user = await this.userRepo.findByEmail(email);
@@ -35,57 +36,38 @@ export class AuthService {
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '15m' });
     const { refreshToken, tokenHash, expiresAt } = this.generateRefreshToken();
 
-    await this.refreshRepo.save(
-      this.refreshRepo.create({ usuarioId: Number(user.id), tokenHash, expiresAt }),
-    );
+    await this.refreshTokenRepo.create(Number(user.id), tokenHash, expiresAt);
 
     return { accessToken, refreshToken, usuario: payload };
   }
 
   async refresh(rawToken: string) {
     const tokenHash = this.hashToken(rawToken);
-    const record = await this.refreshRepo.findOne({
-      where: { tokenHash, revocado: false },
-      relations: ['usuario'],
-    });
+    const record = await this.refreshTokenRepo.findActivoConUsuario(tokenHash);
 
-    if (!record || record.expiresAt < new Date()) {
+    if (!record || record.token.expirado) {
       throw new Error('Refresh token inválido o expirado');
     }
     if (!record.usuario.activo) {
       throw new Error('Usuario inactivo');
     }
 
-    await this.refreshRepo.update(record.id, { revocado: true });
+    await this.refreshTokenRepo.revoke(record.token.id);
 
-    // const socioRows = await AppDataSource.query(
-    //   `SELECT COALESCE(CASE s.nivel_acceso WHEN 'ADMIN' THEN 'administrador' ELSE 'socio' END, 'socio') AS rol
-    //    FROM socios s WHERE s.usuario_id = $1 LIMIT 1`,
-    //   [record.usuario.id],
-    // );
-    // const rol = (socioRows[0]?.rol ?? 'socio') as 'administrador' | 'socio';
-
-//     const socioRows = await AppDataSource.query(
-//   `SELECT COALESCE(CASE s.nivel_acceso WHEN 'ADMIN' THEN 'administrador' ELSE 'socio' END, u.rol) AS rol
-//    FROM usuarios u
-//    LEFT JOIN socios s ON s.usuario_id = u.id
-//    WHERE u.id = $1 LIMIT 1`,
-//   [record.usuario.id],
-// );
-
-const socioRows = await AppDataSource.query(
-  `SELECT 
-    CASE 
-      WHEN s.nivel_acceso = 'ADMIN' THEN 'administrador'
-      WHEN s.id IS NULL THEN u.rol
-      ELSE 'socio'
-    END AS rol
-   FROM usuarios u
-   LEFT JOIN socios s ON s.usuario_id = u.id
-   WHERE u.id = $1 LIMIT 1`,
-  [record.usuario.id],
-);
-const rol = (socioRows[0]?.rol ?? 'socio') as 'administrador' | 'socio';
+    // El rol efectivo puede venir de una tabla legada `socios` (nivel_acceso ADMIN).
+    const socioRows = await AppDataSource.query(
+      `SELECT
+        CASE
+          WHEN s.nivel_acceso = 'ADMIN' THEN 'administrador'
+          WHEN s.id IS NULL THEN u.rol
+          ELSE 'socio'
+        END AS rol
+       FROM usuarios u
+       LEFT JOIN socios s ON s.usuario_id = u.id
+       WHERE u.id = $1 LIMIT 1`,
+      [record.usuario.id],
+    );
+    const rol = (socioRows[0]?.rol ?? 'socio') as 'administrador' | 'socio';
 
     const payload: JwtPayload = {
       sub:       String(record.usuario.id),
@@ -97,16 +79,14 @@ const rol = (socioRows[0]?.rol ?? 'socio') as 'administrador' | 'socio';
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '15m' });
     const { refreshToken, tokenHash: newHash, expiresAt: newExpires } = this.generateRefreshToken();
 
-    await this.refreshRepo.save(
-      this.refreshRepo.create({ usuarioId: Number(record.usuario.id), tokenHash: newHash, expiresAt: newExpires }),
-    );
+    await this.refreshTokenRepo.create(Number(record.usuario.id), newHash, newExpires);
 
     return { accessToken, refreshToken };
   }
 
   async logout(rawToken: string): Promise<void> {
     const tokenHash = this.hashToken(rawToken);
-    await this.refreshRepo.update({ tokenHash }, { revocado: true });
+    await this.refreshTokenRepo.revokeByHash(tokenHash);
   }
 
   private generateRefreshToken() {

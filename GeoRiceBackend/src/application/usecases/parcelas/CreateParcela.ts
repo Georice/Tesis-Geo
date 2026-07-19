@@ -1,11 +1,13 @@
 import { IParcelaRepository } from '../../../domain/repositories/IParcelaRepository';
 import { AuthContext }        from '../../../shared/types/AuthContext';
+import { CreateParcelaDto, ParcelaResponseDto, toParcelaResponseDto } from '../../dtos/parcelas/ParcelaDtos';
 
 export class CreateParcela {
   constructor(private repo: IParcelaRepository) {}
 
-  async execute(data: any, ctx: AuthContext): Promise<any> {
+  async execute(data: CreateParcelaDto, ctx: AuthContext): Promise<ParcelaResponseDto> {
     if (!data.geometria) throw new Error('La geometría es obligatoria');
-    return this.repo.create(data, ctx);
+    const parcela = await this.repo.create(data, ctx);
+    return toParcelaResponseDto(parcela);
   }
 }

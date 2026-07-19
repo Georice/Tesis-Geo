@@ -1,12 +1,18 @@
 import { AppDataSource }       from '../DataSource';
+import { ZonaModel }           from '../models/ZonaModel';
 import { Zona }                from '../../../domain/entities/Zona';
-import { IZonaRepository }     from '../../../domain/repositories/IZonaRepository';
+import {
+  IZonaRepository,
+  CrearZonaComando,
+  ActualizarZonaComando,
+} from '../../../domain/repositories/IZonaRepository';
 import { AuthContext }         from '../../../shared/types/AuthContext';
+import { ZonaMapper }          from '../mappers/ZonaMapper';
 
 export class ZonaRepository implements IZonaRepository {
-  private repo = AppDataSource.getRepository(Zona);
+  private repo = AppDataSource.getRepository(ZonaModel);
 
-  async findAll(ctx: AuthContext): Promise<any[]> {
+  async findAll(ctx: AuthContext): Promise<Zona[]> {
     const conds: string[] = [];
     const params: any[]   = [];
 
@@ -17,26 +23,29 @@ export class ZonaRepository implements IZonaRepository {
 
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
 
-    return AppDataSource.query(`
+    const rows = await AppDataSource.query(`
       SELECT z.id, z.usuario_id AS "usuarioId", z.nombre, z.descripcion,
              z.fecha_creacion AS "fechaCreacion", z.updated_at AS "updatedAt",
+             z.created_by AS "createdBy", z.updated_by AS "updatedBy",
              ST_AsGeoJSON(z.geometria)::json AS geometria
       FROM zonas z ${where}
       ORDER BY z.nombre
     `, params);
+    return rows.map(ZonaMapper.fromRow);
   }
 
-  async findById(id: number): Promise<any | null> {
+  async findById(id: number): Promise<Zona | null> {
     const result = await AppDataSource.query(`
       SELECT z.id, z.usuario_id AS "usuarioId", z.nombre, z.descripcion,
              z.fecha_creacion AS "fechaCreacion", z.updated_at AS "updatedAt",
+             z.created_by AS "createdBy", z.updated_by AS "updatedBy",
              ST_AsGeoJSON(z.geometria)::json AS geometria
       FROM zonas z WHERE z.id = $1
     `, [id]);
-    return result[0] ?? null;
+    return result[0] ? ZonaMapper.fromRow(result[0]) : null;
   }
 
-  async create(data: any, ctx: AuthContext): Promise<any> {
+  async create(data: CrearZonaComando, ctx: AuthContext): Promise<Zona> {
     let geom: any = null;
     if (data.geometria) {
       geom = this.closeRing(data.geometria);
@@ -60,10 +69,10 @@ export class ZonaRepository implements IZonaRepository {
       );
     }
 
-    return this.findById(saved.id);
+    return (await this.findById(saved.id))!;
   }
 
-  async update(id: number, data: any, ctx: AuthContext): Promise<any | null> {
+  async update(id: number, data: ActualizarZonaComando, ctx: AuthContext): Promise<Zona | null> {
     await this.verifyOwnership(id, ctx);
 
     const sets: string[] = ['updated_by = $1', 'updated_at = NOW()'];
@@ -124,6 +133,13 @@ export class ZonaRepository implements IZonaRepository {
         AND (zona_id IS NULL OR zona_id != $1)
     `, [zonaId]);
     return result[1] ?? 0;
+  }
+
+  async countParcelasAsignadas(zonaId: number): Promise<number> {
+    const result = await AppDataSource.query(
+      `SELECT COUNT(*)::int AS total FROM parcelas WHERE zona_id = $1`, [zonaId]
+    );
+    return Number(result[0]?.total ?? 0);
   }
 
   private async verifyOwnership(id: number, ctx: AuthContext): Promise<void> {

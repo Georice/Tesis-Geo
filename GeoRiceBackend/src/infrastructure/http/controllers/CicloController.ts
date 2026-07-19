@@ -1,32 +1,40 @@
-import { Request, Response }    from 'express';
-import { IniciarCiclo }        from '../../../application/usecases/ciclos/IniciarCiclo';
-import { AppDataSource }       from '../../db/DataSource';
-import { CicloActividad }      from '../../../domain/entities/CicloActividad';
-import { logger }              from '../../../shared/logger';
+import { Request, Response }      from 'express';
+import { CicloRepository }        from '../../db/repositories/CicloRepository';
+import { ActividadParcelaRepository } from '../../db/repositories/ActividadParcelaRepository';
+import { ParcelaRepository }      from '../../db/repositories/ParcelaRepository';
+import { IniciarCiclo }           from '../../../application/usecases/ciclos/IniciarCiclo';
+import { FinalizarCiclo }         from '../../../application/usecases/ciclos/FinalizarCiclo';
+import { GetCiclosByParcela }     from '../../../application/usecases/ciclos/GetCiclosByParcela';
+import { GetFasesPorTipo }        from '../../../application/usecases/ciclos/GetFasesPorTipo';
+import { VerifyParcelaAccess }    from '../../../application/services/VerifyParcelaAccess';
+import { AuthContext }            from '../../../shared/types/AuthContext';
+import { logger }                 from '../../../shared/logger';
 
-const TIPOS_TODAS_FASES = ['riego', 'soca_riego'];
+const cicloRepo     = new CicloRepository();
+const actividadRepo = new ActividadParcelaRepository();
+const parcelaRepo   = new ParcelaRepository();
+const verifyParcelaAccess = new VerifyParcelaAccess(parcelaRepo);
 
-async function verifyParcelaAccess(parcelaId: number, usuarioId: string, rol: string): Promise<void> {
-  if (rol === 'administrador') return;
-  const result = await AppDataSource.query(
-    `SELECT id FROM parcelas WHERE id = $1 AND usuario_id = $2`, [parcelaId, usuarioId]
-  );
-  if (!result[0]) throw new Error('Parcela no encontrada o no autorizado');
+function buildCtx(req: Request): AuthContext {
+  return {
+    usuarioId:      req.user!.sub,
+    rol:            req.user!.rol,
+    nombreCompleto: `${req.user!.nombres} ${req.user!.apellidos}`,
+  };
 }
 
 export class CicloController {
   async iniciar(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      const usuarioId = req.user!.sub;
-      await verifyParcelaAccess(parcelaId, usuarioId, req.user!.rol);
+      await verifyParcelaAccess.execute(parcelaId, buildCtx(req));
 
       const { tipo, fechaInicio, variedadSemilla, areaSembrada, observaciones } = req.body;
       if (!tipo)        { res.status(400).json({ error: 'El tipo de ciclo es obligatorio' }); return; }
       if (!fechaInicio) { res.status(400).json({ error: 'La fecha de inicio es obligatoria' }); return; }
 
       logger.info(`POST ciclo parcela=${parcelaId}`);
-      const resultado = await new IniciarCiclo().execute({
+      const resultado = await new IniciarCiclo(cicloRepo, actividadRepo).execute({
         parcelaId, tipo,
         fechaInicio: new Date(fechaInicio),
         variedadSemilla, areaSembrada, observaciones,
@@ -44,9 +52,8 @@ export class CicloController {
   async getByParcela(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
-      const repo   = AppDataSource.getRepository(CicloActividad);
-      const ciclos = await repo.find({ where: { parcelaId }, order: { fechaInicio: 'DESC' } });
+      await verifyParcelaAccess.execute(parcelaId, buildCtx(req));
+      const ciclos = await new GetCiclosByParcela(cicloRepo).execute(parcelaId);
       res.json(ciclos);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al obtener ciclos';
@@ -56,14 +63,13 @@ export class CicloController {
 
   async finalizar(req: Request, res: Response): Promise<void> {
     try {
-      const id   = Number(req.params.id);
-      const repo = AppDataSource.getRepository(CicloActividad);
-      const ciclo = await repo.findOne({ where: { id } });
-      if (!ciclo) { res.status(404).json({ error: 'Ciclo no encontrado' }); return; }
-      await verifyParcelaAccess(ciclo.parcelaId, req.user!.sub, req.user!.rol);
-      ciclo.estado   = 'completado';
-      ciclo.fechaFin = new Date();
-      await repo.save(ciclo);
+      const id = Number(req.params.id);
+      // finalizar() valida pertenencia leyendo el ciclo primero: si no existe → 404
+      const ciclos = await cicloRepo.findById(id);
+      if (!ciclos) { res.status(404).json({ error: 'Ciclo no encontrado' }); return; }
+      await verifyParcelaAccess.execute(ciclos.parcelaId, buildCtx(req));
+
+      const ciclo = await new FinalizarCiclo(cicloRepo).execute(id);
       logger.info(`Ciclo ${id} finalizado`);
       res.json(ciclo);
     } catch (error) {
@@ -80,50 +86,16 @@ export class CicloController {
 
       if (!tipo) { res.status(400).json({ error: 'El parámetro tipo es obligatorio' }); return; }
 
-      await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
+      await verifyParcelaAccess.execute(parcelaId, buildCtx(req));
 
-      // Obtener el ciclo activo de la parcela
-      const cicloRepo   = AppDataSource.getRepository(CicloActividad);
-      const cicloActivo = await cicloRepo.findOne({
-        where: { parcelaId, estado: 'activo' },
-      });
-
-      if (!cicloActivo) {
-        res.status(404).json({ error: 'No hay ciclo activo en esta parcela' });
-        return;
-      }
-
-      let fases: any[];
-
-      if (TIPOS_TODAS_FASES.includes(tipo)) {
-        // Riego: mostrar TODAS las fases del ciclo
-        fases = await AppDataSource.query(`
-          SELECT f.codigo, f.nombre, f.orden_fase, f.orden_min AS orden_plantilla
-          FROM fases_ciclo f
-          WHERE f.tipo_ciclo = $1
-          ORDER BY f.orden_fase
-        `, [cicloActivo.tipo]);
-      } else {
-        // Fertilización, fumigación y otros ambiguos:
-        // mostrar solo las fases donde tiene sentido ese tipo de actividad
-        fases = await AppDataSource.query(`
-          SELECT f.codigo, f.nombre, f.orden_fase, p.orden AS orden_plantilla
-          FROM fases_ciclo f
-          JOIN plantillas_ciclo p
-            ON p.tipo_ciclo = f.tipo_ciclo
-            AND p.orden BETWEEN f.orden_min AND f.orden_max
-          WHERE f.tipo_ciclo = $1
-            AND p.tipo_actividad = $2
-          ORDER BY f.orden_fase
-        `, [cicloActivo.tipo, tipo]);
-      }
-
-      logger.info(`GET fases-por-tipo parcela=${parcelaId} tipo=${tipo} → ${fases.length} fases`);
-      res.json({ tipoCiclo: cicloActivo.tipo, fases });
+      const resultado = await new GetFasesPorTipo(cicloRepo).execute(parcelaId, tipo);
+      logger.info(`GET fases-por-tipo parcela=${parcelaId} tipo=${tipo} → ${resultado.fases.length} fases`);
+      res.json(resultado);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al obtener fases';
       logger.error('Error al obtener fases por tipo:', message);
-      res.status(message.includes('autorizado') ? 403 : 500).json({ error: message });
+      const status = message.includes('autorizado') ? 403 : message.includes('ciclo activo') ? 404 : 500;
+      res.status(status).json({ error: message });
     }
   }
 }

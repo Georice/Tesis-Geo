@@ -1,36 +1,29 @@
-import { IActividadParcelaRepository } from '../../../domain/repositories/IActividadParcelaRepository';
-import { ActividadParcela }            from '../../../domain/entities/ActividadParcela';
-import { AppDataSource }               from '../../../infrastructure/db/DataSource';
-import { CicloActividad }              from '../../../domain/entities/CicloActividad';
-import { Parcela }                     from '../../../domain/entities/Parcela';
+import { IActividadParcelaRepository, ProductoComando } from '../../../domain/repositories/IActividadParcelaRepository';
+import { ICicloRepository } from '../../../domain/repositories/ICicloRepository';
+import { IParcelaRepository } from '../../../domain/repositories/IParcelaRepository';
+import { ActividadParcela } from '../../../domain/entities/ActividadParcela';
+import { CreateActividadDto } from '../../dtos/actividades/ActividadDtos';
 
 const TIPOS_CON_PRODUCTOS = ['fertilizacion', 'fumigacion', 'soca_fertilizacion', 'soca_fumigacion'];
 const TIPOS_COSECHA       = ['cosecha', 'cosecha_soca'];
 
-type ActividadSinRelaciones = Omit<Partial<ActividadParcela>, 'detalleRiego' | 'detalleFumigacion' | 'detalleFertilizacion' | 'detalleCosecha' | 'detalleManoObra' | 'detalleMaquinaria' | 'productos'>;
-
-interface CreateActividadInput extends ActividadSinRelaciones {
-  detalleRiego?: { laminaAgua?: number };
-  detalleFumigacion?: { plagaDetectada?: string; nivelDano?: string; capacidadTanque?: number; numTanques?: number };
-  detalleFertilizacion?: Record<string, never>;
-  detalleCosecha?: { rendimientoHa?: number; totalSacos?: number; humedad?: number; precioQq?: number; ingresoTotal?: number; costoCosecha?: number; destino?: string };
-  detalleManoObra?: { numJornales?: number; pagoJornal?: number; unidadManoObra?: string; cantidadUnidadMo?: number; precioUnidadMo?: number; numTrabajadores?: number; descripcionUnidadMo?: string; numTareas?: number; precioTarea?: number; costoSembradores?: number; costoManoObra?: number };
-  detalleMaquinaria?: { tipoMaquinaria?: string; unidadCobro?: string; cantidadUnidades?: number; costoPorUnidad?: number; costoMaquinaria?: number };
-  productos?: any[];
-}
-
 export class CreateActividad {
-  constructor(private repo: IActividadParcelaRepository) {}
+  constructor(
+    private repo: IActividadParcelaRepository,
+    private cicloRepo: ICicloRepository,
+    private parcelaRepo: IParcelaRepository,
+  ) {}
 
-  async execute(data: CreateActividadInput): Promise<ActividadParcela> {
+  async execute(data: CreateActividadDto): Promise<ActividadParcela> {
     if (!data.parcelaId) throw new Error('La parcela es obligatoria');
     if (!data.tipo)      throw new Error('El tipo de actividad es obligatorio');
 
     if (!data.cicloId) {
-      const cicloRepo   = AppDataSource.getRepository(CicloActividad);
-      const cicloActivo = await cicloRepo.findOne({
-        where: { parcelaId: data.parcelaId, estado: 'activo' },
-      });
+      // Si hay un ciclo activo en la parcela, la actividad se asocia a él
+      // automáticamente. Si no lo hay, queda como actividad suelta (sin
+      // ciclo ni fase) — es un caso válido, el trigger de la base ya no lo
+      // rechaza.
+      const cicloActivo = await this.cicloRepo.findActivoByParcela(data.parcelaId);
       if (cicloActivo) data.cicloId = cicloActivo.id;
     }
 
@@ -60,10 +53,9 @@ export class CreateActividad {
 
       if (data.tipo === 'siembra_trasplante' && mo.precioTarea) {
         if (!mo.numTareas) {
-          const parcelaRepo = AppDataSource.getRepository(Parcela);
-          const parcela      = await parcelaRepo.findOneBy({ id: data.parcelaId });
-          if (parcela?.areaHa) {
-            mo.numTareas = Number((Number(parcela.areaHa) * 16).toFixed(2));
+          const areaHa = await this.parcelaRepo.findAreaHa(data.parcelaId);
+          if (areaHa) {
+            mo.numTareas = Number((areaHa * 16).toFixed(2));
           }
         }
         if (mo.numTareas) {
@@ -80,18 +72,13 @@ export class CreateActividad {
     }
 
     if (data.productos?.length) {
-      data.productos = data.productos.map((p: any) => {
+      data.productos = data.productos.map((p: ProductoComando) => {
         const prod = { ...p };
 
         if (data.detalleFumigacion?.numTanques && prod.dosisPorTanque) {
           prod.dosisTotal = (Number(prod.dosisPorTanque) / 1000) * Number(data.detalleFumigacion.numTanques);
         } else if (prod.dosisPorUnidadMo && data.detalleManoObra?.cantidadUnidadMo) {
           prod.dosisTotal = Number(prod.dosisPorUnidadMo) * Number(data.detalleManoObra.cantidadUnidadMo);
-        } else if (prod.dosisHa) {
-          const parcelaAreaHa = (data as any).parcelaAreaHa;
-          if (parcelaAreaHa) {
-            prod.dosisTotal = Number(prod.dosisHa) * Number(parcelaAreaHa);
-          }
         }
 
         if (prod.presentacionMl && prod.precioPresentacion) {
@@ -115,7 +102,7 @@ export class CreateActividad {
       });
 
       data.costoInsumos = data.productos.reduce(
-        (sum: number, p: any) => sum + Number(p.costoTotal ?? 0), 0
+        (sum: number, p: ProductoComando) => sum + Number(p.costoTotal ?? 0), 0
       );
     }
 
@@ -125,6 +112,7 @@ export class CreateActividad {
       Number(data.costoInsumos                        ?? 0) +
       Number(data.detalleManoObra?.costoSembradores  ?? 0);
 
-    return this.repo.create(data, data.productos);
+    const { productos, ...comando } = data;
+    return this.repo.create(comando, productos);
   }
 }

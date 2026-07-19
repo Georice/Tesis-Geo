@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../../../application/services/AuthService';
 import { LocalUserRepository } from '../../db/repositories/LocalUserRepository';
+import { RefreshTokenRepository } from '../../db/repositories/RefreshTokenRepository';
 
-const authService = new AuthService(new LocalUserRepository());
+const authService = new AuthService(new LocalUserRepository(), new RefreshTokenRepository());
 
 export class AuthController {
   async login(req: Request, res: Response): Promise<void> {

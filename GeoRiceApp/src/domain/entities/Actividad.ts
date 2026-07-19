@@ -99,6 +99,9 @@ export interface Actividad {
   tipo: TipoActividad;
   fecha: string;
   estado?: 'pendiente' | 'en_proceso' | 'completada';
+  // true solo en actividades creadas offline que todavía no llegaron al
+  // servidor (id temporal negativo). Nunca lo manda el backend.
+  pendingSync?: boolean;
   fechaInicio?: string | null;
   fechaFin?: string | null;
   // ── Fases ──────────────────────────────────────────────

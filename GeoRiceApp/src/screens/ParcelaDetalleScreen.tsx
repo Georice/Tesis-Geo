@@ -33,6 +33,12 @@ const ParcelaDetalleScreen: React.FC<Props> = ({
       <Text style={s.texto}>Propietario: {parcela?.propietario ?? parcela?.p_propietario}</Text>
       <Text style={s.texto}>Cultivo: {parcela?.cultivo ?? parcela?.p_cultivo}</Text>
       <Text style={s.texto}>Área: {Number(parcela?.area_ha ?? parcela?.p_area_ha ?? 0).toFixed(2)} ha</Text>
+      {(parcela?.p_pending_sync || parcela?.pendingSync) && (
+        <View style={s.pendingBadge}>
+          <Icon name="cloud-upload-outline" size={12} color="#b45309" />
+          <Text style={s.pendingText}>Pendiente de sincronizar</Text>
+        </View>
+      )}
     </View>
 
     <View style={s.card}>
@@ -79,6 +85,10 @@ const s = StyleSheet.create({
                 alignItems: 'center', justifyContent: 'center',
                 backgroundColor: 'rgba(0,0,0,0.06)' },
   texto:      { fontSize: 13, color: '#333', marginBottom: 3 },
+  pendingBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4,
+                  backgroundColor: '#fef3c7', borderRadius: 8, paddingHorizontal: 8,
+                  paddingVertical: 4, alignSelf: 'flex-start' },
+  pendingText:  { fontSize: 11, color: '#b45309', fontWeight: '600' },
   card:       { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12,
                 flexDirection: 'row', padding: 6, elevation: 5,
                 shadowColor: '#000', shadowOffset: { width: 0, height: 1 },

@@ -1,15 +1,19 @@
-import { Entity, PrimaryColumn, Column, OneToOne, JoinColumn } from 'typeorm';
-import { ActividadParcela } from './ActividadParcela';
+export interface DetalleRiegoProps {
+  actividadId: number;
+  laminaAgua: number | null;
+}
 
-@Entity('detalle_riego')
 export class DetalleRiego {
-  @PrimaryColumn({ name: 'actividad_id' })
-  actividadId!: number;
+  readonly actividadId: number;
+  readonly laminaAgua: number | null;
 
-  @OneToOne(() => ActividadParcela, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'actividad_id' })
-  actividad!: ActividadParcela;
+  private constructor(props: DetalleRiegoProps) {
+    this.actividadId = props.actividadId;
+    this.laminaAgua  = props.laminaAgua;
+  }
 
-  @Column({ name: 'lamina_agua', type: 'decimal', precision: 8, scale: 2, nullable: true })
-  laminaAgua!: number;
+  static create(props: DetalleRiegoProps): DetalleRiego {
+    if (!props.actividadId) throw new Error('El detalle de riego debe pertenecer a una actividad');
+    return new DetalleRiego(props);
+  }
 }

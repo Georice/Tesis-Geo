@@ -1,34 +1,47 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { TipoCiclo } from '../types/CicloTypes';
 
-@Entity('fases_ciclo')
+export interface FaseCicloProps {
+  id: number;
+  codigo: string;
+  nombre: string;
+  tipoCiclo: TipoCiclo;
+  ordenFase: number;
+  ordenMin: number;
+  ordenMax: number;
+  tiposActividad: string[];
+  descripcion: string | null;
+  createdAt: Date;
+}
+
+// Entidad de dominio pura: sin decoradores de TypeORM.
 export class FaseCiclo {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  readonly id: number;
+  readonly codigo: string;
+  readonly nombre: string;
+  readonly tipoCiclo: TipoCiclo;
+  readonly ordenFase: number;
+  readonly ordenMin: number;
+  readonly ordenMax: number;
+  readonly tiposActividad: string[];
+  readonly descripcion: string | null;
+  readonly createdAt: Date;
 
-  @Column({ type: 'varchar', length: 5 })
-  codigo!: string; // F1...F6
+  private constructor(props: FaseCicloProps) {
+    this.id             = props.id;
+    this.codigo          = props.codigo;
+    this.nombre          = props.nombre;
+    this.tipoCiclo        = props.tipoCiclo;
+    this.ordenFase        = props.ordenFase;
+    this.ordenMin         = props.ordenMin;
+    this.ordenMax         = props.ordenMax;
+    this.tiposActividad   = props.tiposActividad;
+    this.descripcion      = props.descripcion;
+    this.createdAt        = props.createdAt;
+  }
 
-  @Column({ type: 'varchar', length: 100 })
-  nombre!: string;
-
-  @Column({ name: 'tipo_ciclo', type: 'varchar', length: 20 })
-  tipoCiclo!: 'siembra_boleo' | 'siembra_trasplante' | 'soca' | 'resoca';
-
-  @Column({ name: 'orden_fase' })
-  ordenFase!: number;
-
-  @Column({ name: 'orden_min' })
-  ordenMin!: number;
-
-  @Column({ name: 'orden_max' })
-  ordenMax!: number;
-
-  @Column({ name: 'tipos_actividad', type: 'varchar', length: 30, array: true })
-  tiposActividad!: string[];
-
-  @Column({ type: 'text', nullable: true })
-  descripcion!: string;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt!: Date;
+  static create(props: FaseCicloProps): FaseCiclo {
+    if (!props.codigo?.trim()) throw new Error('El código de la fase es obligatorio');
+    if (!props.tipoCiclo)      throw new Error('El tipo de ciclo de la fase es obligatorio');
+    return new FaseCiclo(props);
+  }
 }

@@ -1,31 +1,42 @@
-// RefreshToken.ts
-import {
-  Entity, PrimaryGeneratedColumn, Column,
-  ManyToOne, JoinColumn, CreateDateColumn,
-} from 'typeorm';
-import { Usuario } from './Usuario';
+export interface RefreshTokenProps {
+  id: number;
+  usuarioId: number;
+  tokenHash: string;
+  expiresAt: Date;
+  creadoEn: Date;
+  revocado: boolean;
+}
 
-@Entity('refresh_tokens')
+// Entidad de dominio pura: sin decoradores de TypeORM.
 export class RefreshToken {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  readonly id: number;
+  readonly usuarioId: number;
+  readonly tokenHash: string;
+  readonly expiresAt: Date;
+  readonly creadoEn: Date;
+  readonly revocado: boolean;
 
-  @Column({ name: 'usuario_id', type: 'int' })
-  usuarioId!: number;
+  private constructor(props: RefreshTokenProps) {
+    this.id        = props.id;
+    this.usuarioId = props.usuarioId;
+    this.tokenHash = props.tokenHash;
+    this.expiresAt = props.expiresAt;
+    this.creadoEn  = props.creadoEn;
+    this.revocado  = props.revocado;
+  }
 
-  @ManyToOne(() => Usuario, { onDelete: 'CASCADE', eager: false })
-  @JoinColumn({ name: 'usuario_id' })
-  usuario!: Usuario;
+  static create(props: RefreshTokenProps): RefreshToken {
+    if (!props.usuarioId)  throw new Error('El refresh token debe pertenecer a un usuario');
+    if (!props.tokenHash)  throw new Error('El refresh token debe tener un hash');
+    if (!props.expiresAt)  throw new Error('El refresh token debe tener fecha de expiración');
+    return new RefreshToken(props);
+  }
 
-  @Column({ name: 'token_hash', type: 'varchar', length: 255, unique: true })
-  tokenHash!: string;
+  get expirado(): boolean {
+    return this.expiresAt < new Date();
+  }
 
-  @Column({ name: 'expires_at' })
-  expiresAt!: Date;
-
-  @CreateDateColumn({ name: 'creado_en' })
-  creadoEn!: Date;
-
-  @Column({ default: false })
-  revocado!: boolean;
+  get valido(): boolean {
+    return !this.revocado && !this.expirado;
+  }
 }

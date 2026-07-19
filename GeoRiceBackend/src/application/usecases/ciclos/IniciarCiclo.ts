@@ -1,51 +1,41 @@
-import { AppDataSource }       from '../../../infrastructure/db/DataSource';
-import { CicloActividad }      from '../../../domain/entities/CicloActividad';
-import { ActividadParcela }    from '../../../domain/entities/ActividadParcela';
-import { PLANTILLAS_CICLO, TipoCiclo } from '../../../domain/entities/PlantillaCiclo';
+import { ICicloRepository } from '../../../domain/repositories/ICicloRepository';
+import { IActividadParcelaRepository } from '../../../domain/repositories/IActividadParcelaRepository';
+import { ActividadParcela } from '../../../domain/entities/ActividadParcela';
+import { PLANTILLAS_CICLO } from '../../../domain/entities/PlantillaCiclo';
+import { TipoCiclo } from '../../../domain/types/CicloTypes';
+import { CicloResponseDto, toCicloResponseDto } from '../../dtos/ciclos/CicloDtos';
 
 interface IniciarCicloInput {
-  parcelaId:      number;
-  tipo:           TipoCiclo;
-  fechaInicio:    Date;
+  parcelaId:        number;
+  tipo:             TipoCiclo;
+  fechaInicio:      Date;
   variedadSemilla?: string;
-  areaSembrada?:  number;
-  observaciones?: string;
+  areaSembrada?:    number;
+  observaciones?:   string;
 }
 
 export class IniciarCiclo {
-  async execute(input: IniciarCicloInput): Promise<{ ciclo: CicloActividad; actividades: ActividadParcela[] }> {
+  constructor(
+    private cicloRepo: ICicloRepository,
+    private actividadRepo: IActividadParcelaRepository,
+  ) {}
+
+  async execute(input: IniciarCicloInput): Promise<{ ciclo: CicloResponseDto; actividades: ActividadParcela[] }> {
     const { parcelaId, tipo, fechaInicio, variedadSemilla, areaSembrada, observaciones } = input;
 
     const plantilla = PLANTILLAS_CICLO[tipo];
     if (!plantilla) throw new Error(`Tipo de ciclo "${tipo}" no válido`);
 
-    const cicloRepo      = AppDataSource.getRepository(CicloActividad);
-    const actividadRepo  = AppDataSource.getRepository(ActividadParcela);
-
-    const cicloActivo = await cicloRepo.findOne({
-      where: { parcelaId, estado: 'activo' },
+    const ciclo = await this.cicloRepo.create({
+      parcelaId, tipo, fechaInicio, variedadSemilla, areaSembrada, observaciones,
     });
-    if (cicloActivo) {
-      throw new Error('Esta parcela ya tiene un ciclo activo. Finaliza el ciclo actual antes de iniciar uno nuevo.');
-    }
-
-    const ciclo = cicloRepo.create({
-      parcelaId,
-      tipo,
-      estado:         'activo',
-      fechaInicio,
-      variedadSemilla,
-      areaSembrada,
-      observaciones,
-    });
-    await cicloRepo.save(ciclo);
 
     const actividades: ActividadParcela[] = [];
     for (const item of plantilla) {
       const fechaActividad = new Date(fechaInicio);
       fechaActividad.setDate(fechaActividad.getDate() + item.diasDesdeInicio);
 
-      const actividad = actividadRepo.create({
+      const actividad = await this.actividadRepo.create({
         parcelaId,
         tipo:           item.tipo as any,
         fecha:          fechaActividad,
@@ -54,10 +44,9 @@ export class IniciarCiclo {
         observaciones:  item.descripcion,
         nivelAlerta:    'normal',
       });
-      await actividadRepo.save(actividad);
       actividades.push(actividad);
     }
 
-    return { ciclo, actividades };
+    return { ciclo: toCicloResponseDto(ciclo), actividades };
   }
 }

@@ -1,44 +1,44 @@
-import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn,
-  ManyToOne, JoinColumn,
-} from 'typeorm';
-import { Parcela } from './Parcela';
+import { TipoCapa } from '../types/CapaTypes';
 
-@Entity('capas_parcela')
+export interface CapaParcelaProps {
+  id: number;
+  parcelaId: number;
+  tipo: TipoCapa;
+  geometria: object;
+  ndviEstimado: number | null;
+  fechaActualizacion: Date;
+  updatedAt: Date;
+  createdBy: string | null;
+  updatedBy: string | null;
+}
+
+// Entidad de dominio pura: sin decoradores de TypeORM.
 export class CapaParcela {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  readonly id: number;
+  readonly parcelaId: number;
+  readonly tipo: TipoCapa;
+  readonly geometria: object;
+  readonly ndviEstimado: number | null;
+  readonly fechaActualizacion: Date;
+  readonly updatedAt: Date;
+  readonly createdBy: string | null;
+  readonly updatedBy: string | null;
 
-  @Column({ name: 'parcela_id' })
-  parcelaId!: number;
+  private constructor(props: CapaParcelaProps) {
+    this.id                 = props.id;
+    this.parcelaId          = props.parcelaId;
+    this.tipo                = props.tipo;
+    this.geometria           = props.geometria;
+    this.ndviEstimado        = props.ndviEstimado;
+    this.fechaActualizacion  = props.fechaActualizacion;
+    this.updatedAt           = props.updatedAt;
+    this.createdBy           = props.createdBy;
+    this.updatedBy           = props.updatedBy;
+  }
 
-  @ManyToOne(() => Parcela, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'parcela_id' })
-  parcela!: Parcela;
-
-  @Column({ type: 'varchar', length: 20 })
-  tipo!: 'activo' | 'descanso' | 'lindero';
-
-  @Column({
-    type: 'geometry',
-    spatialFeatureType: 'Geometry',
-    srid: 4326,
-  })
-  geometria!: object;
-
-  @Column({ name: 'ndvi_estimado', type: 'decimal', precision: 4, scale: 2, nullable: true })
-  ndviEstimado!: number;
-
-  @CreateDateColumn({ name: 'fecha_actualizacion' })
-  fechaActualizacion!: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
-
-  @Column({ name: 'created_by', type: 'text', nullable: true })
-  createdBy!: string | null;
-
-  @Column({ name: 'updated_by', type: 'text', nullable: true })
-  updatedBy!: string | null;
+  static create(props: CapaParcelaProps): CapaParcela {
+    if (!props.parcelaId) throw new Error('La parcela es obligatoria');
+    if (!props.geometria) throw new Error('La geometría de la capa es obligatoria');
+    return new CapaParcela(props);
+  }
 }

@@ -2,7 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform }  from 'react-native';
 
 
-// //Parrales
+// Túnel ngrok — comentado porque el túnel no está activo de forma
+// confiable (ERR_NGROK_3200 cuando el proceso `ngrok http` no está
+// corriendo). Volver a activarlo cuando alguien lo mantenga arriba.
+// export const BASE_URL = 'https://vacancy-google-explain.ngrok-free.dev/api';
+
+
+// Parrales
 export const BASE_URL = Platform.OS === 'android'
   ? 'http://192.168.100.6:3000/api'
   : 'http://localhost:3000/api';
@@ -21,6 +27,16 @@ export const STORAGE_KEYS = {
   SYNC_DATA:       '@georice:sync_data',
   SYNC_TIMESTAMP:  '@georice:sync_timestamp',
   OFFLINE_QUEUE:   '@georice:offline_queue',
+  // Registros creados/editados offline que ya se muestran en la UI con id
+  // temporal, mientras su operación real sigue en OFFLINE_QUEUE.
+  LOCAL_RECORDS:   '@georice:local_records',
+  // Historial de operaciones offline (enviadas y pendientes) para la
+  // pantalla "Estado de sincronización" — solo de lectura, no participa en
+  // la lógica de reintento (eso lo maneja OFFLINE_QUEUE).
+  SYNC_LOG:        '@georice:sync_log',
+  // Caché aparte (no viaja en /api/sync): son datos solo para admin, no
+  // tiene sentido mandarlos al dispositivo de cada socio.
+  USUARIOS_CACHE:  '@georice:usuarios_cache',
 } as const;
 
 // Callback registrado por AuthContext para disparar logout global
@@ -38,6 +54,7 @@ export async function clearSession(): Promise<void> {
     STORAGE_KEYS.USER,
     STORAGE_KEYS.SYNC_DATA,
     STORAGE_KEYS.SYNC_TIMESTAMP,
+    STORAGE_KEYS.USUARIOS_CACHE,
   ]);
 }
 
@@ -76,6 +93,13 @@ async function tryRefresh(): Promise<string | null> {
     if (!raw) { await clearSession(); _forceLogout?.(); return null; }
 
     try {
+      // Ojo: si fetch() falla por falta de red, se deja propagar el error
+      // (no se atrapa aquí). Antes se devolvía `null` en cualquier fallo,
+      // lo que hacía que request() lanzara 'SESSION_EXPIRED' y forzara
+      // logout aunque el problema fuera solo de conectividad — un desastre
+      // para uso en campo con señal intermitente. Ahora solo se cierra la
+      // sesión cuando el servidor SÍ respondió que el refresh token es
+      // inválido; un fallo de red se distingue como tal más arriba.
       const res = await fetch(`${BASE_URL}/auth/refresh`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -86,8 +110,6 @@ async function tryRefresh(): Promise<string | null> {
       await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
       await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
       return accessToken;
-    } catch {
-      return null;
     } finally {
       _refreshPromise = null;
     }

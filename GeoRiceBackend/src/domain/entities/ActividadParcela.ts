@@ -1,11 +1,5 @@
-import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn,
-  ManyToOne, JoinColumn, OneToMany, OneToOne,
-} from 'typeorm';
-import { Parcela }        from './Parcela';
-import { CapaParcela }    from './CapaParcela';
+import { TipoActividad, NivelAlerta, EstadoActividad } from '../types/ActividadTypes';
 import { ProductoActividad } from './ProductoActividad';
-import { CicloActividad } from './CicloActividad';
 import { FaseCiclo } from './FaseCiclo';
 import { DetalleRiego } from './DetalleRiego';
 import { DetalleFumigacion } from './DetalleFumigacion';
@@ -14,123 +8,116 @@ import { DetalleCosecha } from './DetalleCosecha';
 import { DetalleManoObra } from './DetalleManoObra';
 import { DetalleMaquinaria } from './DetalleMaquinaria';
 
+export interface ActividadParcelaProps {
+  id: number;
+  parcelaId: number;
+  capaId: number | null;
+  tipo: TipoActividad;
+  fecha: Date;
+  metodo: string | null;
+  insumo: string | null;
+  cantidad: number | null;
+  unidad: string | null;
+  nivelAlerta: NivelAlerta;
+  observaciones: string | null;
+  productos: ProductoActividad[];
+  fechaRegistro: Date;
+  cicloId: number | null;
+  ordenPlantilla: number | null;
+  faseId: number | null;
+  fase: FaseCiclo | null;
+  estado: EstadoActividad;
+  fechaInicio: Date | null;
+  fechaFin: Date | null;
+  updatedAt: Date;
+  createdBy: string | null;
+  updatedBy: string | null;
+  numeroActividad: number | null;
+  costoInsumos: number | null;
+  costoTotalActividad: number | null;
+  detalleRiego: DetalleRiego | null;
+  detalleFumigacion: DetalleFumigacion | null;
+  detalleFertilizacion: DetalleFertilizacion | null;
+  detalleCosecha: DetalleCosecha | null;
+  detalleManoObra: DetalleManoObra | null;
+  detalleMaquinaria: DetalleMaquinaria | null;
+}
 
-@Entity('actividades_parcela')
+// Entidad de dominio pura (agregado raíz): sin decoradores de TypeORM.
+// La persistencia vive en infrastructure/db/models/ActividadParcelaModel.ts
+// y sus modelos de detalle asociados.
 export class ActividadParcela {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  readonly id: number;
+  readonly parcelaId: number;
+  readonly capaId: number | null;
+  readonly tipo: TipoActividad;
+  readonly fecha: Date;
+  readonly metodo: string | null;
+  readonly insumo: string | null;
+  readonly cantidad: number | null;
+  readonly unidad: string | null;
+  readonly nivelAlerta: NivelAlerta;
+  readonly observaciones: string | null;
+  readonly productos: ProductoActividad[];
+  readonly fechaRegistro: Date;
+  readonly cicloId: number | null;
+  readonly ordenPlantilla: number | null;
+  readonly faseId: number | null;
+  readonly fase: FaseCiclo | null;
+  readonly estado: EstadoActividad;
+  readonly fechaInicio: Date | null;
+  readonly fechaFin: Date | null;
+  readonly updatedAt: Date;
+  readonly createdBy: string | null;
+  readonly updatedBy: string | null;
+  readonly numeroActividad: number | null;
+  readonly costoInsumos: number | null;
+  readonly costoTotalActividad: number | null;
+  readonly detalleRiego: DetalleRiego | null;
+  readonly detalleFumigacion: DetalleFumigacion | null;
+  readonly detalleFertilizacion: DetalleFertilizacion | null;
+  readonly detalleCosecha: DetalleCosecha | null;
+  readonly detalleManoObra: DetalleManoObra | null;
+  readonly detalleMaquinaria: DetalleMaquinaria | null;
 
-  @Column({ name: 'parcela_id' })
-  parcelaId!: number;
+  private constructor(props: ActividadParcelaProps) {
+    this.id                    = props.id;
+    this.parcelaId              = props.parcelaId;
+    this.capaId                 = props.capaId;
+    this.tipo                   = props.tipo;
+    this.fecha                  = props.fecha;
+    this.metodo                 = props.metodo;
+    this.insumo                 = props.insumo;
+    this.cantidad                = props.cantidad;
+    this.unidad                  = props.unidad;
+    this.nivelAlerta             = props.nivelAlerta;
+    this.observaciones           = props.observaciones;
+    this.productos               = props.productos;
+    this.fechaRegistro           = props.fechaRegistro;
+    this.cicloId                 = props.cicloId;
+    this.ordenPlantilla          = props.ordenPlantilla;
+    this.faseId                  = props.faseId;
+    this.fase                    = props.fase;
+    this.estado                  = props.estado;
+    this.fechaInicio             = props.fechaInicio;
+    this.fechaFin                = props.fechaFin;
+    this.updatedAt               = props.updatedAt;
+    this.createdBy               = props.createdBy;
+    this.updatedBy               = props.updatedBy;
+    this.numeroActividad         = props.numeroActividad;
+    this.costoInsumos            = props.costoInsumos;
+    this.costoTotalActividad     = props.costoTotalActividad;
+    this.detalleRiego            = props.detalleRiego;
+    this.detalleFumigacion       = props.detalleFumigacion;
+    this.detalleFertilizacion    = props.detalleFertilizacion;
+    this.detalleCosecha          = props.detalleCosecha;
+    this.detalleManoObra         = props.detalleManoObra;
+    this.detalleMaquinaria       = props.detalleMaquinaria;
+  }
 
-  @ManyToOne(() => Parcela, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'parcela_id' })
-  parcela!: Parcela;
-
-  @Column({ name: 'capa_id', nullable: true })
-  capaId!: number;
-
-  @ManyToOne(() => CapaParcela, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'capa_id' })
-  capa!: CapaParcela;
-
-  @Column({ type: 'varchar', length: 30 })
-  tipo!:
-    | 'preparacion_suelo' | 'inundacion'
-    | 'siembra_boleo'     | 'siembra_trasplante'
-    | 'riego'             | 'fertilizacion'
-    | 'fumigacion'        | 'deshierba'
-    | 'cosecha'           | 'rozar_quemar'
-    | 'soca_riego'        | 'soca_fertilizacion'
-    | 'soca_fumigacion'   | 'cosecha_soca'
-    | 'observacion';
-
-  @Column({ type: 'timestamp', default: () => 'NOW()' })
-  fecha!: Date;
-
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  metodo!: string;
-
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  insumo!: string;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  cantidad!: number;
-
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  unidad!: string;
-
-  @Column({ name: 'nivel_alerta', type: 'varchar', length: 20, nullable: true, default: 'normal' })
-  nivelAlerta!: 'normal' | 'alerta' | 'critico';
-
-  @Column({ type: 'text', nullable: true })
-  observaciones!: string;
-
-  @OneToMany(() => ProductoActividad, p => p.actividad, { cascade: true, eager: true })
-  productos!: ProductoActividad[];
-
-  @CreateDateColumn({ name: 'fecha_registro' })
-  fechaRegistro!: Date;
-
-  @Column({ name: 'ciclo_id', nullable: true })
-  cicloId!: number;
-
-  @ManyToOne(() => CicloActividad, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'ciclo_id' })
-  ciclo!: CicloActividad;
-
-  @Column({ name: 'orden_plantilla', type: 'integer', nullable: true })
-  ordenPlantilla!: number;
-
-  @Column({ name: 'fase_id', nullable: true })
-  faseId!: number;
-
-  @ManyToOne(() => FaseCiclo, { nullable: true })
-  @JoinColumn({ name: 'fase_id' })
-  fase!: FaseCiclo;
-
-  @Column({ type: 'varchar', length: 20, default: 'pendiente' })
-  estado!: 'pendiente' | 'en_proceso' | 'completada';
-
-  @Column({ name: 'fecha_inicio', type: 'timestamp', nullable: true })
-  fechaInicio!: Date;
-
-  @Column({ name: 'fecha_fin', type: 'timestamp', nullable: true })
-  fechaFin!: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
-
-  @Column({ name: 'created_by', type: 'text', nullable: true })
-  createdBy!: string | null;
-
-  @Column({ name: 'updated_by', type: 'text', nullable: true })
-  updatedBy!: string | null;
-
-  @Column({ name: 'numero_actividad', type: 'integer', nullable: true })
-  numeroActividad!: number;
-
-  @Column({ name: 'costo_insumos', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  costoInsumos!: number;
-
-  @Column({ name: 'costo_total_actividad', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  costoTotalActividad!: number;
-
-  @OneToOne(() => DetalleRiego, d => d.actividad, { cascade: true, nullable: true })
-  detalleRiego!: DetalleRiego;
-
-  @OneToOne(() => DetalleFumigacion, d => d.actividad, { cascade: true, nullable: true })
-  detalleFumigacion!: DetalleFumigacion;
-
-  @OneToOne(() => DetalleFertilizacion, d => d.actividad, { cascade: true, nullable: true })
-  detalleFertilizacion!: DetalleFertilizacion;
-
-  @OneToOne(() => DetalleCosecha, d => d.actividad, { cascade: true, nullable: true })
-  detalleCosecha!: DetalleCosecha;
-
-  @OneToOne(() => DetalleManoObra, d => d.actividad, { cascade: true, nullable: true })
-  detalleManoObra!: DetalleManoObra;
-
-  @OneToOne(() => DetalleMaquinaria, d => d.actividad, { cascade: true, nullable: true })
-  detalleMaquinaria!: DetalleMaquinaria;
+  static create(props: ActividadParcelaProps): ActividadParcela {
+    if (!props.parcelaId) throw new Error('La parcela es obligatoria');
+    if (!props.tipo)      throw new Error('El tipo de actividad es obligatorio');
+    return new ActividadParcela(props);
+  }
 }

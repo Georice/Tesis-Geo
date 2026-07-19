@@ -8,6 +8,9 @@ export interface Parcela {
   p_zona_id: number | null;
   p_fecha_creacion: string;
   p_geometria: string | object;
+  // true solo en parcelas creadas offline que todavía no llegaron al
+  // servidor (id temporal negativo). Nunca lo manda el backend.
+  p_pending_sync?: boolean;
 }
 
 export interface CreateParcelaDTO {

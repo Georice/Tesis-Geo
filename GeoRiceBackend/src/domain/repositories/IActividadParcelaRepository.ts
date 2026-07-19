@@ -1,5 +1,7 @@
 import { ActividadParcela } from '../entities/ActividadParcela';
-import { ProductoActividad } from '../entities/ProductoActividad';
+import { TipoActividad, NivelAlerta, EstadoActividad } from '../types/ActividadTypes';
+import { NivelDano, DestinoCosecha, UnidadManoObra, UnidadCobroMaquinaria } from '../types/DetalleTypes';
+import { TipoProducto } from '../types/ProductoTypes';
 
 export interface PaginatedResult<T> {
   data: T[];
@@ -8,25 +10,69 @@ export interface PaginatedResult<T> {
   pageSize: number;
 }
 
-export interface DetallesActividad {
-  detalleRiego?: { laminaAgua?: number };
-  detalleFumigacion?: { plagaDetectada?: string; nivelDano?: string; capacidadTanque?: number; numTanques?: number };
-  detalleFertilizacion?: Record<string, never>;
-  detalleCosecha?: { rendimientoHa?: number; totalSacos?: number; humedad?: number; precioQq?: number; ingresoTotal?: number; costoCosecha?: number; destino?: string };
-  detalleManoObra?: { numJornales?: number; pagoJornal?: number; unidadManoObra?: string; cantidadUnidadMo?: number; precioUnidadMo?: number; numTrabajadores?: number; numTareas?: number; precioTarea?: number; costoSembradores?: number; costoManoObra?: number; descripcionUnidadMo?: string };
-  detalleMaquinaria?: { tipoMaquinaria?: string; unidadCobro?: string; cantidadUnidades?: number; costoPorUnidad?: number; costoMaquinaria?: number };
+export interface ProductoComando {
+  id?:                 number;
+  nombre:              string;
+  tipo?:               TipoProducto;
+  dosis?:              number;
+  unidad?:             string;
+  dosisPorTanque?:     number;
+  dosisHa?:            number;
+  dosisPorUnidadMo?:   number;
+  dosisTotal?:         number;
+  presentacionMl?:     number;
+  precioPresentacion?: number;
+  frascoUsados?:       number;
+  precioUnitario?:     number;
+  costoTotal?:         number;
 }
 
-type ActividadBase = Omit<Partial<ActividadParcela>, 'detalleRiego' | 'detalleFumigacion' | 'detalleFertilizacion' | 'detalleCosecha' | 'detalleManoObra' | 'detalleMaquinaria'>;
+// Los campos aceptan `null` además de `undefined` porque, al recalcular en
+// UpdateActividad, se combinan con el detalle ya persistido (que sí puede
+// tener columnas nulas en BD) mediante spread.
+export interface DetalleRiegoComando        { laminaAgua?: number | null; }
+export interface DetalleFumigacionComando   { plagaDetectada?: string | null; nivelDano?: NivelDano | null; capacidadTanque?: number | null; numTanques?: number | null; }
+export interface DetalleFertilizacionComando { }
+export interface DetalleCosechaComando      { rendimientoHa?: number | null; totalSacos?: number | null; humedad?: number | null; precioQq?: number | null; ingresoTotal?: number | null; costoCosecha?: number | null; destino?: DestinoCosecha | null; }
+export interface DetalleManoObraComando     { numJornales?: number | null; pagoJornal?: number | null; costoManoObra?: number | null; unidadManoObra?: UnidadManoObra | null; cantidadUnidadMo?: number | null; precioUnidadMo?: number | null; numTrabajadores?: number | null; pagoPorTrabajador?: number | null; descripcionUnidadMo?: string | null; numTareas?: number | null; precioTarea?: number | null; costoSembradores?: number | null; }
+export interface DetalleMaquinariaComando   { tipoMaquinaria?: string | null; unidadCobro?: UnidadCobroMaquinaria | null; cantidadUnidades?: number | null; costoPorUnidad?: number | null; costoMaquinaria?: number | null; }
 
-export type CreateActividadData = ActividadBase & DetallesActividad;
+export interface ActividadComando {
+  parcelaId:             number;
+  capaId?:                number;
+  tipo:                   TipoActividad;
+  fecha?:                 Date;
+  fechaInicio?:           Date;
+  fechaFin?:              Date;
+  metodo?:                string;
+  insumo?:                string;
+  cantidad?:              number;
+  unidad?:                string;
+  nivelAlerta?:           NivelAlerta;
+  observaciones?:         string;
+  cicloId?:               number;
+  ordenPlantilla?:        number;
+  faseId?:                number;
+  estado?:                EstadoActividad;
+  createdBy?:             string;
+  updatedBy?:             string;
+  numeroActividad?:       number;
+  costoInsumos?:          number;
+  costoTotalActividad?:   number;
+  detalleRiego?:          DetalleRiegoComando;
+  detalleFumigacion?:     DetalleFumigacionComando;
+  detalleFertilizacion?:  DetalleFertilizacionComando;
+  detalleCosecha?:        DetalleCosechaComando;
+  detalleManoObra?:       DetalleManoObraComando;
+  detalleMaquinaria?:     DetalleMaquinariaComando;
+}
 
 export interface IActividadParcelaRepository {
   findByParcela(parcelaId: number, page?: number, pageSize?: number): Promise<PaginatedResult<ActividadParcela>>;
   findByCapa(capaId: number): Promise<ActividadParcela[]>;
   findByCiclo(cicloId: number): Promise<ActividadParcela[]>;
   findById(id: number): Promise<ActividadParcela | null>;
-  create(data: CreateActividadData, productos?: Partial<ProductoActividad>[]): Promise<ActividadParcela>;
-  update(id: number, data: CreateActividadData, productos?: Partial<ProductoActividad>[]): Promise<ActividadParcela | null>;
+  create(data: ActividadComando, productos?: ProductoComando[]): Promise<ActividadParcela>;
+  update(id: number, data: Partial<ActividadComando>, productos?: ProductoComando[]): Promise<ActividadParcela | null>;
   delete(id: number): Promise<boolean>;
 }

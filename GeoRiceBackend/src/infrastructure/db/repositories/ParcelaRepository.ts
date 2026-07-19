@@ -1,12 +1,30 @@
 import { AppDataSource } from '../DataSource';
+import { ParcelaModel }        from '../models/ParcelaModel';
 import { Parcela }             from '../../../domain/entities/Parcela';
-import { IParcelaRepository }  from '../../../domain/repositories/IParcelaRepository';
+import {
+  IParcelaRepository,
+  CrearParcelaComando,
+  ActualizarParcelaComando,
+}  from '../../../domain/repositories/IParcelaRepository';
 import { AuthContext }         from '../../../shared/types/AuthContext';
+import { EstadoParcela }       from '../../../domain/types/ParcelaTypes';
+import { ParcelaMapper }       from '../mappers/ParcelaMapper';
+
+const SELECT_PARCELA = `
+  SELECT p.id, p.nombre, p.usuario_id AS "usuarioId",
+         p.propietario, p.cultivo, p.estado,
+         p.zona_id AS "zonaId", p.ciclo_actual AS "cicloActual",
+         p.area_ha AS "areaHa", p.area_cuadras AS "areaCuadras",
+         p.fecha_creacion AS "fechaCreacion", p.updated_at AS "updatedAt",
+         p.created_by AS "createdBy", p.updated_by AS "updatedBy",
+         ST_AsGeoJSON(p.geometria)::json AS geometria
+  FROM parcelas p
+`;
 
 export class ParcelaRepository implements IParcelaRepository {
-  private repo = AppDataSource.getRepository(Parcela);
+  private repo = AppDataSource.getRepository(ParcelaModel);
 
-  async findAll(ctx: AuthContext): Promise<any[]> {
+  async findAll(ctx: AuthContext): Promise<Parcela[]> {
     const conds: string[] = [];
     const params: any[]   = [];
 
@@ -17,22 +35,15 @@ export class ParcelaRepository implements IParcelaRepository {
 
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
 
-    return AppDataSource.query(`
-      SELECT p.id, p.nombre, p.usuario_id AS "usuarioId",
-             p.propietario, p.cultivo, p.estado,
-             p.zona_id AS "zonaId", p.ciclo_actual AS "cicloActual",
-             p.area_ha AS "areaHa", p.area_cuadras AS "areaCuadras",
-             p.fecha_creacion AS "fechaCreacion", p.updated_at AS "updatedAt",
-             ST_AsGeoJSON(p.geometria)::json AS geometria,
-             u.nombres || ' ' || u.apellidos AS propietario_nombre
-      FROM parcelas p
-      LEFT JOIN usuarios u ON u.id = p.usuario_id
+    const rows = await AppDataSource.query(`
+      ${SELECT_PARCELA}
       ${where}
       ORDER BY p.fecha_creacion DESC
     `, params);
+    return rows.map(ParcelaMapper.fromRow);
   }
 
-  async findById(id: number, ctx: AuthContext): Promise<any | null> {
+  async findById(id: number, ctx: AuthContext): Promise<Parcela | null> {
     const conds: string[] = ['p.id = $1'];
     const params: any[]   = [id];
 
@@ -42,22 +53,14 @@ export class ParcelaRepository implements IParcelaRepository {
     }
 
     const result = await AppDataSource.query(`
-      SELECT p.id, p.nombre, p.usuario_id AS "usuarioId",
-             p.propietario, p.cultivo, p.estado,
-             p.zona_id AS "zonaId", p.ciclo_actual AS "cicloActual",
-             p.area_ha AS "areaHa", p.area_cuadras AS "areaCuadras",
-             p.fecha_creacion AS "fechaCreacion", p.updated_at AS "updatedAt",
-             ST_AsGeoJSON(p.geometria)::json AS geometria,
-             u.nombres || ' ' || u.apellidos AS propietario_nombre
-      FROM parcelas p
-      LEFT JOIN usuarios u ON u.id = p.usuario_id
+      ${SELECT_PARCELA}
       WHERE ${conds.join(' AND ')}
     `, params);
 
-    return result[0] ?? null;
+    return result[0] ? ParcelaMapper.fromRow(result[0]) : null;
   }
 
-  async findByZona(zonaId: number, ctx: AuthContext): Promise<any[]> {
+  async findByZona(zonaId: number, ctx: AuthContext): Promise<Parcela[]> {
     const conds: string[] = ['p.zona_id = $1'];
     const params: any[]   = [zonaId];
 
@@ -66,14 +69,14 @@ export class ParcelaRepository implements IParcelaRepository {
       conds.push(`p.usuario_id = $${params.length}`);
     }
 
-    return AppDataSource.query(`
-      SELECT p.id, p.nombre, p.usuario_id AS "usuarioId", p.propietario,
-             p.cultivo, p.estado, p.zona_id AS "zonaId"
-      FROM parcelas p WHERE ${conds.join(' AND ')}
+    const rows = await AppDataSource.query(`
+      ${SELECT_PARCELA}
+      WHERE ${conds.join(' AND ')}
     `, params);
+    return rows.map(ParcelaMapper.fromRow);
   }
 
-  async create(data: any, ctx: AuthContext): Promise<any> {
+  async create(data: CrearParcelaComando, ctx: AuthContext): Promise<Parcela> {
     const propietarioId = ctx.rol === 'socio'
       ? ctx.usuarioId
       : (data.usuarioId ?? ctx.usuarioId);
@@ -116,10 +119,10 @@ export class ParcelaRepository implements IParcelaRepository {
       [JSON.stringify(geom), saved.id]
     );
 
-    return this.findById(saved.id, ctx);
+    return (await this.findById(saved.id, ctx))!;
   }
 
-  async update(id: number, data: any, ctx: AuthContext): Promise<any | null> {
+  async update(id: number, data: ActualizarParcelaComando, ctx: AuthContext): Promise<Parcela | null> {
     await this.verifyOwnership(id, ctx);
 
     const sets: string[] = ['updated_by = $1', 'updated_at = NOW()'];
@@ -153,7 +156,7 @@ export class ParcelaRepository implements IParcelaRepository {
     return this.findById(id, ctx);
   }
 
-  async updateGeometry(id: number, geometria: object, ctx: AuthContext): Promise<any | null> {
+  async updateGeometry(id: number, geometria: object, ctx: AuthContext): Promise<Parcela | null> {
     await this.verifyOwnership(id, ctx);
 
     const geom  = this.closeAndValidate(geometria);
@@ -180,7 +183,7 @@ export class ParcelaRepository implements IParcelaRepository {
     return this.findById(id, ctx);
   }
 
-  async updateEstado(id: number, estado: string, ctx: AuthContext): Promise<any | null> {
+  async updateEstado(id: number, estado: EstadoParcela, ctx: AuthContext): Promise<Parcela | null> {
     await this.verifyOwnership(id, ctx);
     await AppDataSource.query(
       `UPDATE parcelas SET estado = $1, updated_by = $2, updated_at = NOW() WHERE id = $3`,
@@ -212,6 +215,11 @@ export class ParcelaRepository implements IParcelaRepository {
     if (excludeId) qb.andWhere('p.id != :excludeId', { excludeId });
 
     return (await qb.getCount()) > 0;
+  }
+
+  async findAreaHa(id: number): Promise<number | null> {
+    const result = await AppDataSource.query(`SELECT area_ha FROM parcelas WHERE id = $1`, [id]);
+    return result[0]?.area_ha != null ? Number(result[0].area_ha) : null;
   }
 
   async isInsideZona(geometria: object): Promise<number | null> {

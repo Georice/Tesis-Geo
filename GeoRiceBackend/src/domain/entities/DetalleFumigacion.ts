@@ -1,24 +1,30 @@
-import { Entity, PrimaryColumn, Column, OneToOne, JoinColumn } from 'typeorm';
-import { ActividadParcela } from './ActividadParcela';
+import { NivelDano } from '../types/DetalleTypes';
 
-@Entity('detalle_fumigacion')
+export interface DetalleFumigacionProps {
+  actividadId: number;
+  plagaDetectada: string | null;
+  nivelDano: NivelDano | null;
+  capacidadTanque: number | null;
+  numTanques: number | null;
+}
+
 export class DetalleFumigacion {
-  @PrimaryColumn({ name: 'actividad_id' })
-  actividadId!: number;
+  readonly actividadId: number;
+  readonly plagaDetectada: string | null;
+  readonly nivelDano: NivelDano | null;
+  readonly capacidadTanque: number | null;
+  readonly numTanques: number | null;
 
-  @OneToOne(() => ActividadParcela, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'actividad_id' })
-  actividad!: ActividadParcela;
+  private constructor(props: DetalleFumigacionProps) {
+    this.actividadId      = props.actividadId;
+    this.plagaDetectada    = props.plagaDetectada;
+    this.nivelDano          = props.nivelDano;
+    this.capacidadTanque    = props.capacidadTanque;
+    this.numTanques         = props.numTanques;
+  }
 
-  @Column({ name: 'plaga_detectada', type: 'varchar', length: 100, nullable: true })
-  plagaDetectada!: string;
-
-  @Column({ name: 'nivel_dano', type: 'varchar', length: 20, nullable: true })
-  nivelDano!: 'leve' | 'moderado' | 'severo';
-
-  @Column({ name: 'capacidad_tanque', type: 'decimal', precision: 8, scale: 2, nullable: true, default: 200 })
-  capacidadTanque!: number;
-
-  @Column({ name: 'num_tanques', type: 'decimal', precision: 6, scale: 2, nullable: true })
-  numTanques!: number;
+  static create(props: DetalleFumigacionProps): DetalleFumigacion {
+    if (!props.actividadId) throw new Error('El detalle de fumigación debe pertenecer a una actividad');
+    return new DetalleFumigacion(props);
+  }
 }

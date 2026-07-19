@@ -1,27 +1,33 @@
-import { Entity, PrimaryColumn, Column, OneToOne, JoinColumn } from 'typeorm';
-import { ActividadParcela } from './ActividadParcela';
+import { UnidadCobroMaquinaria } from '../types/DetalleTypes';
 
-@Entity('detalle_maquinaria')
+export interface DetalleMaquinariaProps {
+  actividadId: number;
+  tipoMaquinaria: string | null;
+  unidadCobro: UnidadCobroMaquinaria | null;
+  cantidadUnidades: number | null;
+  costoPorUnidad: number | null;
+  costoMaquinaria: number | null;
+}
+
 export class DetalleMaquinaria {
-  @PrimaryColumn({ name: 'actividad_id' })
-  actividadId!: number;
+  readonly actividadId: number;
+  readonly tipoMaquinaria: string | null;
+  readonly unidadCobro: UnidadCobroMaquinaria | null;
+  readonly cantidadUnidades: number | null;
+  readonly costoPorUnidad: number | null;
+  readonly costoMaquinaria: number | null;
 
-  @OneToOne(() => ActividadParcela, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'actividad_id' })
-  actividad!: ActividadParcela;
+  private constructor(props: DetalleMaquinariaProps) {
+    this.actividadId       = props.actividadId;
+    this.tipoMaquinaria      = props.tipoMaquinaria;
+    this.unidadCobro          = props.unidadCobro;
+    this.cantidadUnidades     = props.cantidadUnidades;
+    this.costoPorUnidad       = props.costoPorUnidad;
+    this.costoMaquinaria      = props.costoMaquinaria;
+  }
 
-  @Column({ name: 'tipo_maquinaria', type: 'varchar', length: 50, nullable: true })
-  tipoMaquinaria!: string;
-
-  @Column({ name: 'unidad_cobro', type: 'varchar', length: 20, nullable: true })
-  unidadCobro!: 'hora' | 'hectarea' | 'saco' | 'otro';
-
-  @Column({ name: 'cantidad_unidades', type: 'decimal', precision: 8, scale: 2, nullable: true })
-  cantidadUnidades!: number;
-
-  @Column({ name: 'costo_por_unidad', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  costoPorUnidad!: number;
-
-  @Column({ name: 'costo_maquinaria', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  costoMaquinaria!: number;
+  static create(props: DetalleMaquinariaProps): DetalleMaquinaria {
+    if (!props.actividadId) throw new Error('El detalle de maquinaria debe pertenecer a una actividad');
+    return new DetalleMaquinaria(props);
+  }
 }

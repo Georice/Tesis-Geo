@@ -1,24 +1,26 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
-import { Parcela }           from '../../domain/entities/Parcela';
-import { Zona }              from '../../domain/entities/Zona';
-import { CapaParcela }       from '../../domain/entities/CapaParcela';
-import { ActividadParcela }  from '../../domain/entities/ActividadParcela';
-import { ProductoActividad } from '../../domain/entities/ProductoActividad';
-import { CicloActividad }    from '../../domain/entities/CicloActividad';
-import { Usuario }           from '../../domain/entities/Usuario';
-import { RefreshToken }      from '../../domain/entities/RefreshToken';
-import { FaseCiclo }         from '../../domain/entities/FaseCiclo';
-import { DetalleRiego }      from '../../domain/entities/DetalleRiego';
-import { DetalleFumigacion } from '../../domain/entities/DetalleFumigacion';
-import { DetalleFertilizacion } from '../../domain/entities/DetalleFertilizacion';
-import { DetalleCosecha }    from '../../domain/entities/DetalleCosecha';
-import { DetalleManoObra }   from '../../domain/entities/DetalleManoObra';
-import { DetalleMaquinaria } from '../../domain/entities/DetalleMaquinaria';
+import { ParcelaModel }           from './models/ParcelaModel';
+import { ZonaModel }              from './models/ZonaModel';
+import { CapaParcelaModel }       from './models/CapaParcelaModel';
+import { ActividadParcelaModel }  from './models/ActividadParcelaModel';
+import { ProductoActividadModel } from './models/ProductoActividadModel';
+import { CicloActividadModel }    from './models/CicloActividadModel';
+import { UsuarioModel }           from './models/UsuarioModel';
+import { RefreshTokenModel }      from './models/RefreshTokenModel';
+import { FaseCicloModel }         from './models/FaseCicloModel';
+import { DetalleRiegoModel }      from './models/DetalleRiegoModel';
+import { DetalleFumigacionModel } from './models/DetalleFumigacionModel';
+import { DetalleFertilizacionModel } from './models/DetalleFertilizacionModel';
+import { DetalleCosechaModel }    from './models/DetalleCosechaModel';
+import { DetalleManoObraModel }   from './models/DetalleManoObraModel';
+import { DetalleMaquinariaModel } from './models/DetalleMaquinariaModel';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Únicas clases de esta capa acopladas a TypeORM (decoradores @Entity).
+// El dominio (src/domain/entities) no aparece aquí: son clases puras.
 export const AppDataSource = new DataSource({
   type:     'postgres',
   host:     process.env.DB_HOST,
@@ -27,10 +29,10 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   entities: [
-    Parcela, Zona, CapaParcela, ActividadParcela,
-    ProductoActividad, CicloActividad, Usuario, RefreshToken,
-    FaseCiclo, DetalleRiego, DetalleFumigacion, DetalleFertilizacion,
-    DetalleCosecha, DetalleManoObra, DetalleMaquinaria,
+    ParcelaModel, ZonaModel, CapaParcelaModel, ActividadParcelaModel,
+    ProductoActividadModel, CicloActividadModel, UsuarioModel, RefreshTokenModel,
+    FaseCicloModel, DetalleRiegoModel, DetalleFumigacionModel, DetalleFertilizacionModel,
+    DetalleCosechaModel, DetalleManoObraModel, DetalleMaquinariaModel,
   ],
   synchronize: false,
 });

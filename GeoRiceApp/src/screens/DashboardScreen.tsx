@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   StyleSheet, View, Text, TouchableOpacity, Alert, TextInput,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Modal, FlatList,
 } from 'react-native';
 import AppHeader from '../components/AppHeader';
 import AppDrawer from '../components/AppDrawer';
@@ -11,10 +11,10 @@ import Icon from '../components/Icon';
 import IconLabel from '../components/IconLabel';
 import Mapbox from '@rnmapbox/maps';
 import turfArea from '@turf/area';
-import { booleanWithin } from '@turf/turf';
+import { booleanWithin, booleanIntersects, booleanTouches } from '@turf/turf';
 import { type Polygon } from 'geojson';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
+import { SyncEngine, LoggedOperation } from '../infrastructure/sync/SyncEngine';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../context/AuthContext';
@@ -71,6 +71,37 @@ const CAPA_BORDER: Record<string, string> = {
   lindero:  '#007AFF',
 };
 
+const ENTIDAD_LABEL: Record<string, string> = {
+  parcela: 'Parcela', zona: 'Zona', capa: 'Capa', actividad: 'Actividad',
+};
+
+const fmtFechaCorta = (iso: string): string => {
+  const d = new Date(iso);
+  return [
+    String(d.getDate()).padStart(2, '0'),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    d.getFullYear(),
+  ].join('/');
+};
+
+const MENSAJE_SUPERPOSICION =
+  'Considerar que la parcela/zona no esté por encima de otra, caso contrario se borra lo registrado';
+
+// Misma regla que usa el backend (ST_Intersects AND NOT ST_Touches): se
+// consideran superpuestas si comparten área real, no solo un borde/punto
+// en contacto. Se revisa client-side porque offline no hay forma de que el
+// servidor lo valide hasta que se sincronice — y para entonces ya sería
+// tarde para avisar.
+const seSuperponen = (geomA: any, geomB: any): boolean => {
+  try {
+    const featA = { type: 'Feature' as const, properties: {}, geometry: geomA };
+    const featB = { type: 'Feature' as const, properties: {}, geometry: geomB };
+    return booleanIntersects(featA, featB) && !booleanTouches(featA, featB);
+  } catch {
+    return false;
+  }
+};
+
 const DashboardScreen = () => {
   const navigation = useNavigation<Nav>();
   const route      = useRoute<RouteProp<RootStackParamList, 'Dashboard'>>();
@@ -80,6 +111,7 @@ const DashboardScreen = () => {
 
   const [vertices, setVertices]                   = useState<number[][]>([]);
   const [nombre, setNombre]                       = useState('');
+  const [guardandoParcela, setGuardandoParcela]   = useState(false);
   const [parcelas, setParcelas]                   = useState<Parcela[]>([]);
   const [zonas, setZonas]                         = useState<Zona[]>([]);
   const [selectedParcela, setSelectedParcela]     = useState<any>(null);
@@ -106,6 +138,10 @@ const DashboardScreen = () => {
   const [menuParcela, setMenuParcela] = useState<any>(null);
   const [activeTab,   setActiveTab]  = useState<'mapa' | 'parcelas'>('mapa');
   const [drawerOpen,  setDrawerOpen] = useState(false);
+
+  const [opcionesVisible, setOpcionesVisible]     = useState(false);
+  const [estadoSyncVisible, setEstadoSyncVisible] = useState(false);
+  const [syncLog, setSyncLog] = useState<LoggedOperation[]>([]);
 
   const menuItems = useMemo(
     () => (user ? GetUserMenuByRole(user.rol) : []),
@@ -144,31 +180,112 @@ const DashboardScreen = () => {
     catch (e) { console.error('fetchCapas:', e); }
   };
 
-  const syncOfflineParcelas = async () => {
+  // Reintenta manualmente toda la cola offline (parcelas, zonas, capas y
+  // actividades creadas/editadas sin conexión) — la cola en sí ya se
+  // reintenta automáticamente al recuperar señal (ver App.tsx), esto es
+  // un botón de "forzar ahora" para el usuario.
+  const syncOfflineParcelas = async (opts: { silent?: boolean } = {}) => {
     try {
-      const stored = await AsyncStorage.getItem('offlineParcelas');
-      if (!stored) return;
-      const offlineList = JSON.parse(stored);
-      if (!offlineList.length) return;
-      const remaining: any[] = [];
-      for (const p of offlineList) {
-        try { await CreateParcela(p); }
-        catch { remaining.push(p); }
+      const { sent, pending } = await SyncEngine.flushQueue();
+      if (sent === 0 && pending === 0) {
+        if (!opts.silent) Alert.alert('Sin pendientes', 'No hay cambios guardados localmente por enviar.');
+        return;
       }
-      if (!remaining.length) {
-        await AsyncStorage.removeItem('offlineParcelas');
-        Alert.alert('Sincronización completa', 'Parcelas pendientes enviadas.');
-        fetchParcelas();
-      } else {
-        await AsyncStorage.setItem('offlineParcelas', JSON.stringify(remaining));
-      }
+      Alert.alert(
+        'Sincronización',
+        pending > 0
+          ? `Se enviaron ${sent} cambio(s). ${pending} siguen pendientes (sin conexión o no se pudieron completar).`
+          : `Se enviaron ${sent} cambio(s) pendiente(s).`,
+      );
+      fetchParcelas();
+      fetchZonas();
     } catch (e) { console.error(e); }
+  };
+
+  // Mantener presionado "Sincronizar" para revisar/vaciar la cola pendiente
+  // — útil cuando algo queda atascado (el servidor lo rechaza siempre, p.
+  // ej. una actividad sin ciclo activo) y se repite en cada intento sin
+  // avanzar nunca.
+  // El dispositivo puede haber tenido más de un usuario logeado (admin y
+  // socio probando en el mismo celular, por ejemplo) — tanto la cola como
+  // el log de sincronización son compartidos a nivel de AsyncStorage, así
+  // que hay que filtrar por el usuario actual antes de mostrar o borrar
+  // nada, para no tocar (ni mostrar) lo que otro usuario dejó pendiente.
+  const misOperacionesPendientes = async () => {
+    const [queue, log] = await Promise.all([SyncEngine.getQueue(), SyncEngine.getLog()]);
+    const misIds = new Set(
+      log.filter(l => l.usuario === (user?.nombreCompleto ?? '')).map(l => l.id),
+    );
+    return queue.filter(op => misIds.has(op.id));
+  };
+
+  const verColaPendiente = async () => {
+    const misPendientes = await misOperacionesPendientes();
+    if (!misPendientes.length) {
+      Alert.alert('Sin pendientes', 'No tienes cambios guardados localmente por enviar.');
+      return;
+    }
+    const detalle = misPendientes
+      .map(op => `• ${op.label}${op.lastError ? `\n   ⚠ ${op.lastError}` : ''}`)
+      .join('\n');
+    Alert.alert(
+      `${misPendientes.length} pendiente(s) sin sincronizar`,
+      `${detalle}\n\nSi alguno lleva mucho tiempo sin poder enviarse, puedes vaciar toda la cola. Esto DESCARTA los cambios pendientes — solo hazlo si ya no los necesitas.`,
+      [
+        { text: 'Cerrar', style: 'cancel' },
+        { text: 'Vaciar cola', style: 'destructive', onPress: async () => {
+          for (const op of misPendientes) await SyncEngine.discardOperation(op.id);
+          Alert.alert('Cola vaciada');
+          fetchParcelas(); fetchZonas();
+        }},
+      ],
+    );
+  };
+
+  const abrirEstadoSync = async () => {
+    const log = await SyncEngine.getLog();
+    setSyncLog(log.filter(l => l.usuario === (user?.nombreCompleto ?? '')));
+    setEstadoSyncVisible(true);
+  };
+
+  // "Borrar caché" del menú de opciones: borra SOLO lo que el usuario
+  // actual todavía no ha enviado (cola pendiente + sus registros locales
+  // optimistas + su entrada en el log de "Estado de sincronización"). No
+  // toca los datos ya sincronizados, ni lo pendiente de otros usuarios.
+  const borrarCacheNoEnviada = async () => {
+    const misPendientes = await misOperacionesPendientes();
+    if (!misPendientes.length) {
+      Alert.alert('Nada que borrar', 'No tienes registros pendientes de sincronizar guardados en este dispositivo.');
+      return;
+    }
+    Alert.alert(
+      'Borrar caché',
+      `Vas a borrar ${misPendientes.length} registro(s) tuyo(s) que todavía NO se han enviado. Los datos ya sincronizados y los pendientes de otros usuarios no se ven afectados. Esta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Borrar', style: 'destructive', onPress: async () => {
+          for (const op of misPendientes) await SyncEngine.discardOperation(op.id);
+          Alert.alert('Listo', 'Se borraron tus registros pendientes no enviados.');
+          fetchParcelas(); fetchZonas();
+        }},
+      ],
+    );
+  };
+
+  const mostrarVersionApp = () => {
+    const hoy = new Date();
+    const fecha = [
+      String(hoy.getDate()).padStart(2, '0'),
+      String(hoy.getMonth() + 1).padStart(2, '0'),
+      hoy.getFullYear(),
+    ].join('/');
+    Alert.alert('Versión app', `Fecha: ${fecha}\nUsuario: ${user?.nombreCompleto ?? '—'}`);
   };
 
   useEffect(() => {
     fetchParcelas();
     fetchZonas();
-    syncOfflineParcelas();
+    syncOfflineParcelas({ silent: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -291,6 +408,7 @@ const DashboardScreen = () => {
   };
 
   const saveParcel = async () => {
+    if (guardandoParcela) return; // evita doble-envío si tocan "Guardar" dos veces rápido
     if (vertices.length < 3) { Alert.alert('Error', 'Necesitas al menos 3 vértices.'); return; }
     if (!nombre.trim())       { Alert.alert('Error', 'Ingresa un nombre.'); return; }
 
@@ -319,11 +437,33 @@ const DashboardScreen = () => {
       }
     }
 
-    const geometria   = { type: 'Polygon', coordinates: [[...vertices, vertices[0]]] };
+    const geometria = { type: 'Polygon', coordinates: [[...vertices, vertices[0]]] };
+
+    const seSuperponeConOtraParcela = parcelas.some(p => {
+      const gRaw = (p as any).p_geometria ?? (p as any).geometria;
+      if (!gRaw) return false;
+      try {
+        const g = typeof gRaw === 'string' ? JSON.parse(gRaw) : gRaw;
+        return seSuperponen(geometria, g);
+      } catch { return false; }
+    });
+    if (seSuperponeConOtraParcela) {
+      Alert.alert('Atención', MENSAJE_SUPERPOSICION);
+      return;
+    }
+
     const parcelaData = { nombre: nombre.trim(), cultivo: 'Arroz', estado: 'activo', geometria };
+    setGuardandoParcela(true);
     try {
-      await CreateParcela(parcelaData);
-      Alert.alert('Parcela guardada', `Área: ${getArea(vertices)} ha`);
+      const creada = await CreateParcela(parcelaData);
+      if (creada.p_pending_sync) {
+        // Sin conexión: ParcelaRepository ya la encoló y ya la agregó a la
+        // caché local, así que fetchParcelas() de abajo va a mostrarla de
+        // inmediato (con id temporal) — ya se puede trabajar con ella.
+        Alert.alert('Sin conexión', 'Parcela guardada localmente. Ya puedes verla y trabajar con ella; se enviará sola cuando vuelva la señal.');
+      } else {
+        Alert.alert('Parcela guardada', `Área: ${getArea(vertices)} ha`);
+      }
       setVertices([]); setNombre('');
       fetchParcelas();
     } catch (e: any) {
@@ -339,15 +479,10 @@ const DashboardScreen = () => {
       } else if (msg.includes('superpone')) {
         Alert.alert('Solapamiento', 'La parcela se superpone con una existente.');
       } else {
-        try {
-          const stored = await AsyncStorage.getItem('offlineParcelas');
-          const list   = stored ? JSON.parse(stored) : [];
-          list.push(parcelaData);
-          await AsyncStorage.setItem('offlineParcelas', JSON.stringify(list));
-          Alert.alert('Sin conexión', 'Guardado localmente.');
-          setVertices([]); setNombre('');
-        } catch (err) { console.error(err); }
+        Alert.alert('Error', msg);
       }
+    } finally {
+      setGuardandoParcela(false);
     }
   };
 
@@ -362,7 +497,9 @@ const DashboardScreen = () => {
       });
       Alert.alert('Datos actualizados');
       setEditingData(null); setSelectedParcela(null); fetchParcelas();
-    } catch { Alert.alert('Error de conexión'); }
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo actualizar la parcela');
+    }
   };
 
   const startEditGeometry = () => {
@@ -469,9 +606,27 @@ const DashboardScreen = () => {
     if (verticesZona.length < 3) { Alert.alert('Error', 'Necesitas al menos 3 vértices.'); return; }
     if (!nombreZona.trim())       { Alert.alert('Error', 'Ingresa un nombre.'); return; }
     const geometria = { type: 'Polygon', coordinates: [[...verticesZona, verticesZona[0]]] };
+
+    const seSuperponeConOtraZona = zonas.some(z => {
+      const gRaw = (z as any).geometria ?? (z as any).z_geometria;
+      if (!gRaw) return false;
+      try {
+        const g = typeof gRaw === 'string' ? JSON.parse(gRaw) : gRaw;
+        return seSuperponen(geometria, g);
+      } catch { return false; }
+    });
+    if (seSuperponeConOtraZona) {
+      Alert.alert('Atención', MENSAJE_SUPERPOSICION);
+      return;
+    }
+
     try {
       const result = await CreateZona({ nombre: nombreZona.trim(), descripcion: descripcionZona.trim(), geometria });
-      Alert.alert('Zona guardada', `${(result as any).parcelasAsignadas ?? 0} parcelas asignadas`);
+      if ((result as any).pendingSync) {
+        Alert.alert('Sin conexión', 'Zona guardada localmente. Ya puedes verla y crear parcelas dentro de ella; se enviará sola cuando vuelva la señal.');
+      } else {
+        Alert.alert('Zona guardada', `${(result as any).parcelasAsignadas ?? 0} parcelas asignadas`);
+      }
       setDibujandoZona(false); setVerticesZona([]); setNombreZona(''); setDescripcionZona('');
       fetchZonas(); fetchParcelas();
     } catch (e: any) { Alert.alert('Error', e.message ?? 'Error al guardar zona'); }
@@ -512,7 +667,7 @@ const DashboardScreen = () => {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.container}>
 
-        <AppHeader onMenuPress={() => setDrawerOpen(true)} />
+        <AppHeader onMenuPress={() => setDrawerOpen(true)} onOpcionesPress={() => setOpcionesVisible(true)} />
 
         <View style={{ flex: 1 }}>
 
@@ -827,8 +982,10 @@ const DashboardScreen = () => {
             {modoPanel === 'parcela' && activeTab === 'parcelas' && (
               <NuevaParcelaScreen vertices={vertices} nombre={nombre}
               area={getArea(vertices)} onNombreChange={setNombre}
-              onLimpiar={clearAll} onGuardar={saveParcel} onSyncOffline={syncOfflineParcelas} propietario={''} 
-             onPropietarioChange={(_v: string) => {}}/>
+              guardando={guardandoParcela}
+              onLimpiar={clearAll} onGuardar={saveParcel} onSyncOffline={syncOfflineParcelas}
+              propietario={user?.nombreCompleto ?? ''}
+              onPropietarioChange={(_v: string) => {}}/>
             )}
           </View>
 
@@ -854,7 +1011,8 @@ const DashboardScreen = () => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.tabItem}
-                onPress={syncOfflineParcelas}>
+                onPress={() => syncOfflineParcelas()}
+                onLongPress={verColaPendiente}>
                 <Icon name="weather-cloudy" size={18} color="#0891b2" style={styles.tabIcon} />
                 <Text style={styles.tabLabel}>Sincronizar</Text>
               </TouchableOpacity>
@@ -916,6 +1074,71 @@ const DashboardScreen = () => {
           userRole={user?.rol ?? 'socio'}
           onAction={handleDrawerAction}
         />
+
+        {/* Menú de opciones (⋮) */}
+        <Modal visible={opcionesVisible} transparent animationType="fade" onRequestClose={() => setOpcionesVisible(false)}>
+          <TouchableOpacity style={styles.opcionesOverlay} activeOpacity={1} onPress={() => setOpcionesVisible(false)}>
+            <View style={styles.opcionesDropdown}>
+              <TouchableOpacity style={styles.opcionesItem} onPress={() => { setOpcionesVisible(false); abrirEstadoSync(); }}>
+                <Icon name="cloud-sync-outline" size={18} color="#333" />
+                <Text style={styles.opcionesItemText}>Estado de sincronización</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.opcionesItem} onPress={() => { setOpcionesVisible(false); borrarCacheNoEnviada(); }}>
+                <Icon name="trash-can-outline" size={18} color="#333" />
+                <Text style={styles.opcionesItemText}>Borrar caché</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.opcionesItem} onPress={() => { setOpcionesVisible(false); mostrarVersionApp(); }}>
+                <Icon name="information-outline" size={18} color="#333" />
+                <Text style={styles.opcionesItemText}>Versión app</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* Estado de sincronización */}
+        <Modal visible={estadoSyncVisible} transparent animationType="slide" onRequestClose={() => setEstadoSyncVisible(false)}>
+          <View style={styles.syncModalOverlay}>
+            <View style={styles.syncModalPanel}>
+              <View style={styles.syncModalHeader}>
+                <Text style={styles.syncModalTitulo}>Estado de sincronización</Text>
+                <TouchableOpacity onPress={() => setEstadoSyncVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Icon name="close" size={22} color="#333" />
+                </TouchableOpacity>
+              </View>
+              {syncLog.length === 0 ? (
+                <Text style={styles.syncModalVacio}>Todavía no hay registros creados en este dispositivo.</Text>
+              ) : (
+                <FlatList
+                  data={syncLog}
+                  keyExtractor={item => item.id}
+                  renderItem={({ item }: { item: LoggedOperation }) => (
+                    <View style={styles.syncRow}>
+                      <View style={[
+                        styles.syncEstadoBadge,
+                        item.estado === 'enviado' ? styles.syncEstadoEnviado : styles.syncEstadoNoEnviado,
+                      ]}>
+                        <Text style={styles.syncEstadoText}>
+                          {item.estado === 'enviado' ? 'ENVIADO' : 'NO ENVIADO'}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.syncRowTipo}>
+                          {ENTIDAD_LABEL[item.entity] ?? item.entity} · {item.label}
+                        </Text>
+                        <Text style={styles.syncRowMeta}>
+                          {fmtFechaCorta(item.createdAt)} · {item.usuario}
+                        </Text>
+                        {item.lastError && (
+                          <Text style={styles.syncRowError}>⚠ {item.lastError}</Text>
+                        )}
+                      </View>
+                    </View>
+                  )}
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
       </View>
     </KeyboardAvoidingView>
   );
@@ -924,6 +1147,31 @@ const DashboardScreen = () => {
 const styles = StyleSheet.create({
   container:    { flex: 1 },
   map:          { flex: 1 },
+  opcionesOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.15)' },
+  opcionesDropdown:  { position: 'absolute', top: 60, right: 10, backgroundColor: '#fff',
+                       borderRadius: 10, paddingVertical: 4, minWidth: 220, elevation: 6,
+                       shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+                       shadowOpacity: 0.2, shadowRadius: 6 },
+  opcionesItem:      { flexDirection: 'row', alignItems: 'center', gap: 10,
+                       paddingHorizontal: 16, paddingVertical: 12 },
+  opcionesItemText:  { fontSize: 14, color: '#333', fontWeight: '500' },
+  syncModalOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' },
+  syncModalPanel:    { backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16,
+                       maxHeight: '70%', paddingBottom: 20 },
+  syncModalHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+                       padding: 16, borderBottomWidth: 0.5, borderBottomColor: '#e5e5e5' },
+  syncModalTitulo:   { fontSize: 16, fontWeight: '700', color: '#1a2b16' },
+  syncModalVacio:    { padding: 24, textAlign: 'center', color: '#999', fontSize: 13 },
+  syncRow:           { flexDirection: 'row', alignItems: 'center', gap: 10,
+                       paddingHorizontal: 16, paddingVertical: 10,
+                       borderBottomWidth: 0.5, borderBottomColor: '#f0f0f0' },
+  syncEstadoBadge:   { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  syncEstadoEnviado:   { backgroundColor: '#dcfce7' },
+  syncEstadoNoEnviado: { backgroundColor: '#fef3c7' },
+  syncEstadoText:    { fontSize: 10, fontWeight: '700', color: '#333' },
+  syncRowTipo:       { fontSize: 13, fontWeight: '600', color: '#1a2b16' },
+  syncRowMeta:       { fontSize: 11, color: '#999', marginTop: 2 },
+  syncRowError:      { fontSize: 11, color: '#b91c1c', marginTop: 3, fontWeight: '500' },
   marker:       { width: 24, height: 24, borderRadius: 12, backgroundColor: 'red',
                   justifyContent: 'center', alignItems: 'center' },
   editMarker:   { width: 24, height: 24, borderRadius: 12, backgroundColor: 'orange',

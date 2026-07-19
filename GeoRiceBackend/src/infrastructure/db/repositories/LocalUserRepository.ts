@@ -1,12 +1,13 @@
 import bcrypt from 'bcrypt';
 import { AppDataSource } from '../DataSource';
+import { Usuario } from '../../../domain/entities/Usuario';
 import {
   IUserRepository,
   CredencialesLogin,
-  CreateUsuarioDTO,
-  UpdateUsuarioDTO,
-  UsuarioPublico,
+  NuevoUsuarioComando,
+  ActualizarUsuarioComando,
 } from '../../../domain/repositories/IUserRepository';
+import { UsuarioMapper } from '../mappers/UsuarioMapper';
 
 // ── Credenciales para login (busca por cédula o usuario) ──────────────────
 const SELECT_CRED = `
@@ -46,30 +47,32 @@ export class LocalUserRepository implements IUserRepository {
     return rows[0] ?? null;
   }
 
-  async findById(id: string): Promise<UsuarioPublico | null> {
+  async findById(id: string): Promise<Usuario | null> {
     const rows = await AppDataSource.query(
       `${SELECT_PUB} WHERE u.id = $1 LIMIT 1`,
       [id],
     );
-    return rows[0] ?? null;
+    return rows[0] ? UsuarioMapper.fromRow(rows[0]) : null;
   }
 
-  async findAll(): Promise<UsuarioPublico[]> {
-    return AppDataSource.query(
+  async findAll(): Promise<Usuario[]> {
+    const rows = await AppDataSource.query(
       `${SELECT_PUB} ORDER BY u.apellidos, u.nombres`,
     );
+    return rows.map(UsuarioMapper.fromRow);
   }
 
-  async findSoloActivos(): Promise<UsuarioPublico[]> {
-    return AppDataSource.query(
+  async findSoloActivos(): Promise<Usuario[]> {
+    const rows = await AppDataSource.query(
       `${SELECT_PUB} WHERE u.estado = 'activo' ORDER BY u.apellidos, u.nombres`,
     );
+    return rows.map(UsuarioMapper.fromRow);
   }
 
-  async create(data: CreateUsuarioDTO, createdBy: string): Promise<UsuarioPublico> {
+  async create(data: NuevoUsuarioComando, createdBy: string): Promise<Usuario> {
     const hash = await bcrypt.hash(data.password, 12);
     const rows = await AppDataSource.query(
-      `INSERT INTO public.usuarios 
+      `INSERT INTO public.usuarios
         (cedula, nombres, apellidos, usuario, password_hash, rol, estado, email, updated_by)
        VALUES ($1, $2, $3, $4, $5, $6, 'activo', $7, $8)
        RETURNING id`,
@@ -87,10 +90,11 @@ export class LocalUserRepository implements IUserRepository {
     return (await this.findById(rows[0].id))!;
   }
 
-  async update(id: string, data: UpdateUsuarioDTO, updatedBy: string): Promise<UsuarioPublico> {
-    const sets: string[] = ['updated_at = NOW()', `updated_by = '${updatedBy}'`];
+  async update(id: string, data: ActualizarUsuarioComando, updatedBy: string): Promise<Usuario> {
+    const sets: string[] = ['updated_at = NOW()'];
     const params: unknown[] = [];
 
+    params.push(updatedBy); sets.push(`updated_by = $${params.length}`);
     if (data.nombres   != null) { params.push(data.nombres);   sets.push(`nombres = $${params.length}`); }
     if (data.apellidos != null) { params.push(data.apellidos); sets.push(`apellidos = $${params.length}`); }
     if (data.email     != null) { params.push(data.email);     sets.push(`email = $${params.length}`); }

@@ -103,6 +103,13 @@ DECLARE
     v_fase_id         INTEGER;
     v_tipos_ambiguos  VARCHAR(30)[] := ARRAY['riego', 'fertilizacion', 'fumigacion', 'soca_riego', 'soca_fumigacion'];
 BEGIN
+    -- Actividades sueltas (creadas fuera de un ciclo, sin plantilla) son
+    -- válidas: simplemente no tienen fase asignada. No es un error.
+    IF NEW.ciclo_id IS NULL THEN
+        NEW.fase_id := NULL;
+        RETURN NEW;
+    END IF;
+
     -- 1. Obtener el tipo de ciclo padre
     SELECT tipo INTO v_tipo_ciclo
     FROM ciclos_actividad
@@ -116,11 +123,15 @@ BEGIN
     v_orden := NEW.orden_plantilla;
 
     IF v_orden IS NULL THEN
-        -- Tipos ambiguos: el orden_plantilla es obligatorio, no se puede inferir
+        -- Tipos ambiguos sin orden_plantilla explícito: no se puede inferir
+        -- a qué fase pertenece (p. ej. "riego" aparece más de una vez en la
+        -- plantilla). Antes esto rechazaba la actividad entera; ahora
+        -- queda ligada al ciclo pero sin fase — el usuario puede agregarla
+        -- igual (p. ej. una actividad manual sin elegir fase específica) y
+        -- corregirla después si hace falta.
         IF NEW.tipo = ANY(v_tipos_ambiguos) THEN
-            RAISE EXCEPTION
-                'orden_plantilla es obligatorio para actividades de tipo "%" (se repite en la plantilla del ciclo "%" y la fase no puede determinarse solo por el tipo)',
-                NEW.tipo, v_tipo_ciclo;
+            NEW.fase_id := NULL;
+            RETURN NEW;
         END IF;
 
         -- Tipos no ambiguos: buscar la primera (única) ocurrencia en plantillas_ciclo
@@ -132,9 +143,10 @@ BEGIN
         LIMIT 1;
 
         IF v_orden IS NULL THEN
-            RAISE EXCEPTION
-                'El tipo de actividad "%" no existe en plantillas_ciclo para el tipo de ciclo "%". Revisar PLANTILLAS_CICLO (PlantillaCiclo.ts) y la tabla plantillas_ciclo.',
-                NEW.tipo, v_tipo_ciclo;
+            -- Tipo libre que no pertenece a ninguna plantilla (p. ej.
+            -- "observacion"): válido, se liga al ciclo pero sin fase.
+            NEW.fase_id := NULL;
+            RETURN NEW;
         END IF;
 
         NEW.orden_plantilla := v_orden;

@@ -15,7 +15,16 @@ import { ReporteResumen } from '../domain/entities/Reporte';
 import { Usuario } from '../domain/entities/Usuario';
 import { BASE_URL, STORAGE_KEYS } from '../infrastructure/repositories/ApiClient';
 
-const fmt = (d: Date) => d.toISOString().split('T')[0];
+// OJO: nunca usar toISOString() para el filtro de fechas (solo interesa el
+// día, no la hora) — convierte a UTC y en Ecuador (UTC-5) eso corre el día
+// seleccionado hacia adelante o hacia atrás según la hora local, haciendo
+// que el rango enviado al backend no coincida con el que se ve en pantalla.
+const fmt = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 const fmtDisplay = (iso: string) => new Date(iso).toLocaleDateString('es-EC');
 
 const TIPO_LABEL: Record<string, string> = {

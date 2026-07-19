@@ -134,6 +134,12 @@ const ZonasScreen: React.FC = () => {
                         <Text style={s.cardTitulo}>{zonaNombre(item)}</Text>
                         {zonaDesc(item) ? <Text style={s.cardSub}>{zonaDesc(item)}</Text> : null}
                         <Text style={s.cardMeta}>{count} parcela{count !== 1 ? 's' : ''}</Text>
+                        {item.pendingSync && (
+                          <View style={s.pendingBadge}>
+                            <Icon name="cloud-upload-outline" size={11} color="#b45309" />
+                            <Text style={s.pendingText}>Pendiente de sincronizar</Text>
+                          </View>
+                        )}
                       </View>
                       <View>
                         <TouchableOpacity onPress={() => abrirEditar(item)} style={s.iconBtn}>
@@ -266,6 +272,10 @@ const s = StyleSheet.create({
   cardTitulo:    { fontSize: 15, fontWeight: '600', color: '#1a2b16' },
   cardSub:       { fontSize: 13, color: Colors.grisTexto, marginTop: 2 },
   cardMeta:      { fontSize: 12, color: Colors.verde, marginTop: 4 },
+  pendingBadge:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6,
+                   backgroundColor: '#fef3c7', borderRadius: 8, paddingHorizontal: 8,
+                   paddingVertical: 3, alignSelf: 'flex-start' },
+  pendingText:   { fontSize: 10, color: '#b45309', fontWeight: '600' },
   iconBtn:       { padding: 4, marginBottom: 2 },
   vacio:         { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 60 },
   vacioText:     { fontSize: 15, color: '#999' },

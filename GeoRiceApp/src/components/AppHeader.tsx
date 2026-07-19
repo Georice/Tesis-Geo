@@ -6,9 +6,10 @@ import Icon from './Icon';
 
 interface Props {
   onMenuPress: () => void;
+  onOpcionesPress?: () => void;
 }
 
-const AppHeader: React.FC<Props> = ({ onMenuPress }) => {
+const AppHeader: React.FC<Props> = ({ onMenuPress, onOpcionesPress }) => {
   const insets = useSafeAreaInsets();
 
   return (
@@ -17,7 +18,14 @@ const AppHeader: React.FC<Props> = ({ onMenuPress }) => {
         <Icon name="menu" size={22} color={Colors.blanco} />
       </TouchableOpacity>
       <Text style={styles.title}>GeoRice</Text>
-      <View style={styles.end} />
+      {onOpcionesPress
+        ? (
+          <TouchableOpacity onPress={onOpcionesPress} style={styles.menuBtn} activeOpacity={0.7}>
+            <Icon name="dots-vertical" size={22} color={Colors.blanco} />
+          </TouchableOpacity>
+        )
+        : <View style={styles.end} />
+      }
     </View>
   );
 };
