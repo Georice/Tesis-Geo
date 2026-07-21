@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import express from 'express';
 import cors    from 'cors';
+import helmet  from 'helmet';
 import dotenv  from 'dotenv';
 
 import { AppDataSource }   from './infrastructure/db/DataSource';
@@ -22,7 +23,25 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 const sync = new SyncController();
 
-app.use(cors());
+app.use(helmet());
+
+// CORS: solo aplica a peticiones de navegador (la app móvil no envía header
+// Origin, así que no se ve afectada). Orígenes permitidos vía CORS_ORIGIN
+// (separados por coma) en las variables de entorno; vacío = ninguno.
+const allowedOrigins = (process.env.CORS_ORIGIN ?? '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Origen no permitido por CORS'));
+    }
+  },
+}));
 app.use(express.json());
 app.use((req, _res, next) => { logger.info(`${req.method} ${req.path}`); next(); });
 
@@ -57,7 +76,8 @@ AppDataSource.initialize()
     app.listen(PORT, () => {
 
 //     logger.success(`Servidor de Brando corriendo en http://192.168.1.213:${PORT}`);
-    logger.success(`Servidor corriendo en 192.168.100.6:${PORT}`);
+   // logger.success(`Servidor corriendo en 192.168.100.6:${PORT}`);
+   logger.success(`Servidor corriendo en 10.8.246.102:${PORT}`);
       logger.info('Auth:   POST /api/auth/login | POST /api/auth/refresh | POST /api/auth/logout');
       logger.info('Sync:   GET  /api/sync | GET /api/sync?since=ISO8601');
       logger.info('Users:  GET/POST /api/usuarios (admin only)');

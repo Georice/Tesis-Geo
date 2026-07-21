@@ -1,8 +1,12 @@
 import { AuthContext } from '../../shared/types/AuthContext';
+import { Parcela } from '../entities/Parcela';
 
 export interface IParcelaRepository {
   findAll(ctx: AuthContext): Promise<any[]>;
   findById(id: number, ctx: AuthContext): Promise<any | null>;
+  // Búsqueda interna sin filtro de propiedad, para uso de otros repos/usecases
+  // que ya verificaron el acceso a la parcela antes de llamar (ej. actividades).
+  findByIdInterno(id: number): Promise<Parcela | null>;
   findByZona(zonaId: number, ctx: AuthContext): Promise<any[]>;
   create(data: any, ctx: AuthContext): Promise<any>;
   update(id: number, data: any, ctx: AuthContext): Promise<any | null>;

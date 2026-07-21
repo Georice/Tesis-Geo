@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { CapaController } from '../controllers/CapaController';
+import { CapaParcelaRepository } from '../../db/repositories/CapaParcelaRepository';
 
 const router = Router({ mergeParams: true });
-const controller = new CapaController();
+const repo = new CapaParcelaRepository();
+const controller = new CapaController(repo);
 
 router.get('/',                 (req, res) => controller.getByParcela(req, res));
 router.post('/',                (req, res) => controller.create(req, res));

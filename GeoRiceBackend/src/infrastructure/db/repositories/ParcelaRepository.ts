@@ -1,10 +1,10 @@
 import { AppDataSource } from '../DataSource';
-import { Parcela }             from '../../../domain/entities/Parcela';
+import { ParcelaEntity }       from '../entities/ParcelaEntity';
 import { IParcelaRepository }  from '../../../domain/repositories/IParcelaRepository';
 import { AuthContext }         from '../../../shared/types/AuthContext';
 
 export class ParcelaRepository implements IParcelaRepository {
-  private repo = AppDataSource.getRepository(Parcela);
+  private repo = AppDataSource.getRepository(ParcelaEntity);
 
   async findAll(ctx: AuthContext): Promise<any[]> {
     const conds: string[] = [];
@@ -55,6 +55,10 @@ export class ParcelaRepository implements IParcelaRepository {
     `, params);
 
     return result[0] ?? null;
+  }
+
+  async findByIdInterno(id: number) {
+    return this.repo.findOneBy({ id });
   }
 
   async findByZona(zonaId: number, ctx: AuthContext): Promise<any[]> {

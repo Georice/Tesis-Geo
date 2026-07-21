@@ -8,6 +8,9 @@ import {
   UsuarioPublico,
 } from '../../../domain/repositories/IUserRepository';
 
+// Nota: este repositorio consulta con SQL crudo (AppDataSource.query), no usa
+// AppDataSource.getRepository(), por lo que no depende de UsuarioEntity.
+
 // ── Credenciales para login (busca por cédula o usuario) ──────────────────
 const SELECT_CRED = `
   SELECT
@@ -88,8 +91,14 @@ export class LocalUserRepository implements IUserRepository {
   }
 
   async update(id: string, data: UpdateUsuarioDTO, updatedBy: string): Promise<UsuarioPublico> {
-    const sets: string[] = ['updated_at = NOW()', `updated_by = '${updatedBy}'`];
-    const params: unknown[] = [];
+    // Versión anterior (vulnerable a SQL injection: updatedBy interpolado directo
+    // en el string SQL en vez de parametrizado). Se deja comentada como referencia
+    // para la tesis — ver hallazgo de deuda técnica documentado.
+    // const sets: string[] = ['updated_at = NOW()', `updated_by = '${updatedBy}'`];
+    // const params: unknown[] = [];
+    const sets: string[] = ['updated_at = NOW()'];
+    const params: unknown[] = [updatedBy];
+    sets.push(`updated_by = $${params.length}`);
 
     if (data.nombres   != null) { params.push(data.nombres);   sets.push(`nombres = $${params.length}`); }
     if (data.apellidos != null) { params.push(data.apellidos); sets.push(`apellidos = $${params.length}`); }

@@ -1,5 +1,5 @@
 import { Request, Response }          from 'express';
-import { CapaParcelaRepository }      from '../../db/repositories/CapaParcelaRepository';
+import { ICapaParcelaRepository }     from '../../../domain/repositories/ICapaParcelaRepository';
 import { CreateCapa }                 from '../../../application/usecases/capas/CreateCapa';
 import { GetCapasByParcela }          from '../../../application/usecases/capas/GetCapasByParcela';
 import { UpdateNdvi }                 from '../../../application/usecases/capas/UpdateNdvi';
@@ -7,8 +7,6 @@ import { UpdateCapaGeometry }         from '../../../application/usecases/capas/
 import { DeleteCapa }                 from '../../../application/usecases/capas/DeleteCapa';
 import { AppDataSource }              from '../../db/DataSource';
 import { logger }                     from '../../../shared/logger';
-
-const repo = new CapaParcelaRepository();
 
 async function verifyParcelaAccess(parcelaId: number, usuarioId: string, rol: string): Promise<void> {
   if (rol === 'administrador') return;
@@ -19,11 +17,13 @@ async function verifyParcelaAccess(parcelaId: number, usuarioId: string, rol: st
 }
 
 export class CapaController {
+  constructor(private readonly repo: ICapaParcelaRepository) {}
+
   async getByParcela(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
       await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
-      const capas = await new GetCapasByParcela(repo).execute(parcelaId);
+      const capas = await new GetCapasByParcela(this.repo).execute(parcelaId);
       logger.info(`GET capas parcela=${parcelaId} → ${capas.length}`);
       res.json(capas);
     } catch (error) {
@@ -39,7 +39,7 @@ export class CapaController {
       await verifyParcelaAccess(parcelaId, usuarioId, req.user!.rol);
 
       const { tipo, geometria, ndviEstimado } = req.body;
-      const capa = await new CreateCapa(repo).execute({
+      const capa = await new CreateCapa(this.repo).execute({
         parcelaId, tipo, geometria, ndviEstimado,
         createdBy: usuarioId, updatedBy: usuarioId,
       });
@@ -55,7 +55,7 @@ export class CapaController {
   async updateNdvi(req: Request, res: Response): Promise<void> {
     try {
       const id   = Number(req.params.id);
-      const capa = await new UpdateNdvi(repo).execute(id, req.body.ndviEstimado);
+      const capa = await new UpdateNdvi(this.repo).execute(id, req.body.ndviEstimado);
       if (!capa) { res.status(404).json({ error: 'Capa no encontrada' }); return; }
       logger.info(`PUT capa ${id} NDVI actualizado`);
       res.json(capa);
@@ -73,7 +73,7 @@ export class CapaController {
 
       const { geometria } = req.body;
       if (!geometria) { res.status(400).json({ error: 'Se requiere geometria' }); return; }
-      const capa = await new UpdateCapaGeometry(repo).execute(id, parcelaId, geometria);
+      const capa = await new UpdateCapaGeometry(this.repo).execute(id, parcelaId, geometria);
       if (!capa) { res.status(404).json({ error: 'Capa no encontrada' }); return; }
       logger.info(`PUT capa ${id} geometría actualizada`);
       res.json(capa);
@@ -87,11 +87,11 @@ export class CapaController {
   async remove(req: Request, res: Response): Promise<void> {
     try {
       const id   = Number(req.params.id);
-      const capa = await repo.findById(id);
+      const capa = await this.repo.findById(id);
       if (!capa) { res.status(404).json({ error: 'Capa no encontrada' }); return; }
       await verifyParcelaAccess(capa.parcelaId, req.user!.sub, req.user!.rol);
 
-      const deleted = await new DeleteCapa(repo).execute(id);
+      const deleted = await new DeleteCapa(this.repo).execute(id);
       if (!deleted) { res.status(404).json({ error: 'Capa no encontrada' }); return; }
       logger.info(`DELETE capa ${id} eliminada`);
       res.json({ mensaje: 'Capa eliminada', id });

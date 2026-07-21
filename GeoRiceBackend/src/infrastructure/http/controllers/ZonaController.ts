@@ -1,13 +1,11 @@
 import { Request, Response }    from 'express';
-import { ZonaRepository }       from '../../db/repositories/ZonaRepository';
+import { IZonaRepository }      from '../../../domain/repositories/IZonaRepository';
 import { CreateZona }           from '../../../application/usecases/zonas/CreateZonas';
 import { GetZonas }             from '../../../application/usecases/zonas/GetZonas';
 import { UpdateZona }           from '../../../application/usecases/zonas/UpdateZona';
 import { DeleteZona }           from '../../../application/usecases/zonas/DeleteZona';
 import { AuthContext }          from '../../../shared/types/AuthContext';
 import { logger }               from '../../../shared/logger';
-
-const repo = new ZonaRepository();
 
 function buildCtx(req: Request): AuthContext {
   return {
@@ -18,10 +16,12 @@ function buildCtx(req: Request): AuthContext {
 }
 
 export class ZonaController {
+  constructor(private readonly repo: IZonaRepository) {}
+
   async getAll(req: Request, res: Response): Promise<void> {
     try {
       const ctx   = buildCtx(req);
-      const zonas = await new GetZonas(repo).execute(ctx);
+      const zonas = await new GetZonas(this.repo).execute(ctx);
       logger.info(`GET /api/zonas → ${zonas.length} zonas (usuario=${ctx.usuarioId})`);
       res.json(zonas);
     } catch (error) {
@@ -33,7 +33,7 @@ export class ZonaController {
   async create(req: Request, res: Response): Promise<void> {
     try {
       const ctx  = buildCtx(req);
-      const zona = await new CreateZona(repo).execute(req.body, ctx);
+      const zona = await new CreateZona(this.repo).execute(req.body, ctx);
       logger.info(`POST /api/zonas → Zona creada id=${zona?.id}`);
       res.status(201).json(zona);
     } catch (error) {
@@ -47,7 +47,7 @@ export class ZonaController {
     try {
       const id   = Number(req.params.id);
       const ctx  = buildCtx(req);
-      const zona = await new UpdateZona(repo).execute(id, req.body, ctx);
+      const zona = await new UpdateZona(this.repo).execute(id, req.body, ctx);
       if (!zona) { res.status(404).json({ error: 'Zona no encontrada' }); return; }
       logger.info(`PUT /api/zonas/${id} actualizada`);
       res.json(zona);
@@ -63,7 +63,7 @@ export class ZonaController {
     try {
       const id      = Number(req.params.id);
       const ctx     = buildCtx(req);
-      const deleted = await new DeleteZona(repo).execute(id, ctx);
+      const deleted = await new DeleteZona(this.repo).execute(id, ctx);
       if (!deleted) { res.status(404).json({ error: 'Zona no encontrada' }); return; }
       logger.info(`DELETE /api/zonas/${id} eliminada`);
       res.json({ mensaje: 'Zona eliminada', id });

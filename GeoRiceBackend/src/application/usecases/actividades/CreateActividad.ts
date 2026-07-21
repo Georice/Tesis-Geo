@@ -1,8 +1,7 @@
 import { IActividadParcelaRepository } from '../../../domain/repositories/IActividadParcelaRepository';
+import { ICicloRepository }            from '../../../domain/repositories/ICicloRepository';
+import { IParcelaRepository }          from '../../../domain/repositories/IParcelaRepository';
 import { ActividadParcela }            from '../../../domain/entities/ActividadParcela';
-import { AppDataSource }               from '../../../infrastructure/db/DataSource';
-import { CicloActividad }              from '../../../domain/entities/CicloActividad';
-import { Parcela }                     from '../../../domain/entities/Parcela';
 
 const TIPOS_CON_PRODUCTOS = ['fertilizacion', 'fumigacion', 'soca_fertilizacion', 'soca_fumigacion'];
 const TIPOS_COSECHA       = ['cosecha', 'cosecha_soca'];
@@ -20,17 +19,18 @@ interface CreateActividadInput extends ActividadSinRelaciones {
 }
 
 export class CreateActividad {
-  constructor(private repo: IActividadParcelaRepository) {}
+  constructor(
+    private repo: IActividadParcelaRepository,
+    private cicloRepo: ICicloRepository,
+    private parcelaRepo: IParcelaRepository,
+  ) {}
 
   async execute(data: CreateActividadInput): Promise<ActividadParcela> {
     if (!data.parcelaId) throw new Error('La parcela es obligatoria');
     if (!data.tipo)      throw new Error('El tipo de actividad es obligatorio');
 
     if (!data.cicloId) {
-      const cicloRepo   = AppDataSource.getRepository(CicloActividad);
-      const cicloActivo = await cicloRepo.findOne({
-        where: { parcelaId: data.parcelaId, estado: 'activo' },
-      });
+      const cicloActivo = await this.cicloRepo.findActivoByParcela(data.parcelaId);
       if (cicloActivo) data.cicloId = cicloActivo.id;
     }
 
@@ -60,8 +60,7 @@ export class CreateActividad {
 
       if (data.tipo === 'siembra_trasplante' && mo.precioTarea) {
         if (!mo.numTareas) {
-          const parcelaRepo = AppDataSource.getRepository(Parcela);
-          const parcela      = await parcelaRepo.findOneBy({ id: data.parcelaId });
+          const parcela = await this.parcelaRepo.findByIdInterno(data.parcelaId);
           if (parcela?.areaHa) {
             mo.numTareas = Number((Number(parcela.areaHa) * 16).toFixed(2));
           }

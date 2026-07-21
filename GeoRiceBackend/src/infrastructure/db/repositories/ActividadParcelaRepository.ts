@@ -1,12 +1,14 @@
 import { AppDataSource } from '../DataSource';
 import { ActividadParcela } from '../../../domain/entities/ActividadParcela';
 import { ProductoActividad } from '../../../domain/entities/ProductoActividad';
-import { DetalleRiego } from '../../../domain/entities/DetalleRiego';
-import { DetalleFumigacion } from '../../../domain/entities/DetalleFumigacion';
-import { DetalleFertilizacion } from '../../../domain/entities/DetalleFertilizacion';
-import { DetalleCosecha } from '../../../domain/entities/DetalleCosecha';
-import { DetalleManoObra } from '../../../domain/entities/DetalleManoObra';
-import { DetalleMaquinaria } from '../../../domain/entities/DetalleMaquinaria';
+import { ActividadParcelaEntity } from '../entities/ActividadParcelaEntity';
+import { ProductoActividadEntity } from '../entities/ProductoActividadEntity';
+import { DetalleRiegoEntity } from '../entities/DetalleRiegoEntity';
+import { DetalleFumigacionEntity } from '../entities/DetalleFumigacionEntity';
+import { DetalleFertilizacionEntity } from '../entities/DetalleFertilizacionEntity';
+import { DetalleCosechaEntity } from '../entities/DetalleCosechaEntity';
+import { DetalleManoObraEntity } from '../entities/DetalleManoObraEntity';
+import { DetalleMaquinariaEntity } from '../entities/DetalleMaquinariaEntity';
 import {
   IActividadParcelaRepository,
   PaginatedResult,
@@ -19,14 +21,14 @@ const DETALLE_KEYS = [
 ] as const;
 
 export class ActividadParcelaRepository implements IActividadParcelaRepository {
-  private repo         = AppDataSource.getRepository(ActividadParcela);
-  private repoProducto = AppDataSource.getRepository(ProductoActividad);
-  private repoDetalleRiego        = AppDataSource.getRepository(DetalleRiego);
-  private repoDetalleFumigacion   = AppDataSource.getRepository(DetalleFumigacion);
-  private repoDetalleFertilizacion = AppDataSource.getRepository(DetalleFertilizacion);
-  private repoDetalleCosecha      = AppDataSource.getRepository(DetalleCosecha);
-  private repoDetalleManoObra     = AppDataSource.getRepository(DetalleManoObra);
-  private repoDetalleMaquinaria   = AppDataSource.getRepository(DetalleMaquinaria);
+  private repo         = AppDataSource.getRepository(ActividadParcelaEntity);
+  private repoProducto = AppDataSource.getRepository(ProductoActividadEntity);
+  private repoDetalleRiego        = AppDataSource.getRepository(DetalleRiegoEntity);
+  private repoDetalleFumigacion   = AppDataSource.getRepository(DetalleFumigacionEntity);
+  private repoDetalleFertilizacion = AppDataSource.getRepository(DetalleFertilizacionEntity);
+  private repoDetalleCosecha      = AppDataSource.getRepository(DetalleCosechaEntity);
+  private repoDetalleManoObra     = AppDataSource.getRepository(DetalleManoObraEntity);
+  private repoDetalleMaquinaria   = AppDataSource.getRepository(DetalleMaquinariaEntity);
 
   //private readonly RELATIONS = ['productos', ...DETALLE_KEYS];
   private readonly RELATIONS = ['productos', 'fase', ...DETALLE_KEYS];

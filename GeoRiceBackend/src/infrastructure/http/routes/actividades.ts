@@ -1,8 +1,14 @@
 import { Router } from 'express';
 import { ActividadController } from '../controllers/ActividadController';
+import { ActividadParcelaRepository } from '../../db/repositories/ActividadParcelaRepository';
+import { CicloRepository } from '../../db/repositories/CicloRepository';
+import { ParcelaRepository } from '../../db/repositories/ParcelaRepository';
 
 const router = Router({ mergeParams: true });
-const controller = new ActividadController();
+const repo = new ActividadParcelaRepository();
+const cicloRepo = new CicloRepository();
+const parcelaRepo = new ParcelaRepository();
+const controller = new ActividadController(repo, cicloRepo, parcelaRepo);
 
 router.get('/', (req, res) => controller.getByParcela(req, res));
 router.post('/', (req, res) => controller.create(req, res));

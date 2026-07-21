@@ -1,10 +1,9 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../../../application/services/AuthService';
-import { LocalUserRepository } from '../../db/repositories/LocalUserRepository';
-
-const authService = new AuthService(new LocalUserRepository());
 
 export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
   async login(req: Request, res: Response): Promise<void> {
     try {
       const { email, cedula, usuario, password } = req.body;
@@ -13,7 +12,7 @@ export class AuthController {
         res.status(400).json({ error: 'cedula/usuario y password son requeridos' });
         return;
       }
-      const result = await authService.login(String(login), String(password));
+      const result = await this.authService.login(String(login), String(password));
       res.json(result);
     } catch (err: any) {
       res.status(401).json({ error: err.message });
@@ -27,7 +26,7 @@ export class AuthController {
         res.status(400).json({ error: 'refreshToken requerido' });
         return;
       }
-      const result = await authService.refresh(String(refreshToken));
+      const result = await this.authService.refresh(String(refreshToken));
       res.json(result);
     } catch (err: any) {
       res.status(401).json({ error: err.message });
@@ -37,7 +36,7 @@ export class AuthController {
   async logout(req: Request, res: Response): Promise<void> {
     try {
       const { refreshToken } = req.body;
-      if (refreshToken) await authService.logout(String(refreshToken));
+      if (refreshToken) await this.authService.logout(String(refreshToken));
       res.json({ mensaje: 'Sesión cerrada' });
     } catch {
       res.json({ mensaje: 'Sesión cerrada' });

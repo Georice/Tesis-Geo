@@ -1,7 +1,7 @@
 import { Request, Response }    from 'express';
 import { IniciarCiclo }        from '../../../application/usecases/ciclos/IniciarCiclo';
+import { ICicloRepository }    from '../../../domain/repositories/ICicloRepository';
 import { AppDataSource }       from '../../db/DataSource';
-import { CicloActividad }      from '../../../domain/entities/CicloActividad';
 import { logger }              from '../../../shared/logger';
 
 const TIPOS_TODAS_FASES = ['riego', 'soca_riego'];
@@ -15,6 +15,11 @@ async function verifyParcelaAccess(parcelaId: number, usuarioId: string, rol: st
 }
 
 export class CicloController {
+  constructor(
+    private readonly cicloRepo: ICicloRepository,
+    private readonly iniciarCiclo: IniciarCiclo,
+  ) {}
+
   async iniciar(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
@@ -26,7 +31,7 @@ export class CicloController {
       if (!fechaInicio) { res.status(400).json({ error: 'La fecha de inicio es obligatoria' }); return; }
 
       logger.info(`POST ciclo parcela=${parcelaId}`);
-      const resultado = await new IniciarCiclo().execute({
+      const resultado = await this.iniciarCiclo.execute({
         parcelaId, tipo,
         fechaInicio: new Date(fechaInicio),
         variedadSemilla, areaSembrada, observaciones,
@@ -45,8 +50,7 @@ export class CicloController {
     try {
       const parcelaId = Number(req.params.parcelaId);
       await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
-      const repo   = AppDataSource.getRepository(CicloActividad);
-      const ciclos = await repo.find({ where: { parcelaId }, order: { fechaInicio: 'DESC' } });
+      const ciclos = await this.cicloRepo.findByParcela(parcelaId);
       res.json(ciclos);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al obtener ciclos';
@@ -56,16 +60,13 @@ export class CicloController {
 
   async finalizar(req: Request, res: Response): Promise<void> {
     try {
-      const id   = Number(req.params.id);
-      const repo = AppDataSource.getRepository(CicloActividad);
-      const ciclo = await repo.findOne({ where: { id } });
+      const id    = Number(req.params.id);
+      const ciclo = await this.cicloRepo.findById(id);
       if (!ciclo) { res.status(404).json({ error: 'Ciclo no encontrado' }); return; }
       await verifyParcelaAccess(ciclo.parcelaId, req.user!.sub, req.user!.rol);
-      ciclo.estado   = 'completado';
-      ciclo.fechaFin = new Date();
-      await repo.save(ciclo);
+      const actualizado = await this.cicloRepo.finalizar(id);
       logger.info(`Ciclo ${id} finalizado`);
-      res.json(ciclo);
+      res.json(actualizado);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al finalizar ciclo';
       logger.error('Error al finalizar ciclo:', message);
@@ -83,10 +84,7 @@ export class CicloController {
       await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
 
       // Obtener el ciclo activo de la parcela
-      const cicloRepo   = AppDataSource.getRepository(CicloActividad);
-      const cicloActivo = await cicloRepo.findOne({
-        where: { parcelaId, estado: 'activo' },
-      });
+      const cicloActivo = await this.cicloRepo.findActivoByParcela(parcelaId);
 
       if (!cicloActivo) {
         res.status(404).json({ error: 'No hay ciclo activo en esta parcela' });

@@ -1,10 +1,10 @@
 import { AppDataSource }       from '../DataSource';
-import { Zona }                from '../../../domain/entities/Zona';
+import { ZonaEntity }          from '../entities/ZonaEntity';
 import { IZonaRepository }     from '../../../domain/repositories/IZonaRepository';
 import { AuthContext }         from '../../../shared/types/AuthContext';
 
 export class ZonaRepository implements IZonaRepository {
-  private repo = AppDataSource.getRepository(Zona);
+  private repo = AppDataSource.getRepository(ZonaEntity);
 
   async findAll(ctx: AuthContext): Promise<any[]> {
     const conds: string[] = [];

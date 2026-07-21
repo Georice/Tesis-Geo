@@ -1,9 +1,10 @@
 import { AppDataSource } from '../DataSource';
 import { CapaParcela } from '../../../domain/entities/CapaParcela';
+import { CapaParcelaEntity } from '../entities/CapaParcelaEntity';
 import { ICapaParcelaRepository } from '../../../domain/repositories/ICapaParcelaRepository';
 
 export class CapaParcelaRepository implements ICapaParcelaRepository {
-  private repo = AppDataSource.getRepository(CapaParcela);
+  private repo = AppDataSource.getRepository(CapaParcelaEntity);
 
   async findByParcela(parcelaId: number): Promise<CapaParcela[]> {
     return this.repo.find({ where: { parcelaId } });

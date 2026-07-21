@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
 import { AppDataSource } from '../../infrastructure/db/DataSource';
-import { RefreshToken } from '../../domain/entities/RefreshToken';
+import { RefreshTokenEntity } from '../../infrastructure/db/entities/RefreshTokenEntity';
 
 export interface JwtPayload {
   sub:       string;
@@ -13,7 +13,7 @@ export interface JwtPayload {
 }
 
 export class AuthService {
-  private refreshRepo = AppDataSource.getRepository(RefreshToken);
+  private refreshRepo = AppDataSource.getRepository(RefreshTokenEntity);
 
   constructor(private readonly userRepo: IUserRepository) {}
 

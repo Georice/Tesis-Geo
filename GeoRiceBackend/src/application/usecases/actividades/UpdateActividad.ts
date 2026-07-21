@@ -1,12 +1,14 @@
 import { IActividadParcelaRepository, CreateActividadData } from '../../../domain/repositories/IActividadParcelaRepository';
+import { IParcelaRepository }          from '../../../domain/repositories/IParcelaRepository';
 import { ActividadParcela }            from '../../../domain/entities/ActividadParcela';
-import { AppDataSource }               from '../../../infrastructure/db/DataSource';
-import { Parcela }                     from '../../../domain/entities/Parcela';
 
 const TIPOS_COSECHA = ['cosecha', 'cosecha_soca'];
 
 export class UpdateActividad {
-  constructor(private repo: IActividadParcelaRepository) {}
+  constructor(
+    private repo: IActividadParcelaRepository,
+    private parcelaRepo: IParcelaRepository,
+  ) {}
 
   async execute(id: number, data: CreateActividadData): Promise<ActividadParcela | null> {
     if (!id) throw new Error('El id de la actividad es obligatorio');
@@ -59,8 +61,7 @@ export class UpdateActividad {
 
     if (tipo === 'siembra_trasplante') {
       if (!numTareas) {
-        const parcelaRepo = AppDataSource.getRepository(Parcela);
-        const parcela      = await parcelaRepo.findOneBy({ id: actividad.parcelaId });
+        const parcela = await this.parcelaRepo.findByIdInterno(actividad.parcelaId);
         if (parcela?.areaHa) {
           numTareas = Number((Number(parcela.areaHa) * 16).toFixed(2));
         }
