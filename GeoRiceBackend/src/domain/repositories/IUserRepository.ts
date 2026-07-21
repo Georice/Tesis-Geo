@@ -1,3 +1,6 @@
+import { Usuario } from '../entities/Usuario';
+import { RolUsuario, EstadoUsuario } from '../types/UsuarioTypes';
+
 export interface CredencialesLogin {
   id:           string;
   passwordHash: string;
@@ -7,46 +10,34 @@ export interface CredencialesLogin {
   apellidos:    string;
 }
 
-export interface UsuarioPublico {
-  id:            string;
-  nombres:       string;
-  apellidos:     string;
-  cedula?:       string | null;
-  usuario?:      string | null;
-  email?:        string | null;
-  rol:           'administrador' | 'socio';
-  estado:        'activo' | 'inactivo';
-  fechaRegistro: Date;
-}
-
-export interface CreateUsuarioDTO {
+export interface NuevoUsuarioComando {
   nombres:    string;
   apellidos:  string;
   cedula:     string;
   usuario?:   string;
   email?:     string;
   password:   string;
-  rol?:       'administrador' | 'socio';
+  rol?:       RolUsuario;
 }
 
-export interface UpdateUsuarioDTO {
+export interface ActualizarUsuarioComando {
   nombres?:   string;
   apellidos?: string;
   cedula?:    string;
   usuario?:   string;
   email?:     string;
   password?:  string;
-  estado?:    'activo' | 'inactivo';
-  rol?:       'administrador' | 'socio';
+  estado?:    EstadoUsuario;
+  rol?:       RolUsuario;
 }
 
 export interface IUserRepository {
   findByEmail(login: string): Promise<CredencialesLogin | null>;
-  findById(id: string): Promise<UsuarioPublico | null>;
-  findAll(): Promise<UsuarioPublico[]>;
-  findSoloActivos(): Promise<UsuarioPublico[]>;
-  create(data: CreateUsuarioDTO, createdBy: string): Promise<UsuarioPublico>;
-  update(id: string, data: UpdateUsuarioDTO, updatedBy: string): Promise<UsuarioPublico>;
+  findById(id: string): Promise<Usuario | null>;
+  findAll(): Promise<Usuario[]>;
+  findSoloActivos(): Promise<Usuario[]>;
+  create(data: NuevoUsuarioComando, createdBy: string): Promise<Usuario>;
+  update(id: string, data: ActualizarUsuarioComando, updatedBy: string): Promise<Usuario>;
   activate(id: string, updatedBy: string): Promise<void>;
   deactivate(id: string, updatedBy: string): Promise<void>;
 }

@@ -7,7 +7,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { Colors } from '../theme/colors';
-import { apiFetch } from '../infrastructure/repositories/ApiClient';
+import { CicloRepository } from '../infrastructure/repositories/CicloRepository';
 import Icon from '../components/Icon';
 import IconLabel from '../components/IconLabel';
 
@@ -79,8 +79,7 @@ const IniciarCicloScreen: React.FC = () => {
   const cargarCicloActivo = useCallback(async () => {
     try {
       setLoadingCiclo(true);
-      const res  = await apiFetch(`/parcelas/${parcelaId}/ciclos`);
-      const data = await res.json();
+      const data = await CicloRepository.getByParcela(parcelaId);
       const activo = data.find((c: any) => c.estado === 'activo');
       setCicloActivo(activo ?? null);
 } catch (e: any) {
@@ -106,37 +105,33 @@ const IniciarCicloScreen: React.FC = () => {
 
   setGuardando(true);
   try {
-    const res = await apiFetch(`/parcelas/${parcelaId}/ciclos`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tipo:            tipoCiclo,
-        fechaInicio:     new Date(fechaInicio).toISOString(),
-        variedadSemilla: variedad.trim() || undefined,
-        areaSembrada:    area ? Number(area) : undefined,
-        observaciones:   observaciones.trim() || undefined,
-      }),
+    const data = await CicloRepository.iniciar(parcelaId, {
+      tipo:            tipoCiclo,
+      fechaInicio:     new Date(fechaInicio).toISOString(),
+      variedadSemilla: variedad.trim() || undefined,
+      areaSembrada:    area ? Number(area) : undefined,
+      observaciones:   observaciones.trim() || undefined,
     });
 
-    console.log('STATUS:', res.status);
-    const data = await res.json();
-    console.log('RESPUESTA:', JSON.stringify(data).substring(0, 200));
-
-    if (!res.ok) {
-      Alert.alert('Error', data.error ?? 'No se pudo iniciar el ciclo');
-      return;
-    }
-
     const info = CICLOS[tipoCiclo];
-    Alert.alert(
-      'Ciclo iniciado',
-      `${info.label} iniciado con ${data.actividades?.length ?? 0} actividades generadas automáticamente.`,
-      [{ text: 'Ver actividades', onPress: () => navigation.navigate('Actividades', { parcela }) }],
-    );
+    const numActividades = data.actividades?.length ?? 0;
+    if ((data.ciclo as any)?.pendingSync) {
+      Alert.alert(
+        'Sin conexión',
+        `${info.label} guardado localmente con ${numActividades} actividades generadas — ya puedes registrar avances sobre ellas. Las fases se completan solas cuando vuelva la señal y se sincronice.`,
+        [{ text: 'Ver actividades', onPress: () => navigation.navigate('Actividades', { parcela }) }],
+      );
+    } else {
+      Alert.alert(
+        'Ciclo iniciado',
+        `${info.label} iniciado con ${numActividades} actividades generadas automáticamente.`,
+        [{ text: 'Ver actividades', onPress: () => navigation.navigate('Actividades', { parcela }) }],
+      );
+    }
     cargarCicloActivo(); // ← recargar para mostrar ciclo activo
   } catch (e: any) {
     console.log('ERROR CICLO:', e.message);
-    Alert.alert('Error de conexión', e.message ?? 'No se pudo conectar al servidor');
+    Alert.alert('Error', e.message ?? 'No se pudo iniciar el ciclo');
   } finally {
     setGuardando(false);
   }
@@ -147,14 +142,10 @@ const IniciarCicloScreen: React.FC = () => {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Finalizar', style: 'destructive', onPress: async () => {
         try {
-          const res = await apiFetch(`/parcelas/${parcelaId}/ciclos/${cicloActivo.id}/finalizar`, {
-            method: 'PUT',
-          });
-          if (res.ok) {
-            Alert.alert('Ciclo finalizado');
-            cargarCicloActivo();
-          }
-        } catch { Alert.alert('Error', 'No se pudo finalizar el ciclo'); }
+          await CicloRepository.finalizar(parcelaId, cicloActivo.id);
+          Alert.alert('Ciclo finalizado');
+          cargarCicloActivo();
+        } catch (e: any) { Alert.alert('Error', e.message ?? 'No se pudo finalizar el ciclo'); }
       }},
     ]);
   };
@@ -188,6 +179,12 @@ const IniciarCicloScreen: React.FC = () => {
               <Text style={s.cicloActivoFecha}>
                 Inicio: {cicloActivo.fechaInicio?.split('T')[0]}
               </Text>
+              {cicloActivo.pendingSync && (
+                <View style={s.pendingBadge}>
+                  <Icon name="cloud-upload-outline" size={11} color="#b45309" />
+                  <Text style={s.pendingText}>Pendiente de sincronizar</Text>
+                </View>
+              )}
             </View>
             <View style={s.estadoBadge}>
               <Text style={s.estadoBadgeText}>ACTIVO</Text>
@@ -392,6 +389,10 @@ const s = StyleSheet.create({
   cicloActivoTitulo:  { fontSize: 12, color: Colors.grisTexto },
   cicloActivoTipo:    { fontSize: 16, fontWeight: '700', color: Colors.verde },
   cicloActivoFecha:   { fontSize: 12, color: Colors.grisTexto, marginTop: 2 },
+  pendingBadge:       { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6,
+                        backgroundColor: '#fef3c7', borderRadius: 8, paddingHorizontal: 8,
+                        paddingVertical: 3, alignSelf: 'flex-start' },
+  pendingText:        { fontSize: 10, color: '#b45309', fontWeight: '600' },
   estadoBadge:        { backgroundColor: Colors.verde, borderRadius: 20,
                         paddingHorizontal: 10, paddingVertical: 4 },
   estadoBadgeText:    { color: '#fff', fontSize: 10, fontWeight: '700' },

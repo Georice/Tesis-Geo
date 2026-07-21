@@ -168,6 +168,12 @@ DECLARE
     v_fase_id         INTEGER;
     v_tipos_ambiguos  VARCHAR(30)[] := ARRAY['riego','fertilizacion','fumigacion','soca_riego','soca_fumigacion'];
 BEGIN
+    -- Actividades sueltas (sin ciclo asociado) son válidas: sin fase.
+    IF NEW.ciclo_id IS NULL THEN
+        NEW.fase_id := NULL;
+        RETURN NEW;
+    END IF;
+
     SELECT tipo INTO v_tipo_ciclo FROM ciclos_actividad WHERE id = NEW.ciclo_id;
     IF v_tipo_ciclo IS NULL THEN
         RAISE EXCEPTION 'No se encontró el ciclo_id % o no tiene tipo definido', NEW.ciclo_id;
@@ -176,17 +182,20 @@ BEGIN
     v_orden := NEW.orden_plantilla;
 
     IF v_orden IS NULL THEN
+        -- Tipo ambiguo sin orden_plantilla, o tipo libre que no pertenece a
+        -- ninguna plantilla (p. ej. "observacion"): antes se rechazaba la
+        -- actividad; ahora queda ligada al ciclo pero sin fase.
         IF NEW.tipo = ANY(v_tipos_ambiguos) THEN
-            RAISE EXCEPTION 'orden_plantilla es obligatorio para actividades de tipo "%" (ciclo "%")',
-                NEW.tipo, v_tipo_ciclo;
+            NEW.fase_id := NULL;
+            RETURN NEW;
         END IF;
         SELECT orden INTO v_orden
         FROM plantillas_ciclo
         WHERE tipo_ciclo = v_tipo_ciclo AND tipo_actividad = NEW.tipo
         ORDER BY orden LIMIT 1;
         IF v_orden IS NULL THEN
-            RAISE EXCEPTION 'Tipo de actividad "%" no existe en plantillas_ciclo para ciclo "%"',
-                NEW.tipo, v_tipo_ciclo;
+            NEW.fase_id := NULL;
+            RETURN NEW;
         END IF;
         NEW.orden_plantilla := v_orden;
     END IF;

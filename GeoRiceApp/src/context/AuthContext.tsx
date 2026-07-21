@@ -5,6 +5,7 @@ import {
   BASE_URL, STORAGE_KEYS, clearSession,
   setForceLogoutCallback, apiFetch,
 } from '../infrastructure/repositories/ApiClient';
+import { SyncEngine } from '../infrastructure/sync/SyncEngine';
 
 export interface AuthUser {
   id:             string;
@@ -39,7 +40,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Carga inicial desde AsyncStorage
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEYS.USER)
-      .then(raw => { if (raw) setUser(JSON.parse(raw)); })
+      .then(raw => {
+        if (raw) {
+          setUser(JSON.parse(raw));
+          // Sesión ya activa (app reabierta): refresca la caché offline en
+          // segundo plano por si quedó desactualizada o incompleta.
+          // Completa por la misma razón que en login (ver más abajo).
+          SyncEngine.resetAndPull().catch(() => {});
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -97,6 +106,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
     await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(fullUser));
     setUser(fullUser);
+
+    // Con buena señal en el login, se precarga todo (parcelas, zonas, capas,
+    // actividades, ciclos) para poder trabajar sin conexión en campo. No se
+    // espera (fire-and-forget): el login no debe bloquearse por esto.
+    //
+    // Siempre completa (resetAndPull), no incremental: un pull incremental
+    // solo trae filas modificadas desde el último sync, así que cualquier
+    // corrección de datos en el backend (como el fix de fases) nunca
+    // llegaría a un dispositivo cuya caché ya tenía esas filas guardadas
+    // "sin cambios" desde antes del fix.
+    SyncEngine.resetAndPull().catch(() => {});
   };
 
   const logout = async (): Promise<void> => {

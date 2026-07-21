@@ -13,6 +13,10 @@ SET row_security = off;
 
 CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
 -- Name: zonas; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -54,196 +58,9 @@ ALTER SEQUENCE public.zonas_id_seq OWNED BY public.zonas.id;
 
 
 --
--- Name: actividades_parcela id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: capas_parcela; Type: TABLE; Schema: public; Owner: postgres
 --
 
-ALTER TABLE ONLY public.actividades_parcela ALTER COLUMN id SET DEFAULT nextval('public.actividades_parcela_id_seq'::regclass);
-
-
---
--- Name: capas_parcela id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.capas_parcela ALTER COLUMN id SET DEFAULT nextval('public.capas_parcela_id_seq'::regclass);
-
-
---
--- Name: ciclos_actividad id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.ciclos_actividad ALTER COLUMN id SET DEFAULT nextval('public.ciclos_actividad_id_seq'::regclass);
-
-
---
--- Name: fases_ciclo id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.fases_ciclo ALTER COLUMN id SET DEFAULT nextval('public.fases_ciclo_id_seq'::regclass);
-
-
---
--- Name: parcelas id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.parcelas ALTER COLUMN id SET DEFAULT nextval('public.parcelas_id_seq'::regclass);
-
-
---
--- Name: plantillas_ciclo id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.plantillas_ciclo ALTER COLUMN id SET DEFAULT nextval('public.plantillas_ciclo_id_seq'::regclass);
-
-
---
--- Name: productos_actividad id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.productos_actividad ALTER COLUMN id SET DEFAULT nextval('public.productos_actividad_id_seq'::regclass);
-
-
---
--- Name: refresh_tokens id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('public.refresh_tokens_id_seq'::regclass);
-
-
---
--- Name: usuarios id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.usuarios ALTER COLUMN id SET DEFAULT nextval('public.usuarios_id_seq'::regclass);
-
-
---
--- Name: zonas id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.zonas ALTER COLUMN id SET DEFAULT nextval('public.zonas_id_seq'::regclass);
-
-
---
--- Name: actividades_parcela actividades_parcela_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.actividades_parcela
-    ADD CONSTRAINT actividades_parcela_pkey PRIMARY KEY (id);
-
-
---
--- Name: capas_parcela capas_parcela_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.capas_parcela
-    ADD CONSTRAINT capas_parcela_pkey PRIMARY KEY (id);
-
-
---
--- Name: ciclos_actividad ciclos_actividad_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.ciclos_actividad
-    ADD CONSTRAINT ciclos_actividad_pkey PRIMARY KEY (id);
-
-
---
--- Name: fases_ciclo fases_ciclo_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.fases_ciclo
-    ADD CONSTRAINT fases_ciclo_pkey PRIMARY KEY (id);
-
-
---
--- Name: parcelas parcelas_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.parcelas
-    ADD CONSTRAINT parcelas_pkey PRIMARY KEY (id);
-
-
---
--- Name: plantillas_ciclo plantillas_ciclo_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.plantillas_ciclo
-    ADD CONSTRAINT plantillas_ciclo_pkey PRIMARY KEY (id);
-
-
---
--- Name: productos_actividad productos_actividad_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.productos_actividad
-    ADD CONSTRAINT productos_actividad_pkey PRIMARY KEY (id);
-
-
---
--- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
-
-
---
--- Name: refresh_tokens refresh_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_token_hash_key UNIQUE (token_hash);
-
-
---
--- Name: fases_ciclo uq_fases_codigo_tipo; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.fases_ciclo
-    ADD CONSTRAINT uq_fases_codigo_tipo UNIQUE (codigo, tipo_ciclo);
-
-
---
--- Name: plantillas_ciclo uq_plantillas_tipo_orden; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.plantillas_ciclo
-    ADD CONSTRAINT uq_plantillas_tipo_orden UNIQUE (tipo_ciclo, orden);
-
-
---
--- Name: usuarios usuarios_cedula_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.usuarios
-    ADD CONSTRAINT usuarios_cedula_unique UNIQUE (cedula);
-
-
---
--- Name: usuarios usuarios_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.usuarios
-    ADD CONSTRAINT usuarios_pkey PRIMARY KEY (id);
-
-
---
--- Name: usuarios usuarios_usuario_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.usuarios
-    ADD CONSTRAINT usuarios_usuario_unique UNIQUE (usuario);
-
-
---
--- Name: zonas zonas_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.zonas
-    ADD CONSTRAINT zonas_pkey PRIMARY KEY (id);
-
-
---
 CREATE TABLE public.capas_parcela (
     id integer NOT NULL,
     parcela_id integer NOT NULL,
@@ -284,166 +101,6 @@ ALTER SEQUENCE public.capas_parcela_id_seq OWNED BY public.capas_parcela.id;
 
 
 --
--- Name: ciclos_actividad; Type: TABLE; Schema: public; Owner: postgres
---
-
--- Índices geográficos
--- Name: idx_capas_parcela_geometria; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_capas_parcela_geometria ON public.capas_parcela USING gist (geometria);
-
-
---
-CREATE INDEX idx_capas_parcela_geometria ON public.capas_parcela USING gist (geometria);
-
-
---
--- Name: idx_capas_parcela_id; Type: INDEX; Schema: public; Owner: postgres
---
-
--- Name: idx_capas_parcela_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_capas_parcela_id ON public.capas_parcela USING btree (parcela_id);
-
-
---
-CREATE INDEX idx_capas_parcela_id ON public.capas_parcela USING btree (parcela_id);
-
-
---
--- Name: idx_capas_updated_at; Type: INDEX; Schema: public; Owner: postgres
---
-
--- Name: idx_capas_updated_at; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_capas_updated_at ON public.capas_parcela USING btree (updated_at);
-
-
---
-CREATE INDEX idx_capas_updated_at ON public.capas_parcela USING btree (updated_at);
-
-
---
--- Name: idx_ciclos_updated_at; Type: INDEX; Schema: public; Owner: postgres
---
-
--- Name: idx_parcelas_updated_at; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_parcelas_updated_at ON public.parcelas USING btree (updated_at);
-
-
---
-CREATE INDEX idx_parcelas_updated_at ON public.parcelas USING btree (updated_at);
-
-
---
--- Name: idx_parcelas_usuario_id; Type: INDEX; Schema: public; Owner: postgres
---
-
--- Name: idx_parcelas_usuario_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_parcelas_usuario_id ON public.parcelas USING btree (usuario_id);
-
-
---
-CREATE INDEX idx_parcelas_usuario_id ON public.parcelas USING btree (usuario_id);
-
-
---
--- Name: idx_productos_actividad_id; Type: INDEX; Schema: public; Owner: postgres
---
-
--- Name: idx_zonas_geometria; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_zonas_geometria ON public.zonas USING gist (geometria);
-
-
---
-CREATE INDEX idx_zonas_geometria ON public.zonas USING gist (geometria);
-
-
---
--- Name: idx_zonas_updated_at; Type: INDEX; Schema: public; Owner: postgres
---
-
--- Name: idx_zonas_updated_at; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_zonas_updated_at ON public.zonas USING btree (updated_at);
-
-
---
-CREATE INDEX idx_zonas_updated_at ON public.zonas USING btree (updated_at);
-
-
---
--- Name: idx_zonas_usuario_id; Type: INDEX; Schema: public; Owner: postgres
---
-
--- Name: idx_zonas_usuario_id; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_zonas_usuario_id ON public.zonas USING btree (usuario_id);
-
-
---
-CREATE INDEX idx_zonas_usuario_id ON public.zonas USING btree (usuario_id);
-
-
---
--- Name: actividades_parcela trg_actividades_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
---
-
-
--- Triggers geográficos
--- Name: capas_parcela trg_capas_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
---
-
-CREATE TRIGGER trg_capas_updated_at BEFORE UPDATE ON public.capas_parcela FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
-
-
---
-CREATE TRIGGER trg_capas_updated_at BEFORE UPDATE ON public.capas_parcela FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
-
-
---
--- Name: ciclos_actividad trg_ciclos_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
---
-
--- Name: parcelas trg_parcelas_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
---
-
-CREATE TRIGGER trg_parcelas_updated_at BEFORE UPDATE ON public.parcelas FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
-
-
---
-CREATE TRIGGER trg_parcelas_updated_at BEFORE UPDATE ON public.parcelas FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
-
-
---
--- Name: productos_actividad trg_productos_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
---
-
--- Name: zonas trg_zonas_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
---
-
-CREATE TRIGGER trg_zonas_updated_at BEFORE UPDATE ON public.zonas FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
-
-
---
-CREATE TRIGGER trg_zonas_updated_at BEFORE UPDATE ON public.zonas FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
-
-
---
--- Name: actividades_parcela actividades_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
 -- Name: parcelas; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -493,6 +150,202 @@ ALTER SEQUENCE public.parcelas_id_seq OWNED BY public.parcelas.id;
 
 
 --
--- Name: plantillas_ciclo; Type: TABLE; Schema: public; Owner: postgres
+-- Name: zonas id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
+ALTER TABLE ONLY public.zonas ALTER COLUMN id SET DEFAULT nextval('public.zonas_id_seq'::regclass);
+
+
+--
+-- Name: capas_parcela id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.capas_parcela ALTER COLUMN id SET DEFAULT nextval('public.capas_parcela_id_seq'::regclass);
+
+
+--
+-- Name: parcelas id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.parcelas ALTER COLUMN id SET DEFAULT nextval('public.parcelas_id_seq'::regclass);
+
+
+--
+-- Name: zonas zonas_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.zonas
+    ADD CONSTRAINT zonas_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: capas_parcela capas_parcela_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.capas_parcela
+    ADD CONSTRAINT capas_parcela_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: parcelas parcelas_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.parcelas
+    ADD CONSTRAINT parcelas_pkey PRIMARY KEY (id);
+
+
+-- Índices de zonas, parcelas y capas_parcela
+-- Name: idx_zonas_geometria; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_zonas_geometria ON public.zonas USING gist (geometria);
+
+
+--
+-- Name: idx_zonas_updated_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_zonas_updated_at ON public.zonas USING btree (updated_at);
+
+
+--
+-- Name: idx_zonas_usuario_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_zonas_usuario_id ON public.zonas USING btree (usuario_id);
+
+
+--
+-- Name: idx_capas_parcela_geometria; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_capas_parcela_geometria ON public.capas_parcela USING gist (geometria);
+
+
+--
+-- Name: idx_capas_parcela_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_capas_parcela_id ON public.capas_parcela USING btree (parcela_id);
+
+
+--
+-- Name: idx_capas_updated_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_capas_updated_at ON public.capas_parcela USING btree (updated_at);
+
+
+--
+-- Name: idx_parcelas_updated_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_parcelas_updated_at ON public.parcelas USING btree (updated_at);
+
+
+--
+-- Name: idx_parcelas_usuario_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_parcelas_usuario_id ON public.parcelas USING btree (usuario_id);
+
+
+-- Triggers de zonas, parcelas y capas_parcela
+-- Name: zonas trg_zonas_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_zonas_updated_at BEFORE UPDATE ON public.zonas FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+
+--
+-- Name: capas_parcela trg_capas_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_capas_updated_at BEFORE UPDATE ON public.capas_parcela FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+
+--
+-- Name: parcelas trg_parcelas_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_parcelas_updated_at BEFORE UPDATE ON public.parcelas FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+
+-- FK constraints de zonas, parcelas y capas_parcela (requieren usuarios de 01_auth.sql)
+-- Name: zonas zonas_usuario_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.zonas
+    ADD CONSTRAINT zonas_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: zonas zonas_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.zonas
+    ADD CONSTRAINT zonas_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
+-- Name: zonas zonas_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.zonas
+    ADD CONSTRAINT zonas_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
+-- Name: parcelas parcelas_usuario_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.parcelas
+    ADD CONSTRAINT parcelas_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: parcelas parcelas_zona_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.parcelas
+    ADD CONSTRAINT parcelas_zona_id_fkey FOREIGN KEY (zona_id) REFERENCES public.zonas(id) ON DELETE SET NULL;
+
+
+--
+-- Name: parcelas parcelas_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.parcelas
+    ADD CONSTRAINT parcelas_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
+-- Name: parcelas parcelas_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.parcelas
+    ADD CONSTRAINT parcelas_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
+-- Name: capas_parcela capas_parcela_parcela_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.capas_parcela
+    ADD CONSTRAINT capas_parcela_parcela_id_fkey FOREIGN KEY (parcela_id) REFERENCES public.parcelas(id) ON DELETE CASCADE;
+
+
+--
+-- Name: capas_parcela capas_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.capas_parcela
+    ADD CONSTRAINT capas_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+
+
+--
+-- Name: capas_parcela capas_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.capas_parcela
+    ADD CONSTRAINT capas_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;

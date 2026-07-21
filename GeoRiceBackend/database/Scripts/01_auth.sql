@@ -113,6 +113,58 @@ ALTER SEQUENCE public.usuarios_id_seq OWNED BY public.usuarios.id;
 
 
 --
+-- Name: refresh_tokens id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('public.refresh_tokens_id_seq'::regclass);
+
+
+--
+-- Name: usuarios id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.usuarios ALTER COLUMN id SET DEFAULT nextval('public.usuarios_id_seq'::regclass);
+
+
+--
+-- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.refresh_tokens
+    ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: refresh_tokens refresh_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.refresh_tokens
+    ADD CONSTRAINT refresh_tokens_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: usuarios usuarios_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.usuarios
+    ADD CONSTRAINT usuarios_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: usuarios usuarios_cedula_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.usuarios
+    ADD CONSTRAINT usuarios_cedula_unique UNIQUE (cedula);
+
+
+--
+-- Name: usuarios usuarios_usuario_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.usuarios
+    ADD CONSTRAINT usuarios_usuario_unique UNIQUE (usuario);
+
 
 -- Índices de usuarios y refresh_tokens
 -- Name: idx_refresh_tokens_hash; Type: INDEX; Schema: public; Owner: postgres
@@ -122,13 +174,6 @@ CREATE INDEX idx_refresh_tokens_hash ON public.refresh_tokens USING btree (token
 
 
 --
-CREATE INDEX idx_refresh_tokens_hash ON public.refresh_tokens USING btree (token_hash);
-
-
---
--- Name: idx_refresh_tokens_usuario; Type: INDEX; Schema: public; Owner: postgres
---
-
 -- Name: idx_refresh_tokens_usuario; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -136,13 +181,6 @@ CREATE INDEX idx_refresh_tokens_usuario ON public.refresh_tokens USING btree (us
 
 
 --
-CREATE INDEX idx_refresh_tokens_usuario ON public.refresh_tokens USING btree (usuario_id);
-
-
---
--- Name: idx_usuarios_cedula; Type: INDEX; Schema: public; Owner: postgres
---
-
 -- Name: idx_usuarios_cedula; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -150,13 +188,6 @@ CREATE INDEX idx_usuarios_cedula ON public.usuarios USING btree (cedula);
 
 
 --
-CREATE INDEX idx_usuarios_cedula ON public.usuarios USING btree (cedula);
-
-
---
--- Name: idx_usuarios_estado; Type: INDEX; Schema: public; Owner: postgres
---
-
 -- Name: idx_usuarios_estado; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -164,13 +195,6 @@ CREATE INDEX idx_usuarios_estado ON public.usuarios USING btree (estado);
 
 
 --
-CREATE INDEX idx_usuarios_estado ON public.usuarios USING btree (estado);
-
-
---
--- Name: idx_usuarios_rol; Type: INDEX; Schema: public; Owner: postgres
---
-
 -- Name: idx_usuarios_rol; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -178,26 +202,10 @@ CREATE INDEX idx_usuarios_rol ON public.usuarios USING btree (rol);
 
 
 --
-CREATE INDEX idx_usuarios_rol ON public.usuarios USING btree (rol);
-
-
---
--- Name: idx_usuarios_usuario; Type: INDEX; Schema: public; Owner: postgres
---
-
 -- Name: idx_usuarios_usuario; Type: INDEX; Schema: public; Owner: postgres
 --
 
 CREATE INDEX idx_usuarios_usuario ON public.usuarios USING btree (usuario);
-
-
---
-CREATE INDEX idx_usuarios_usuario ON public.usuarios USING btree (usuario);
-
-
---
--- Name: idx_zonas_geometria; Type: INDEX; Schema: public; Owner: postgres
---
 
 
 -- Triggers de usuarios y refresh_tokens
@@ -207,11 +215,17 @@ CREATE INDEX idx_usuarios_usuario ON public.usuarios USING btree (usuario);
 CREATE TRIGGER trg_usuarios_updated_at BEFORE UPDATE ON public.usuarios FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 
 
+-- FK constraints de usuarios y refresh_tokens
+-- Name: refresh_tokens refresh_tokens_usuario_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
-CREATE TRIGGER trg_usuarios_updated_at BEFORE UPDATE ON public.usuarios FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+ALTER TABLE ONLY public.refresh_tokens
+    ADD CONSTRAINT refresh_tokens_usuario_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE CASCADE;
 
 
 --
--- Name: zonas trg_zonas_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: usuarios usuarios_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
+ALTER TABLE ONLY public.usuarios
+    ADD CONSTRAINT usuarios_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;

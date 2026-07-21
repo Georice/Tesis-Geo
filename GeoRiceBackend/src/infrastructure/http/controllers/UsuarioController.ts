@@ -1,5 +1,10 @@
 import { Request, Response } from 'express';
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
+import { CreateUsuario } from '../../../application/usecases/usuarios/CreateUsuario';
+import { UpdateUsuario } from '../../../application/usecases/usuarios/UpdateUsuario';
+import { GetUsuarios } from '../../../application/usecases/usuarios/GetUsuarios';
+import { ActivateUsuario } from '../../../application/usecases/usuarios/ActivateUsuario';
+import { DeactivateUsuario } from '../../../application/usecases/usuarios/DeactivateUsuario';
 import { logger } from '../../../shared/logger';
 
 export class UsuarioController {
@@ -7,7 +12,7 @@ export class UsuarioController {
 
   async getAll(_req: Request, res: Response): Promise<void> {
     try {
-      const usuarios = await this.repo.findAll();
+      const usuarios = await new GetUsuarios(this.repo).execute();
       res.json(usuarios);
     } catch (err: any) {
       logger.error('Error al obtener usuarios:', err);
@@ -18,15 +23,7 @@ export class UsuarioController {
   async create(req: Request, res: Response): Promise<void> {
     try {
       const createdBy = req.user!.sub;
-      const { nombres, apellidos, cedula, usuario, email, password, rol } = req.body;
-      if (!nombres || !apellidos || !cedula || !password) {
-        res.status(400).json({ error: 'nombres, apellidos, cedula y password son requeridos' });
-        return;
-      }
-      const nuevo = await this.repo.create(
-        { nombres, apellidos, cedula, usuario: usuario ?? cedula, email, password, rol },
-        createdBy as any
-      );
+      const nuevo = await new CreateUsuario(this.repo).execute(req.body, createdBy);
       res.status(201).json(nuevo);
     } catch (err: any) {
       if (err.code === '23505' || err.message?.includes('duplicate')) {
@@ -36,12 +33,12 @@ export class UsuarioController {
       }
     }
   }
-  
+
   async update(req: Request, res: Response): Promise<void> {
     try {
-      const id        = req.params.id;   // UUID string de URL
+      const id        = String(req.params.id);
       const updatedBy = req.user!.sub;
-      const usuario   = await this.repo.update(id as any, req.body, updatedBy as any);
+      const usuario   = await new UpdateUsuario(this.repo).execute(id, req.body, updatedBy);
       res.json(usuario);
     } catch (err: any) {
       if (err.code === '23505' || err.message?.includes('duplicate')) {
@@ -54,9 +51,9 @@ export class UsuarioController {
 
   async activate(req: Request, res: Response): Promise<void> {
     try {
-      const id        = req.params.id;
+      const id        = String(req.params.id);
       const updatedBy = req.user!.sub;
-      await this.repo.activate(id as any, updatedBy as any);
+      await new ActivateUsuario(this.repo).execute(id, updatedBy);
       res.json({ mensaje: 'Usuario activado' });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -65,16 +62,12 @@ export class UsuarioController {
 
   async deactivate(req: Request, res: Response): Promise<void> {
     try {
-      const id        = req.params.id;
+      const id        = String(req.params.id);
       const updatedBy = req.user!.sub;
-      if (id === req.user!.sub) {
-        res.status(400).json({ error: 'No puedes desactivar tu propia cuenta' });
-        return;
-      }
-      await this.repo.deactivate(id as any, updatedBy as any);
+      await new DeactivateUsuario(this.repo).execute(id, updatedBy);
       res.json({ mensaje: 'Usuario desactivado' });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      res.status(err.message?.includes('propia cuenta') ? 400 : 500).json({ error: err.message });
     }
   }
 }

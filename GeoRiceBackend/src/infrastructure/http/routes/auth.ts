@@ -4,9 +4,10 @@ import { authenticate }   from '../middleware/authenticate';
 import { authRateLimiter } from '../middleware/rateLimiter';
 import { AuthService }    from '../../../application/services/AuthService';
 import { LocalUserRepository } from '../../db/repositories/LocalUserRepository';
+import { RefreshTokenRepository } from '../../db/repositories/RefreshTokenRepository';
 
 const router      = Router();
-const authService = new AuthService(new LocalUserRepository());
+const authService = new AuthService(new LocalUserRepository(), new RefreshTokenRepository());
 const controller  = new AuthController(authService);
 
 router.post('/login',   authRateLimiter, (req, res) => controller.login(req, res));

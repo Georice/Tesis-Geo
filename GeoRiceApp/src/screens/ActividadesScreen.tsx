@@ -139,7 +139,21 @@ const agruparPorFase = (lista: Actividad[]) => {
   );
 };
 
-const fmt = (d: Date) => d.toISOString().split('T')[0];
+// OJO: nunca usar toISOString() para fechas de un DatePicker (solo día,
+// sin hora relevante) — convierte a UTC y en Ecuador (UTC-5) eso corre el
+// día seleccionado hacia adelante o hacia atrás según la hora local. fmt()
+// y parseLocalDate() trabajan siempre con los componentes LOCALES de la
+// fecha, nunca con su representación UTC.
+const fmt = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+const parseLocalDate = (iso: string): Date => {
+  const [y, m, day] = iso.split('T')[0].split('-').map(Number);
+  return new Date(y, m - 1, day);
+};
 
 const ActividadesScreen: React.FC = () => {
   const navigation    = useNavigation<Nav>();
@@ -339,8 +353,8 @@ const ActividadesScreen: React.FC = () => {
     setActividadSel(a);
     setTipo(a.tipo as TipoActividad);
     setEstado((a.estado as Estado) ?? 'pendiente');
-    setDateInicio(a.fechaInicio ? new Date(a.fechaInicio) : null);
-    setDateFin(a.fechaFin ? new Date(a.fechaFin) : null);
+    setDateInicio(a.fechaInicio ? parseLocalDate(a.fechaInicio) : null);
+    setDateFin(a.fechaFin ? parseLocalDate(a.fechaFin) : null);
     setMetodo(a.metodo ?? ''); setObservaciones(a.observaciones ?? '');
     setInsumo(a.insumo ?? ''); setCantidad(a.cantidad?.toString() ?? '');
     setUnidad(a.unidad ?? '');
@@ -511,8 +525,8 @@ const ActividadesScreen: React.FC = () => {
     return {
       tipo, estado,
       fecha: new Date().toISOString(),
-      fechaInicio: dateInicio ? dateInicio.toISOString() : undefined,
-      fechaFin:    dateFin    ? dateFin.toISOString()    : undefined,
+      fechaInicio: dateInicio ? fmt(dateInicio) : undefined,
+      fechaFin:    dateFin    ? fmt(dateFin)    : undefined,
       metodo:      metodo || undefined,
       insumo:      insumo || undefined,
       cantidad:    cantidad    ? Number(cantidad)    : undefined,
@@ -534,9 +548,13 @@ const ActividadesScreen: React.FC = () => {
   const handleCrear = async () => {
     setGuardando(true);
     try {
-      await CreateActividad(parcelaId, buildPayload() as any);
+      const creada = await CreateActividad(parcelaId, buildPayload() as any);
       await cargar(); setVista('lista');
-      Alert.alert('Actividad registrada');
+      if ((creada as any)?.pendingSync) {
+        Alert.alert('Sin conexión', 'Actividad guardada localmente. Se enviará sola cuando vuelva la señal.');
+      } else {
+        Alert.alert('Actividad registrada');
+      }
     } catch (e: any) { Alert.alert('Error', e.message); }
     finally { setGuardando(false); }
   };
@@ -841,6 +859,12 @@ const renderTarjetaActividad = (item: Actividad) => {
         <Icon name={TIPO_ICON[item.tipo as TipoActividad] ?? 'map-marker'} size={26} color={TIPO_COLOR[item.tipo as TipoActividad] ?? '#1a2b16'} style={s.emoji} />
         <View style={{ flex:1 }}>
           <Text style={s.cardTitulo}>{TIPO_LABEL[item.tipo as TipoActividad] ?? item.tipo}</Text>
+          {item.pendingSync && (
+            <View style={s.pendingBadge}>
+              <Icon name="cloud-upload-outline" size={11} color="#b45309" />
+              <Text style={s.pendingText}>Pendiente de sincronizar</Text>
+            </View>
+          )}
           {item.fechaInicio && (
             <Text style={s.cardSub}>
               {item.fechaInicio?.split('T')[0]}
@@ -1542,6 +1566,10 @@ const s = StyleSheet.create({
   cardTitulo:    { fontSize:15, fontWeight:'600', color:'#1a2b16' },
   cardSub:       { fontSize:12, color:Colors.grisTexto, marginTop:2 },
   cardMeta:      { fontSize:12, color:'#444', marginTop:2 },
+  pendingBadge:  { flexDirection:'row', alignItems:'center', gap:4, marginTop:2, marginBottom:2,
+                   backgroundColor:'#fef3c7', borderRadius:8, paddingHorizontal:8,
+                   paddingVertical:3, alignSelf:'flex-start' },
+  pendingText:   { fontSize:10, color:'#b45309', fontWeight:'600' },
   iconBtn:       { padding:4, marginBottom:2 },
   vacio:         { flex:1, justifyContent:'center', alignItems:'center', marginTop:60 },
   vacioText:     { fontSize:15, color:'#999' },

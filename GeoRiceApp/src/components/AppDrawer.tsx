@@ -80,11 +80,13 @@ const AppDrawer: React.FC<Props> = ({
 
               {/* Encabezado verde */}
               <View style={[styles.userHeader, { paddingTop: insets.top + 24 }]}>
-                <Image
-                  source={logoGeoRice}
-                  style={styles.logo}
-                  resizeMode="contain"
-                />
+                <View style={styles.logoWrapper}>
+                  <Image
+                    source={logoGeoRice}
+                    style={styles.logo}
+                    resizeMode="contain"
+                  />
+                </View>
                 <Text style={styles.userName} numberOfLines={2}>{userName}</Text>
                 <Text style={styles.userRoleLabel}>{roleLabel}</Text>
               </View>
@@ -193,10 +195,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 24,
   },
-  logo: {
-    width: 80,
-    height: 80,
+  logoWrapper: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: Colors.blanco,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  logo: {
+    width: 92,
+    height: 92,
   },
   userName: {
     fontSize: 16,

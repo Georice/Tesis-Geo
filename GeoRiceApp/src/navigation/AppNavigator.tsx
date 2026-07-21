@@ -12,6 +12,7 @@ import ActividadesScreen    from '../screens/ActividadesScreen';
 import CapasScreen          from '../screens/CapasScreen';
 import IniciarCicloScreen   from '../screens/IniciarCicloScreen';
 import AdminUsuariosScreen  from '../screens/AdminUsuariosScreen';
+import ReportesScreen       from '../screens/ReportesScreen';
 import { Colors }           from '../theme/colors';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -44,6 +45,16 @@ const AppNavigator = () => {
               component={AdminUsuariosScreen}
               options={{
                 title: 'Administración de usuarios',
+                headerStyle: { backgroundColor: Colors.verde },
+                headerTintColor: Colors.blanco,
+                headerTitleStyle: { fontWeight: '700' },
+              }}
+            />
+            <Stack.Screen
+              name="Reportes"
+              component={ReportesScreen}
+              options={{
+                title: 'Reportes',
                 headerStyle: { backgroundColor: Colors.verde },
                 headerTintColor: Colors.blanco,
                 headerTitleStyle: { fontWeight: '700' },

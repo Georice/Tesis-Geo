@@ -1,28 +1,37 @@
 import { Request, Response }          from 'express';
 import { ICapaParcelaRepository }     from '../../../domain/repositories/ICapaParcelaRepository';
+import { IParcelaRepository }         from '../../../domain/repositories/IParcelaRepository';
 import { CreateCapa }                 from '../../../application/usecases/capas/CreateCapa';
 import { GetCapasByParcela }          from '../../../application/usecases/capas/GetCapasByParcela';
 import { UpdateNdvi }                 from '../../../application/usecases/capas/UpdateNdvi';
 import { UpdateCapaGeometry }         from '../../../application/usecases/capas/UpdateCapaGeometry';
 import { DeleteCapa }                 from '../../../application/usecases/capas/DeleteCapa';
-import { AppDataSource }              from '../../db/DataSource';
+import { VerifyParcelaAccess }        from '../../../application/services/VerifyParcelaAccess';
+import { AuthContext }                from '../../../shared/types/AuthContext';
 import { logger }                     from '../../../shared/logger';
 
-async function verifyParcelaAccess(parcelaId: number, usuarioId: string, rol: string): Promise<void> {
-  if (rol === 'administrador') return;
-  const result = await AppDataSource.query(
-    `SELECT id FROM parcelas WHERE id = $1 AND usuario_id = $2`, [parcelaId, usuarioId]
-  );
-  if (!result[0]) throw new Error('Parcela no encontrada o no autorizado');
+function buildCtx(req: Request): AuthContext {
+  return {
+    usuarioId:      req.user!.sub,
+    rol:            req.user!.rol,
+    nombreCompleto: `${req.user!.nombres} ${req.user!.apellidos}`,
+  };
 }
 
 export class CapaController {
-  constructor(private readonly repo: ICapaParcelaRepository) {}
+  private readonly verifyParcelaAccess: VerifyParcelaAccess;
+
+  constructor(
+    private readonly repo: ICapaParcelaRepository,
+    parcelaRepo: IParcelaRepository,
+  ) {
+    this.verifyParcelaAccess = new VerifyParcelaAccess(parcelaRepo);
+  }
 
   async getByParcela(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
+      await this.verifyParcelaAccess.execute(parcelaId, buildCtx(req));
       const capas = await new GetCapasByParcela(this.repo).execute(parcelaId);
       logger.info(`GET capas parcela=${parcelaId} → ${capas.length}`);
       res.json(capas);
@@ -36,7 +45,7 @@ export class CapaController {
     try {
       const parcelaId = Number(req.params.parcelaId);
       const usuarioId = req.user!.sub;
-      await verifyParcelaAccess(parcelaId, usuarioId, req.user!.rol);
+      await this.verifyParcelaAccess.execute(parcelaId, buildCtx(req));
 
       const { tipo, geometria, ndviEstimado } = req.body;
       const capa = await new CreateCapa(this.repo).execute({
@@ -69,7 +78,7 @@ export class CapaController {
     try {
       const id        = Number(req.params.id);
       const parcelaId = Number(req.params.parcelaId);
-      await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
+      await this.verifyParcelaAccess.execute(parcelaId, buildCtx(req));
 
       const { geometria } = req.body;
       if (!geometria) { res.status(400).json({ error: 'Se requiere geometria' }); return; }
@@ -89,7 +98,7 @@ export class CapaController {
       const id   = Number(req.params.id);
       const capa = await this.repo.findById(id);
       if (!capa) { res.status(404).json({ error: 'Capa no encontrada' }); return; }
-      await verifyParcelaAccess(capa.parcelaId, req.user!.sub, req.user!.rol);
+      await this.verifyParcelaAccess.execute(capa.parcelaId, buildCtx(req));
 
       const deleted = await new DeleteCapa(this.repo).execute(id);
       if (!deleted) { res.status(404).json({ error: 'Capa no encontrada' }); return; }

@@ -9,6 +9,9 @@ export interface Zona {
   z_geometria?: string | null;
   fechaCreacion?: string;
   z_fecha_creacion?: string;
+  // true solo en zonas creadas offline que todavía no llegaron al
+  // servidor (id temporal negativo). Nunca lo manda el backend.
+  pendingSync?: boolean;
 }
 
 export interface CreateZonaDTO {

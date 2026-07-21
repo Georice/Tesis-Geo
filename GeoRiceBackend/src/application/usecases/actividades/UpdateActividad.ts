@@ -1,6 +1,7 @@
-import { IActividadParcelaRepository, CreateActividadData } from '../../../domain/repositories/IActividadParcelaRepository';
-import { IParcelaRepository }          from '../../../domain/repositories/IParcelaRepository';
-import { ActividadParcela }            from '../../../domain/entities/ActividadParcela';
+import { IActividadParcelaRepository, ProductoComando } from '../../../domain/repositories/IActividadParcelaRepository';
+import { IParcelaRepository } from '../../../domain/repositories/IParcelaRepository';
+import { ActividadParcela } from '../../../domain/entities/ActividadParcela';
+import { UpdateActividadDto } from '../../dtos/actividades/ActividadDtos';
 
 const TIPOS_COSECHA = ['cosecha', 'cosecha_soca'];
 
@@ -10,7 +11,7 @@ export class UpdateActividad {
     private parcelaRepo: IParcelaRepository,
   ) {}
 
-  async execute(id: number, data: CreateActividadData): Promise<ActividadParcela | null> {
+  async execute(id: number, data: UpdateActividadDto): Promise<ActividadParcela | null> {
     if (!id) throw new Error('El id de la actividad es obligatorio');
 
     const actividad = await this.repo.findById(id);
@@ -61,9 +62,9 @@ export class UpdateActividad {
 
     if (tipo === 'siembra_trasplante') {
       if (!numTareas) {
-        const parcela = await this.parcelaRepo.findByIdInterno(actividad.parcelaId);
-        if (parcela?.areaHa) {
-          numTareas = Number((Number(parcela.areaHa) * 16).toFixed(2));
+        const areaHa = await this.parcelaRepo.findAreaHa(actividad.parcelaId);
+        if (areaHa) {
+          numTareas = Number((areaHa * 16).toFixed(2));
         }
       }
       if (numTareas && precioTarea) {
@@ -104,7 +105,7 @@ export class UpdateActividad {
     const cantMoParaProductos = cantidadFinal ?? cantMo;
 
     if (data.productos?.length) {
-      data.productos = data.productos.map((p: any) => {
+      data.productos = data.productos.map((p: ProductoComando) => {
         const prod = { ...p };
 
         if (tanques && prod.dosisPorTanque) {
@@ -134,7 +135,7 @@ export class UpdateActividad {
       });
 
       data.costoInsumos = data.productos.reduce(
-        (sum: number, p: any) => sum + Number(p.costoTotal ?? 0), 0
+        (sum: number, p: ProductoComando) => sum + Number(p.costoTotal ?? 0), 0
       );
     }
 
@@ -145,6 +146,7 @@ export class UpdateActividad {
       Number(data.costoInsumos                        ?? actividad.costoInsumos                        ?? 0) +
       Number(data.detalleManoObra?.costoSembradores  ?? actividad.detalleManoObra?.costoSembradores  ?? 0);
 
-    return this.repo.update(id, data);
+    const { productos, ...comando } = data;
+    return this.repo.update(id, comando, productos);
   }
 }

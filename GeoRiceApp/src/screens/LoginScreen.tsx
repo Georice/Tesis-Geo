@@ -4,6 +4,7 @@ import {
   StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import Icon from '../components/Icon';
 
 const loginLogo = require('../assets/login_logo.png');
 
@@ -12,6 +13,7 @@ const LoginScreen = () => {
   const [email, setEmail]      = useState('');
   const [password, setPassword]= useState('');
   const [loading, setLoading]  = useState(false);
+  const [verPassword, setVerPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -44,15 +46,23 @@ const LoginScreen = () => {
           autoCorrect={false}
           keyboardType="email-address"
         />
-        <TextInput
-          style={s.input}
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Contraseña"
-          placeholderTextColor="#aaa"
-          secureTextEntry
-          onSubmitEditing={handleLogin}
-        />
+        <View style={s.passwordWrapper}>
+          <TextInput
+            style={s.passwordInput}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Contraseña"
+            placeholderTextColor="#aaa"
+            secureTextEntry={!verPassword}
+            onSubmitEditing={handleLogin}
+          />
+          <TouchableOpacity
+            style={s.eyeBtn}
+            onPress={() => setVerPassword(v => !v)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Icon name={verPassword ? 'eye-off' : 'eye'} size={20} color="#888" />
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           style={[s.btn, (loading || !email || !password) && { opacity: 0.5 }]}
@@ -79,6 +89,11 @@ const s = StyleSheet.create({
   input:     { borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
                paddingHorizontal: 14, paddingVertical: 12, marginBottom: 14,
                fontSize: 16, backgroundColor: '#fafafa' },
+  passwordWrapper: { justifyContent: 'center', marginBottom: 14 },
+  passwordInput:   { borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
+                     paddingHorizontal: 14, paddingRight: 44, paddingVertical: 12,
+                     fontSize: 16, backgroundColor: '#fafafa' },
+  eyeBtn:          { position: 'absolute', right: 12 },
   btn:       { backgroundColor: '#1a5c2a', borderRadius: 10, paddingVertical: 14,
                alignItems: 'center', marginTop: 4 },
   btnText:   { color: '#fff', fontWeight: '700', fontSize: 16 },

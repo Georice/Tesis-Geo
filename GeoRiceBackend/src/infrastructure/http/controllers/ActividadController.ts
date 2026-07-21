@@ -6,28 +6,33 @@ import { CreateActividad }               from '../../../application/usecases/act
 import { GetActividadesByParcela }       from '../../../application/usecases/actividades/GetActividadesByParcela';
 import { UpdateActividad }               from '../../../application/usecases/actividades/UpdateActividad';
 import { DeleteActividad }               from '../../../application/usecases/actividades/DeleteActividad';
-import { AppDataSource }                 from '../../db/DataSource';
+import { VerifyParcelaAccess }           from '../../../application/services/VerifyParcelaAccess';
+import { AuthContext }                   from '../../../shared/types/AuthContext';
 import { logger }                        from '../../../shared/logger';
 
-async function verifyParcelaAccess(parcelaId: number, usuarioId: string, rol: string): Promise<void> {
-  if (rol === 'administrador') return;
-  const result = await AppDataSource.query(
-    `SELECT id FROM parcelas WHERE id = $1 AND usuario_id = $2`, [parcelaId, usuarioId]
-  );
-  if (!result[0]) throw new Error('Parcela no encontrada o no autorizado');
+function buildCtx(req: Request): AuthContext {
+  return {
+    usuarioId:      req.user!.sub,
+    rol:            req.user!.rol,
+    nombreCompleto: `${req.user!.nombres} ${req.user!.apellidos}`,
+  };
 }
 
 export class ActividadController {
+  private readonly verifyParcelaAccess: VerifyParcelaAccess;
+
   constructor(
     private readonly repo: IActividadParcelaRepository,
     private readonly cicloRepo: ICicloRepository,
     private readonly parcelaRepo: IParcelaRepository,
-  ) {}
+  ) {
+    this.verifyParcelaAccess = new VerifyParcelaAccess(parcelaRepo);
+  }
 
   async getByParcela(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      await verifyParcelaAccess(parcelaId, req.user!.sub, req.user!.rol);
+      await this.verifyParcelaAccess.execute(parcelaId, buildCtx(req));
       const page     = req.query.page ? Number(req.query.page) : undefined;
       const pageSize = req.query.pageSize ? Number(req.query.pageSize) : undefined;
 
@@ -44,7 +49,7 @@ export class ActividadController {
     try {
       const parcelaId = Number(req.params.parcelaId);
       const usuarioId = req.user!.sub;
-      await verifyParcelaAccess(parcelaId, usuarioId, req.user!.rol);
+      await this.verifyParcelaAccess.execute(parcelaId, buildCtx(req));
 
       const {
         tipo, estado, fecha, fechaInicio, fechaFin,
@@ -63,7 +68,7 @@ export class ActividadController {
         detalleRiego, detalleFumigacion, detalleFertilizacion,
         detalleCosecha, detalleManoObra, detalleMaquinaria,
         createdBy: usuarioId, updatedBy: usuarioId,
-      } as any);
+      });
 
       logger.info(`POST actividad creada id=${actividad.id} parcela=${parcelaId}`);
       res.status(201).json(actividad);
@@ -81,7 +86,7 @@ export class ActividadController {
 
       const existing = await this.repo.findById(id);
       if (!existing) { res.status(404).json({ error: 'Actividad no encontrada' }); return; }
-      await verifyParcelaAccess(existing.parcelaId, usuarioId, req.user!.rol);
+      await this.verifyParcelaAccess.execute(existing.parcelaId, buildCtx(req));
 
       const {
         tipo, estado, fecha, fechaInicio, fechaFin,
@@ -100,7 +105,7 @@ export class ActividadController {
         detalleRiego, detalleFumigacion, detalleFertilizacion,
         detalleCosecha, detalleManoObra, detalleMaquinaria,
         updatedBy: usuarioId,
-      } as any);
+      });
 
       logger.info(`PUT actividad ${id} actualizada`);
       res.json(actividad);
@@ -113,12 +118,11 @@ export class ActividadController {
 
   async remove(req: Request, res: Response): Promise<void> {
     try {
-      const id        = Number(req.params.id);
-      const usuarioId = req.user!.sub;
+      const id = Number(req.params.id);
 
       const existing = await this.repo.findById(id);
       if (!existing) { res.status(404).json({ error: 'Actividad no encontrada' }); return; }
-      await verifyParcelaAccess(existing.parcelaId, usuarioId, req.user!.rol);
+      await this.verifyParcelaAccess.execute(existing.parcelaId, buildCtx(req));
 
       const deleted = await new DeleteActividad(this.repo).execute(id);
       if (!deleted) { res.status(404).json({ error: 'Actividad no encontrada' }); return; }

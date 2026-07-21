@@ -1,24 +1,26 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
-import { ParcelaEntity }           from './entities/ParcelaEntity';
-import { ZonaEntity }              from './entities/ZonaEntity';
-import { CapaParcelaEntity }       from './entities/CapaParcelaEntity';
-import { ActividadParcelaEntity }  from './entities/ActividadParcelaEntity';
-import { ProductoActividadEntity } from './entities/ProductoActividadEntity';
-import { CicloActividadEntity }    from './entities/CicloActividadEntity';
-import { UsuarioEntity }           from './entities/UsuarioEntity';
-import { RefreshTokenEntity }      from './entities/RefreshTokenEntity';
-import { FaseCicloEntity }         from './entities/FaseCicloEntity';
-import { DetalleRiegoEntity }      from './entities/DetalleRiegoEntity';
-import { DetalleFumigacionEntity } from './entities/DetalleFumigacionEntity';
-import { DetalleFertilizacionEntity } from './entities/DetalleFertilizacionEntity';
-import { DetalleCosechaEntity }    from './entities/DetalleCosechaEntity';
-import { DetalleManoObraEntity }   from './entities/DetalleManoObraEntity';
-import { DetalleMaquinariaEntity } from './entities/DetalleMaquinariaEntity';
+import { ParcelaModel }           from './models/ParcelaModel';
+import { ZonaModel }              from './models/ZonaModel';
+import { CapaParcelaModel }       from './models/CapaParcelaModel';
+import { ActividadParcelaModel }  from './models/ActividadParcelaModel';
+import { ProductoActividadModel } from './models/ProductoActividadModel';
+import { CicloActividadModel }    from './models/CicloActividadModel';
+import { UsuarioModel }           from './models/UsuarioModel';
+import { RefreshTokenModel }      from './models/RefreshTokenModel';
+import { FaseCicloModel }         from './models/FaseCicloModel';
+import { DetalleRiegoModel }      from './models/DetalleRiegoModel';
+import { DetalleFumigacionModel } from './models/DetalleFumigacionModel';
+import { DetalleFertilizacionModel } from './models/DetalleFertilizacionModel';
+import { DetalleCosechaModel }    from './models/DetalleCosechaModel';
+import { DetalleManoObraModel }   from './models/DetalleManoObraModel';
+import { DetalleMaquinariaModel } from './models/DetalleMaquinariaModel';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Únicas clases de esta capa acopladas a TypeORM (decoradores @Entity).
+// El dominio (src/domain/entities) no aparece aquí: son clases puras.
 export const AppDataSource = new DataSource({
   type:     'postgres',
   host:     process.env.DB_HOST,
@@ -26,15 +28,11 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME,
   username: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  // Railway (y la mayoría de proveedores cloud de Postgres) requieren SSL
-  // en la conexión pública. rejectUnauthorized:false porque no siempre
-  // se dispone del certificado CA del proveedor.
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   entities: [
-    ParcelaEntity, ZonaEntity, CapaParcelaEntity, ActividadParcelaEntity,
-    ProductoActividadEntity, CicloActividadEntity, UsuarioEntity, RefreshTokenEntity,
-    FaseCicloEntity, DetalleRiegoEntity, DetalleFumigacionEntity, DetalleFertilizacionEntity,
-    DetalleCosechaEntity, DetalleManoObraEntity, DetalleMaquinariaEntity,
+    ParcelaModel, ZonaModel, CapaParcelaModel, ActividadParcelaModel,
+    ProductoActividadModel, CicloActividadModel, UsuarioModel, RefreshTokenModel,
+    FaseCicloModel, DetalleRiegoModel, DetalleFumigacionModel, DetalleFertilizacionModel,
+    DetalleCosechaModel, DetalleManoObraModel, DetalleMaquinariaModel,
   ],
   synchronize: false,
 });

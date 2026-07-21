@@ -1,6 +1,6 @@
 import { IActividadParcelaRepository, PaginatedResult } from '../../../domain/repositories/IActividadParcelaRepository';
-import { ICicloRepository }            from '../../../domain/repositories/ICicloRepository';
-import { ActividadParcela }            from '../../../domain/entities/ActividadParcela';
+import { ICicloRepository } from '../../../domain/repositories/ICicloRepository';
+import { ActividadParcela } from '../../../domain/entities/ActividadParcela';
 
 export class GetActividadesByParcela {
   constructor(
