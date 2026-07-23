@@ -1,3 +1,4 @@
+import { IsNull } from 'typeorm';
 import { AppDataSource } from '../DataSource';
 import { RefreshTokenModel } from '../models/RefreshTokenModel';
 import { RefreshToken } from '../../../domain/entities/RefreshToken';
@@ -11,16 +12,16 @@ import { UsuarioMapper } from '../mappers/UsuarioMapper';
 export class RefreshTokenRepository implements IRefreshTokenRepository {
   private repo = AppDataSource.getRepository(RefreshTokenModel);
 
-  async create(usuarioId: string, tokenHash: string, expiresAt: Date): Promise<RefreshToken> {
+  async create(usuarioId: string, hashToken: string, expiraEn: Date): Promise<RefreshToken> {
     const saved = await this.repo.save(
-      this.repo.create({ usuarioId, tokenHash, expiresAt }),
+      this.repo.create({ usuarioId, hashToken, expiraEn }),
     );
     return RefreshTokenMapper.toDomain(saved);
   }
 
-  async findActivoConUsuario(tokenHash: string): Promise<RefreshTokenConUsuario | null> {
+  async findActivoConUsuario(hashToken: string): Promise<RefreshTokenConUsuario | null> {
     const record = await this.repo.findOne({
-      where: { tokenHash, revocado: false },
+      where: { hashToken, revocadoEn: IsNull() },
       relations: ['usuario'],
     });
     if (!record) return null;
@@ -31,11 +32,11 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
     };
   }
 
-  async revoke(id: number): Promise<void> {
-    await this.repo.update(id, { revocado: true });
+  async revoke(id: string): Promise<void> {
+    await this.repo.update(id, { revocadoEn: new Date() });
   }
 
-  async revokeByHash(tokenHash: string): Promise<void> {
-    await this.repo.update({ tokenHash }, { revocado: true });
+  async revokeByHash(hashToken: string): Promise<void> {
+    await this.repo.update({ hashToken }, { revocadoEn: new Date() });
   }
 }

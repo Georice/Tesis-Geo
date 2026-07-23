@@ -1,12 +1,18 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- GeoRice BD - 01_auth.sql
--- Módulo de autenticación: usuarios y refresh_tokens
+-- Módulo de autenticación: usuarios
 --
 -- IMPORTANTE: "usuarios" es propiedad de MagnaRice (gestionada con Prisma).
 -- id es TEXT (sin default en DB — la app lo genera con crypto.randomUUID()
 -- al crear), y las columnas createdAt/updatedAt son camelCase tal cual las
 -- creó Prisma. No tiene columnas rol/estado propias: el rol efectivo se
 -- resuelve en runtime uniendo por cédula contra "socios" (ver 05_socios.sql).
+--
+-- Los refresh tokens de sesión NO se manejan en una tabla propia de GeoRice:
+-- se reutiliza "tokens_actualizacion" (también de MagnaRice/Prisma), con
+-- columnas id/usuarioId/hashToken/expiraEn/revocadoEn/createdAt — ver
+-- src/infrastructure/db/models/RefreshTokenModel.ts. No hay script de
+-- creación aquí porque esa tabla ya existe en la DB compartida.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 SET statement_timeout = 0;
@@ -22,7 +28,7 @@ SET row_security = off;
 -- Usada por las tablas geo (zonas/parcelas/capas_parcela/...), no por
 -- usuarios/socios (esas dos las gestiona Prisma a nivel de ORM).
 
-CREATE FUNCTION public.fn_set_updated_at() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.fn_set_updated_at() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -44,14 +50,14 @@ SET default_table_access_method = heap;
 
 CREATE TABLE IF NOT EXISTS public.usuarios (
     id          TEXT         NOT NULL,
-    email       TEXT         NOT NULL,
+    email       TEXT,
     password    TEXT         NOT NULL,
     nombre      TEXT         NOT NULL,
     apellido    TEXT         NOT NULL,
     activo      BOOLEAN      NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    cedula      VARCHAR(10),
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    cedula      VARCHAR(10)  NOT NULL,
     CONSTRAINT usuarios_pkey PRIMARY KEY (id)
 );
 
@@ -59,85 +65,3 @@ ALTER TABLE public.usuarios OWNER TO postgres;
 
 CREATE UNIQUE INDEX IF NOT EXISTS usuarios_email_key  ON public.usuarios (email);
 CREATE UNIQUE INDEX IF NOT EXISTS usuarios_cedula_key ON public.usuarios (cedula);
-
---
--- Name: refresh_tokens; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.refresh_tokens (
-    id integer NOT NULL,
-    usuario_id text NOT NULL,
-    token_hash character varying(255) NOT NULL,
-    expires_at timestamp without time zone NOT NULL,
-    creado_en timestamp without time zone DEFAULT now(),
-    revocado boolean DEFAULT false
-);
-
-
-ALTER TABLE public.refresh_tokens OWNER TO postgres;
-
---
--- Name: refresh_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.refresh_tokens_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.refresh_tokens_id_seq OWNER TO postgres;
-
---
--- Name: refresh_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.refresh_tokens_id_seq OWNED BY public.refresh_tokens.id;
-
-
---
--- Name: refresh_tokens id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('public.refresh_tokens_id_seq'::regclass);
-
-
---
--- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
-
-
---
--- Name: refresh_tokens refresh_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_token_hash_key UNIQUE (token_hash);
-
-
--- Índices de refresh_tokens
--- Name: idx_refresh_tokens_hash; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_refresh_tokens_hash ON public.refresh_tokens USING btree (token_hash);
-
-
---
--- Name: idx_refresh_tokens_usuario; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_refresh_tokens_usuario ON public.refresh_tokens USING btree (usuario_id);
-
-
--- FK constraints de refresh_tokens
--- Name: refresh_tokens refresh_tokens_usuario_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_usuario_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE CASCADE;

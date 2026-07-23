@@ -968,43 +968,9 @@ ALTER SEQUENCE public.productos_actividad_id_seq OWNER TO managerice;
 ALTER SEQUENCE public.productos_actividad_id_seq OWNED BY public.productos_actividad.id;
 
 
---
--- Name: refresh_tokens; Type: TABLE; Schema: public; Owner: managerice
---
-
-CREATE TABLE public.refresh_tokens (
-    id integer NOT NULL,
-    usuario_id text NOT NULL,
-    token_hash character varying(255) NOT NULL,
-    expires_at timestamp without time zone NOT NULL,
-    creado_en timestamp without time zone DEFAULT now(),
-    revocado boolean DEFAULT false
-);
-
-
-ALTER TABLE public.refresh_tokens OWNER TO managerice;
-
---
--- Name: refresh_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: managerice
---
-
-CREATE SEQUENCE public.refresh_tokens_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.refresh_tokens_id_seq OWNER TO managerice;
-
---
--- Name: refresh_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: managerice
---
-
-ALTER SEQUENCE public.refresh_tokens_id_seq OWNED BY public.refresh_tokens.id;
-
+-- Los refresh tokens de sesión se guardan en "tokens_actualizacion"
+-- (MagnaRice/Prisma, ya existente en la DB compartida) — GeoRice no crea
+-- ni mantiene su propia tabla de refresh tokens. Ver RefreshTokenModel.ts.
 
 --
 -- Name: socios; Type: TABLE; Schema: public; Owner: managerice
@@ -1019,14 +985,14 @@ CREATE TABLE public.socios (
     nombre text NOT NULL,
     apellido text NOT NULL,
     email text,
-    telefono text DEFAULT ''::text NOT NULL,
+    telefono text NOT NULL,
     direccion text,
     rol public."RolSocio" DEFAULT 'SOCIO'::public."RolSocio" NOT NULL,
     "nivelAcceso" public."NivelAcceso" DEFAULT 'MIEMBRO'::public."NivelAcceso" NOT NULL,
     estado public."EstadoSocio" DEFAULT 'ACTIVO'::public."EstadoSocio" NOT NULL,
     "fechaIngreso" timestamp(3) without time zone DEFAULT now() NOT NULL,
     "createdAt" timestamp(3) without time zone DEFAULT now() NOT NULL,
-    "updatedAt" timestamp(3) without time zone DEFAULT now() NOT NULL,
+    "updatedAt" timestamp(3) without time zone NOT NULL,
     "usuarioId" text
 );
 
@@ -1043,14 +1009,14 @@ ALTER TABLE public.socios OWNER TO managerice;
 
 CREATE TABLE public.usuarios (
     id text NOT NULL,
-    email text NOT NULL,
+    email text,
     password text NOT NULL,
     nombre text NOT NULL,
     apellido text NOT NULL,
     activo boolean DEFAULT true NOT NULL,
     "createdAt" timestamp(3) without time zone DEFAULT now() NOT NULL,
-    "updatedAt" timestamp(3) without time zone DEFAULT now() NOT NULL,
-    cedula character varying(10)
+    "updatedAt" timestamp(3) without time zone NOT NULL,
+    cedula character varying(10) NOT NULL
 );
 
 
@@ -1145,13 +1111,6 @@ ALTER TABLE ONLY public.plantillas_ciclo ALTER COLUMN id SET DEFAULT nextval('pu
 --
 
 ALTER TABLE ONLY public.productos_actividad ALTER COLUMN id SET DEFAULT nextval('public.productos_actividad_id_seq'::regclass);
-
-
---
--- Name: refresh_tokens id; Type: DEFAULT; Schema: public; Owner: managerice
---
-
-ALTER TABLE ONLY public.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('public.refresh_tokens_id_seq'::regclass);
 
 
 --
@@ -1265,20 +1224,6 @@ ALTER TABLE ONLY public.productos_actividad
     ADD CONSTRAINT productos_actividad_pkey PRIMARY KEY (id);
 
 
---
--- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: managerice
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
-
-
---
--- Name: refresh_tokens refresh_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: managerice
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_token_hash_key UNIQUE (token_hash);
 
 
 --
@@ -1451,18 +1396,6 @@ CREATE INDEX idx_productos_presentacion ON public.productos_actividad USING btre
 CREATE INDEX idx_productos_updated_at ON public.productos_actividad USING btree (updated_at);
 
 
---
--- Name: idx_refresh_tokens_hash; Type: INDEX; Schema: public; Owner: managerice
---
-
-CREATE INDEX idx_refresh_tokens_hash ON public.refresh_tokens USING btree (token_hash);
-
-
---
--- Name: idx_refresh_tokens_usuario; Type: INDEX; Schema: public; Owner: managerice
---
-
-CREATE INDEX idx_refresh_tokens_usuario ON public.refresh_tokens USING btree (usuario_id);
 
 
 --
@@ -1781,13 +1714,6 @@ ALTER TABLE ONLY public.parcelas
 ALTER TABLE ONLY public.productos_actividad
     ADD CONSTRAINT productos_actividad_actividad_id_fkey FOREIGN KEY (actividad_id) REFERENCES public.actividades_parcela(id) ON DELETE CASCADE;
 
-
---
--- Name: refresh_tokens refresh_tokens_usuario_fkey; Type: FK CONSTRAINT; Schema: public; Owner: managerice
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_usuario_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE CASCADE;
 
 
 --
