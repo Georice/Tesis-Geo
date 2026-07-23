@@ -175,7 +175,7 @@ const ReportesScreen: React.FC = () => {
             <TouchableOpacity style={s.dropdown} onPress={() => setModalSocio(true)}>
               <Text style={s.dropdownText}>
                 {socioNombreSeleccionado
-                  ? `${socioNombreSeleccionado.nombres} ${socioNombreSeleccionado.apellidos}`
+                  ? `${socioNombreSeleccionado.nombre} ${socioNombreSeleccionado.apellido}`
                   : 'Todos los socios'}
               </Text>
               <Text style={s.dropdownArrow}>V</Text>
@@ -325,7 +325,7 @@ const ReportesScreen: React.FC = () => {
                   style={[s.modalItem, socioId === soc.id && s.modalItemOn]}
                   onPress={() => { setSocioId(soc.id); setModalSocio(false); }}>
                   <Text style={[s.modalItemText, socioId === soc.id && { color: Colors.verde, fontWeight: '600' }]}>
-                    {soc.nombres} {soc.apellidos}
+                    {soc.nombre} {soc.apellido}
                   </Text>
                 </TouchableOpacity>
               ))}

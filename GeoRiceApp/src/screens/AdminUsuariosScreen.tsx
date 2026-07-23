@@ -14,27 +14,16 @@ import IconLabel from '../components/IconLabel';
 
 type FormMode = 'create' | 'edit';
 
-// interface FormState {
-//   nombres:   string;
-//   apellidos: string;
-//   email:     string;
-//   password:  string;
-// }
-
-// const EMPTY_FORM: FormState = {
-//   nombres: '', apellidos: '', email: '', password: '',
-// };
-
 interface FormState {
-  nombres:   string;
-  apellidos: string;
+  nombre:    string;
+  apellido:  string;
   cedula:    string;
   email:     string;
   password:  string;
 }
 
 const EMPTY_FORM: FormState = {
-  nombres: '', apellidos: '', cedula: '', email: '', password: '',
+  nombre: '', apellido: '', cedula: '', email: '', password: '',
 };
 
 const AdminUsuariosScreen: React.FC = () => {
@@ -73,40 +62,30 @@ const AdminUsuariosScreen: React.FC = () => {
     setFormVisible(true);
   };
 
-  // const openEdit = (u: Usuario) => {
-  //   setForm({
-  //     nombres: u.nombres, apellidos: u.apellidos,
-  //     email: u.email ?? '', password: '',
-  //   });
-  //   setFormMode('edit');
-  //   setEditingId(u.id);
-  //   setFormVisible(true);
-  // };
   const openEdit = (u: Usuario) => {
-  setForm({
-    nombres: u.nombres, apellidos: u.apellidos,
-    cedula: u.cedula ?? '',
-    email: u.email ?? '', password: '',
-  });
-  setFormMode('edit');
-  setEditingId(u.id);
-  setFormVisible(true);
-};
+    setForm({
+      nombre: u.nombre, apellido: u.apellido,
+      cedula: u.cedula ?? '',
+      email: u.email ?? '', password: '',
+    });
+    setFormMode('edit');
+    setEditingId(u.id);
+    setFormVisible(true);
+  };
 
   const handleToggle = (u: Usuario) => {
-    const estaActivo = u.estado === 'activo';
-    const verb = estaActivo ? 'Desactivar' : 'Activar';
+    const verb = u.activo ? 'Desactivar' : 'Activar';
     Alert.alert(
       `¿${verb} usuario?`,
-      `${u.nombres} ${u.apellidos} será ${verb.toLowerCase()}do.`,
+      `${u.nombre} ${u.apellido} será ${verb.toLowerCase()}do.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: verb,
-          style: estaActivo ? 'destructive' : 'default',
+          style: u.activo ? 'destructive' : 'default',
           onPress: async () => {
             try {
-              await ToggleUserStatus(u.id, u.estado);
+              await ToggleUserStatus(u.id, u.activo);
               await loadUsuarios();
             } catch (e: any) {
               Alert.alert('Error', e.message ?? 'No se pudo cambiar el estado');
@@ -117,88 +96,52 @@ const AdminUsuariosScreen: React.FC = () => {
     );
   };
 
-  // const handleSave = async () => {
-  //   const { nombres, apellidos, email, password } = form;
-  //   if (!nombres.trim() || !apellidos.trim() || !email.trim()) {
-  //     Alert.alert('Campos requeridos', 'Nombres, apellidos y correo son obligatorios.');
-  //     return;
-  //   }
-  //   if (formMode === 'create' && !password.trim()) {
-  //     Alert.alert('Contraseña requerida', 'Ingresa una contraseña para el nuevo usuario.');
-  //     return;
-  //   }
-  //   setSaving(true);
-  //   try {
-  //     if (formMode === 'create') {
-  //       const dto: CreateUsuarioDto = {
-  //         nombres: nombres.trim(), apellidos: apellidos.trim(),
-  //         email: email.trim(), password: password.trim(),
-  //       };
-  //       await CreateUser(dto);
-  //       Alert.alert('✅ Usuario creado');
-  //     } else {
-  //       const dto: UpdateUsuarioDto = {
-  //         nombres: nombres.trim(), apellidos: apellidos.trim(),
-  //         email: email.trim(),
-  //       };
-  //       await UpdateUser(editingId!, dto);
-  //       Alert.alert('✅ Usuario actualizado');
-  //     }
-  //     setFormVisible(false);
-  //     await loadUsuarios();
-  //   } catch (e: any) {
-  //     Alert.alert('Error', e.message ?? 'No se pudo guardar');
-  //   } finally {
-  //     setSaving(false);
-  //   }
-  // };
-
   const handleSave = async () => {
-  const { nombres, apellidos, cedula, email, password } = form;
-  if (!nombres.trim() || !apellidos.trim() || !cedula.trim()) {
-    Alert.alert('Campos requeridos', 'Nombres, apellidos y cedula son obligatorios.');
-    return;
-  }
-  if (formMode === 'create' && !password.trim()) {
-    Alert.alert('Contrasena requerida', 'Ingresa una contrasena para el nuevo usuario.');
-    return;
-  }
-  setSaving(true);
-  try {
-    if (formMode === 'create') {
-      const dto: CreateUsuarioDto = {
-        nombres: nombres.trim(), apellidos: apellidos.trim(),
-        cedula: cedula.trim(),
-        email: email.trim() || undefined,
-        password: password.trim(),
-      };
-      await CreateUser(dto);
-      Alert.alert('Usuario creado');
-    } else {
-      const dto: UpdateUsuarioDto = {
-        nombres: nombres.trim(), apellidos: apellidos.trim(),
-        email: email.trim() || undefined,
-      };
-      await UpdateUser(editingId!, dto);
-      Alert.alert('Usuario actualizado');
+    const { nombre, apellido, cedula, email, password } = form;
+    if (!nombre.trim() || !apellido.trim() || !cedula.trim()) {
+      Alert.alert('Campos requeridos', 'Nombre, apellido y cedula son obligatorios.');
+      return;
     }
-    setFormVisible(false);
-    await loadUsuarios();
-  } catch (e: any) {
-    Alert.alert('Error', e.message ?? 'No se pudo guardar');
-  } finally {
-    setSaving(false);
-  }
-};
+    if (formMode === 'create' && !password.trim()) {
+      Alert.alert('Contrasena requerida', 'Ingresa una contrasena para el nuevo usuario.');
+      return;
+    }
+    setSaving(true);
+    try {
+      if (formMode === 'create') {
+        const dto: CreateUsuarioDto = {
+          nombre: nombre.trim(), apellido: apellido.trim(),
+          cedula: cedula.trim(),
+          email: email.trim() || undefined,
+          password: password.trim(),
+        };
+        await CreateUser(dto);
+        Alert.alert('Usuario creado');
+      } else {
+        const dto: UpdateUsuarioDto = {
+          nombre: nombre.trim(), apellido: apellido.trim(),
+          email: email.trim() || undefined,
+        };
+        await UpdateUser(editingId!, dto);
+        Alert.alert('Usuario actualizado');
+      }
+      setFormVisible(false);
+      await loadUsuarios();
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo guardar');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const renderItem = ({ item: u }: { item: Usuario }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{u.nombres.charAt(0).toUpperCase()}</Text>
+          <Text style={styles.avatarText}>{u.nombre.charAt(0).toUpperCase()}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.cardNombre}>{u.nombres} {u.apellidos}</Text>
+          <Text style={styles.cardNombre}>{u.nombre} {u.apellido}</Text>
           <Text style={styles.cardEmail}>{u.email ?? '—'}</Text>
         </View>
         <View style={[styles.rolBadge, u.rol === 'administrador' && styles.rolBadgeAdmin]}>
@@ -209,9 +152,9 @@ const AdminUsuariosScreen: React.FC = () => {
       </View>
 
       <View style={styles.cardFooter}>
-        <View style={[styles.statusBadge, u.estado !== 'activo' && styles.statusBadgeOff]}>
-          <Text style={[styles.statusText, u.estado !== 'activo' && styles.statusTextOff]}>
-            {u.estado === 'activo' ? 'Activo' : 'Inactivo'}
+        <View style={[styles.statusBadge, !u.activo && styles.statusBadgeOff]}>
+          <Text style={[styles.statusText, !u.activo && styles.statusTextOff]}>
+            {u.activo ? 'Activo' : 'Inactivo'}
           </Text>
         </View>
         <View style={styles.cardActions}>
@@ -219,15 +162,15 @@ const AdminUsuariosScreen: React.FC = () => {
             <IconLabel icon="pencil" label="Editar" textStyle={styles.actionBtnText} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.actionBtn, u.estado === 'activo' ? styles.actionBtnDanger : styles.actionBtnSuccess]}
+            style={[styles.actionBtn, u.activo ? styles.actionBtnDanger : styles.actionBtnSuccess]}
             onPress={() => handleToggle(u)}
             activeOpacity={0.7}>
             <IconLabel
-              icon={u.estado === 'activo' ? 'lock' : 'lock-open'}
-              label={u.estado === 'activo' ? 'Desactivar' : 'Activar'}
+              icon={u.activo ? 'lock' : 'lock-open'}
+              label={u.activo ? 'Desactivar' : 'Activar'}
               textStyle={[
                 styles.actionBtnText,
-                u.estado === 'activo' ? styles.actionTextDanger : styles.actionTextSuccess,
+                u.activo ? styles.actionTextDanger : styles.actionTextSuccess,
               ]}
             />
           </TouchableOpacity>
@@ -282,17 +225,17 @@ const AdminUsuariosScreen: React.FC = () => {
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <TextInput
                 style={styles.input}
-                placeholder="Nombres *"
+                placeholder="Nombre *"
                 placeholderTextColor="#aaa"
-                value={form.nombres}
-                onChangeText={v => setForm(f => ({ ...f, nombres: v }))}
+                value={form.nombre}
+                onChangeText={v => setForm(f => ({ ...f, nombre: v }))}
               />
               <TextInput
                 style={styles.input}
-                placeholder="Apellidos *"
+                placeholder="Apellido *"
                 placeholderTextColor="#aaa"
-                value={form.apellidos}
-                onChangeText={v => setForm(f => ({ ...f, apellidos: v }))}
+                value={form.apellido}
+                onChangeText={v => setForm(f => ({ ...f, apellido: v }))}
               />
 
               <TextInput

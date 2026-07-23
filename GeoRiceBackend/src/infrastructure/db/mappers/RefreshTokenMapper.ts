@@ -4,12 +4,12 @@ import { RefreshTokenModel } from '../models/RefreshTokenModel';
 export class RefreshTokenMapper {
   static toDomain(model: RefreshTokenModel): RefreshToken {
     return RefreshToken.create({
-      id:        model.id,
-      usuarioId: model.usuarioId,
-      tokenHash: model.tokenHash,
-      expiresAt: model.expiresAt,
-      creadoEn:  model.creadoEn,
-      revocado:  model.revocado,
+      id:         model.id,
+      usuarioId:  model.usuarioId,
+      hashToken:  model.hashToken,
+      expiraEn:   model.expiraEn,
+      revocadoEn: model.revocadoEn,
+      createdAt:  model.createdAt,
     });
   }
 }

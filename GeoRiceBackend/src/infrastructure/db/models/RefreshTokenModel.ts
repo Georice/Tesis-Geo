@@ -1,30 +1,33 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column,
-  ManyToOne, JoinColumn, CreateDateColumn,
+  Entity, PrimaryColumn, Column,
+  ManyToOne, JoinColumn,
 } from 'typeorm';
 import { UsuarioModel } from './UsuarioModel';
 
-@Entity('refresh_tokens')
+// Tabla propiedad de MagnaRice (Prisma): "tokens_actualizacion". id TEXT con
+// default gen_random_uuid()::text en DB — no lo genera la app. "revocado" no
+// es booleano: es revocadoEn (timestamptz nullable), null = vigente.
+@Entity('tokens_actualizacion')
 export class RefreshTokenModel {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  @PrimaryColumn({ type: 'text' })
+  id!: string;
 
-  @Column({ name: 'usuario_id', type: 'int' })
-  usuarioId!: number;
+  @Column({ name: 'usuarioId', type: 'text' })
+  usuarioId!: string;
 
   @ManyToOne(() => UsuarioModel, { onDelete: 'CASCADE', eager: false })
-  @JoinColumn({ name: 'usuario_id' })
+  @JoinColumn({ name: 'usuarioId' })
   usuario!: UsuarioModel;
 
-  @Column({ name: 'token_hash', type: 'varchar', length: 255, unique: true })
-  tokenHash!: string;
+  @Column({ name: 'hashToken', type: 'varchar', length: 255 })
+  hashToken!: string;
 
-  @Column({ name: 'expires_at' })
-  expiresAt!: Date;
+  @Column({ name: 'expiraEn', type: 'timestamptz' })
+  expiraEn!: Date;
 
-  @CreateDateColumn({ name: 'creado_en' })
-  creadoEn!: Date;
+  @Column({ name: 'revocadoEn', type: 'timestamptz', nullable: true })
+  revocadoEn!: Date | null;
 
-  @Column({ default: false })
-  revocado!: boolean;
+  @Column({ name: 'createdAt', type: 'timestamptz' })
+  createdAt!: Date;
 }

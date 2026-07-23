@@ -144,8 +144,8 @@ CREATE TABLE public.ciclos_actividad (
     observaciones text,
     fecha_registro timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now(),
-    created_by integer,
-    updated_by integer,
+    created_by text,
+    updated_by text,
     CONSTRAINT chk_ciclos_tipo CHECK (((tipo)::text = ANY ((ARRAY['siembra_boleo'::character varying, 'siembra_trasplante'::character varying, 'soca'::character varying, 'resoca'::character varying])::text[])))
 );
 

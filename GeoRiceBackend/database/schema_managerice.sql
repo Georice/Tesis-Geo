@@ -70,10 +70,15 @@ CREATE TABLE IF NOT EXISTS "usuarios" (
     "activo"    BOOLEAN      NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "cedula"    VARCHAR(10),
     CONSTRAINT "usuarios_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS "usuarios_email_key" ON "usuarios"("email");
+-- Por si "usuarios" ya existía (creada por MagnaRice) sin esta columna.
+ALTER TABLE "usuarios" ADD COLUMN IF NOT EXISTS "cedula" VARCHAR(10);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "usuarios_email_key"  ON "usuarios"("email");
+CREATE UNIQUE INDEX IF NOT EXISTS "usuarios_cedula_key" ON "usuarios"("cedula");
 
 CREATE TABLE IF NOT EXISTS "socios" (
     "id"           TEXT          NOT NULL,

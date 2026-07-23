@@ -40,7 +40,7 @@ const LoginScreen = () => {
           style={s.input}
           value={email}
           onChangeText={setEmail}
-          placeholder="Correo electrónico"
+          placeholder="Cédula o correo electrónico"
           placeholderTextColor="#aaa"
           autoCapitalize="none"
           autoCorrect={false}
