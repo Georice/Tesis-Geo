@@ -82,8 +82,8 @@ AppDataSource.initialize()
     app.listen(PORT, () => {
 
 //     logger.success(`Servidor de Brando corriendo en http://192.168.1.213:${PORT}`);
-   logger.success(`Servidor corriendo en 192.168.100.6:${PORT}`);
-//    logger.success(`Servidor corriendo en 10.8.246.102:${PORT}`);
+   // logger.success(`Servidor corriendo en 192.168.100.6:${PORT}`);
+   logger.success(`Servidor corriendo en 10.8.246.102:${PORT}`);
       logger.info('Auth:   POST /api/auth/login | POST /api/auth/refresh | POST /api/auth/logout');
       logger.info('Sync:   GET  /api/sync | GET /api/sync?since=ISO8601');
       logger.info('Users:  GET/POST /api/usuarios (admin only)');
