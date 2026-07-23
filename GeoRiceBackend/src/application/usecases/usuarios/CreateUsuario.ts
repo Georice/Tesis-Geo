@@ -4,14 +4,11 @@ import { CreateUsuarioDto, UsuarioResponseDto, toUsuarioResponseDto } from '../.
 export class CreateUsuario {
   constructor(private repo: IUserRepository) {}
 
-  async execute(data: CreateUsuarioDto, createdBy: string): Promise<UsuarioResponseDto> {
-    if (!data.nombres || !data.apellidos || !data.cedula || !data.password) {
-      throw new Error('nombres, apellidos, cedula y password son requeridos');
+  async execute(data: CreateUsuarioDto): Promise<UsuarioResponseDto> {
+    if (!data.nombre || !data.apellido || !data.cedula || !data.password) {
+      throw new Error('nombre, apellido, cedula y password son requeridos');
     }
-    const usuario = await this.repo.create(
-      { ...data, usuario: data.usuario ?? data.cedula },
-      createdBy,
-    );
+    const usuario = await this.repo.create(data);
     return toUsuarioResponseDto(usuario);
   }
 }

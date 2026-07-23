@@ -1,24 +1,24 @@
 export interface Usuario {
   id:        string;
-  nombres:   string;
-  apellidos: string;
-   cedula?:   string;
+  nombre:    string;
+  apellido:  string;
+  cedula?:   string;
   email:     string | null;
   rol:       'administrador' | 'socio';
-  estado:    'activo' | 'inactivo';
+  activo:    boolean;
 }
 
 export interface CreateUsuarioDto {
-  nombres:   string;
-  apellidos: string;
-  email?:     string;
-   cedula?:   string;
+  nombre:    string;
+  apellido:  string;
+  email?:    string;
+  cedula?:   string;
   password:  string;
 }
 
 export interface UpdateUsuarioDto {
-  nombres?:   string;
-  apellidos?: string;
-   cedula?:   string;
-  email?:     string;
+  nombre?:   string;
+  apellido?: string;
+  cedula?:   string;
+  email?:    string;
 }

@@ -20,7 +20,7 @@ export class ParcelaModel {
   @Column({ type: 'varchar', length: 100 })
   nombre!: string;
 
-  // Mantenido por compatibilidad. Se auto-rellena desde usuario.nombres+apellidos.
+  // Mantenido por compatibilidad. Se auto-rellena desde usuario.nombre+apellido.
   @Column({ type: 'varchar', length: 100, nullable: true })
   propietario!: string | null;
 

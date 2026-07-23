@@ -11,7 +11,7 @@ function buildCtx(req: Request): AuthContext {
   return {
     usuarioId:      req.user!.sub,
     rol:            req.user!.rol,
-    nombreCompleto: `${req.user!.nombres} ${req.user!.apellidos}`,
+    nombreCompleto: `${req.user!.nombre} ${req.user!.apellido}`,
   };
 }
 

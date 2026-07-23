@@ -26,10 +26,10 @@ CREATE TABLE public.zonas (
     descripcion text,
     geometria public.geometry(Polygon,4326),
     fecha_creacion timestamp without time zone DEFAULT now(),
-    usuario_id integer NOT NULL,
+    usuario_id text NOT NULL,
     updated_at timestamp without time zone DEFAULT now(),
-    created_by integer,
-    updated_by integer
+    created_by text,
+    updated_by text
 );
 
 
@@ -69,8 +69,8 @@ CREATE TABLE public.capas_parcela (
     ndvi_estimado numeric(4,2),
     fecha_actualizacion timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now(),
-    created_by integer,
-    updated_by integer,
+    created_by text,
+    updated_by text,
     CONSTRAINT capas_parcela_ndvi_estimado_check CHECK (((ndvi_estimado >= (0)::numeric) AND (ndvi_estimado <= (1)::numeric))),
     CONSTRAINT capas_parcela_tipo_check CHECK (((tipo)::text = ANY ((ARRAY['activo'::character varying, 'descanso'::character varying, 'lindero'::character varying])::text[])))
 );
@@ -116,10 +116,10 @@ CREATE TABLE public.parcelas (
     ciclo_actual character varying(20) DEFAULT 'siembra_normal_boleo'::character varying,
     area_ha double precision,
     area_cuadras double precision,
-    usuario_id integer NOT NULL,
+    usuario_id text NOT NULL,
     updated_at timestamp without time zone DEFAULT now(),
-    created_by integer,
-    updated_by integer,
+    created_by text,
+    updated_by text,
     CONSTRAINT parcelas_ciclo_actual_check CHECK (((ciclo_actual)::text = ANY ((ARRAY['siembra_normal_boleo'::character varying, 'siembra_normal_trasplante'::character varying, 'soca'::character varying, 'resoca'::character varying, 'en_preparacion'::character varying])::text[]))),
     CONSTRAINT parcelas_estado_check CHECK (((estado)::text = ANY ((ARRAY['activo'::character varying, 'descanso'::character varying, 'cosechado'::character varying, 'preparacion'::character varying])::text[])))
 );

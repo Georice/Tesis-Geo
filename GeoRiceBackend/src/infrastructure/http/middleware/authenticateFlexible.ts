@@ -22,7 +22,7 @@ export async function authenticateFlexible(req: Request, res: Response, next: Ne
     const payload = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     const rows = await AppDataSource.query(
-      `SELECT id FROM public.usuarios WHERE id = $1 AND estado = 'activo' LIMIT 1`,
+      `SELECT id FROM public.usuarios WHERE id = $1 AND activo = true LIMIT 1`,
       [payload.sub],
     );
     if (!rows[0]) {

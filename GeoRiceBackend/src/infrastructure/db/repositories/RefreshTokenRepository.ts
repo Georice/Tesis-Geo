@@ -11,7 +11,7 @@ import { UsuarioMapper } from '../mappers/UsuarioMapper';
 export class RefreshTokenRepository implements IRefreshTokenRepository {
   private repo = AppDataSource.getRepository(RefreshTokenModel);
 
-  async create(usuarioId: number, tokenHash: string, expiresAt: Date): Promise<RefreshToken> {
+  async create(usuarioId: string, tokenHash: string, expiresAt: Date): Promise<RefreshToken> {
     const saved = await this.repo.save(
       this.repo.create({ usuarioId, tokenHash, expiresAt }),
     );

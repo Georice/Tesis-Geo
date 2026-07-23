@@ -1,6 +1,6 @@
 export interface RefreshTokenProps {
   id: number;
-  usuarioId: number;
+  usuarioId: string;
   tokenHash: string;
   expiresAt: Date;
   creadoEn: Date;
@@ -10,7 +10,7 @@ export interface RefreshTokenProps {
 // Entidad de dominio pura: sin decoradores de TypeORM.
 export class RefreshToken {
   readonly id: number;
-  readonly usuarioId: number;
+  readonly usuarioId: string;
   readonly tokenHash: string;
   readonly expiresAt: Date;
   readonly creadoEn: Date;

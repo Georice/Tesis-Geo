@@ -9,8 +9,8 @@ export class RefreshTokenModel {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ name: 'usuario_id', type: 'int' })
-  usuarioId!: number;
+  @Column({ name: 'usuario_id', type: 'text' })
+  usuarioId!: string;
 
   @ManyToOne(() => UsuarioModel, { onDelete: 'CASCADE', eager: false })
   @JoinColumn({ name: 'usuario_id' })

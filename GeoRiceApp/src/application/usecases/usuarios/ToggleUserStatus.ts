@@ -2,6 +2,6 @@ import { UsuarioRepository } from '../../../infrastructure/repositories/UsuarioR
 
 export const ToggleUserStatus = (
   id: string,
-  estado: 'activo' | 'inactivo',
+  activo: boolean,
 ): Promise<{ mensaje: string }> =>
-  estado === 'activo' ? UsuarioRepository.deactivate(id) : UsuarioRepository.activate(id);
+  activo ? UsuarioRepository.deactivate(id) : UsuarioRepository.activate(id);

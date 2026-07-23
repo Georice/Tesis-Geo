@@ -57,7 +57,7 @@ export class SyncRepository implements ISyncRepository {
              p.fecha_creacion AS "fechaCreacion", p.updated_at AS "updatedAt",
              p.created_by AS "createdBy", p.updated_by AS "updatedBy",
              ST_AsGeoJSON(p.geometria)::json AS geometria,
-             u.nombres || ' ' || u.apellidos AS propietario_nombre
+             u.nombre || ' ' || u.apellido AS propietario_nombre
       FROM parcelas p
       LEFT JOIN usuarios u ON u.id = p.usuario_id
       ${where}

@@ -13,7 +13,7 @@ export class SyncController {
     const ctx: AuthContext = {
       usuarioId:      req.user!.sub,
       rol:            req.user!.rol,
-      nombreCompleto: `${req.user!.nombres} ${req.user!.apellidos}`,
+      nombreCompleto: `${req.user!.nombre} ${req.user!.apellido}`,
     };
 
     const sinceRaw = req.query.since as string | undefined;
