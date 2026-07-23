@@ -120,6 +120,7 @@ const ReportesScreen: React.FC = () => {
         fechaInicio: fmt(fechaInicio),
         fechaFin:    fmt(fechaFin),
         token,
+        'ngrok-skip-browser-warning': 'true',
       });
       if (esAdmin && socioId) params.set('usuarioId', socioId);
 
