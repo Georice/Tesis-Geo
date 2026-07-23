@@ -14,7 +14,7 @@ SET row_security = off;
 -- Name: fn_asignar_fase(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.fn_asignar_fase() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.fn_asignar_fase() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -92,8 +92,6 @@ END;
 $$;
 
 
-ALTER FUNCTION public.fn_asignar_fase() OWNER TO postgres;
-
 --
 -- Name: FUNCTION fn_asignar_fase(); Type: COMMENT; Schema: public; Owner: postgres
 --
@@ -105,7 +103,7 @@ COMMENT ON FUNCTION public.fn_asignar_fase() IS 'Asigna fase_id en actividades_p
 -- Name: fn_asignar_numero_actividad(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.fn_asignar_numero_actividad() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.fn_asignar_numero_actividad() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -125,8 +123,6 @@ BEGIN
 END;
 $$;
 
-
-ALTER FUNCTION public.fn_asignar_numero_actividad() OWNER TO postgres;
 
 --
 -- Name: ciclos_actividad; Type: TABLE; Schema: public; Owner: postgres
@@ -150,8 +146,6 @@ CREATE TABLE public.ciclos_actividad (
 );
 
 
-ALTER TABLE public.ciclos_actividad OWNER TO postgres;
-
 --
 -- Name: ciclos_actividad_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
@@ -164,8 +158,6 @@ CREATE SEQUENCE public.ciclos_actividad_id_seq
     NO MAXVALUE
     CACHE 1;
 
-
-ALTER SEQUENCE public.ciclos_actividad_id_seq OWNER TO postgres;
 
 --
 -- Name: ciclos_actividad_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -193,8 +185,6 @@ CREATE TABLE public.fases_ciclo (
     CONSTRAINT chk_fases_tipo_ciclo CHECK (((tipo_ciclo)::text = ANY ((ARRAY['siembra_boleo'::character varying, 'siembra_trasplante'::character varying, 'soca'::character varying, 'resoca'::character varying])::text[])))
 );
 
-
-ALTER TABLE public.fases_ciclo OWNER TO postgres;
 
 --
 -- Name: TABLE fases_ciclo; Type: COMMENT; Schema: public; Owner: postgres
@@ -237,8 +227,6 @@ CREATE SEQUENCE public.fases_ciclo_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.fases_ciclo_id_seq OWNER TO postgres;
-
 --
 -- Name: fases_ciclo_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
@@ -262,8 +250,6 @@ CREATE TABLE public.plantillas_ciclo (
 );
 
 
-ALTER TABLE public.plantillas_ciclo OWNER TO postgres;
-
 --
 -- Name: TABLE plantillas_ciclo; Type: COMMENT; Schema: public; Owner: postgres
 --
@@ -283,8 +269,6 @@ CREATE SEQUENCE public.plantillas_ciclo_id_seq
     NO MAXVALUE
     CACHE 1;
 
-
-ALTER SEQUENCE public.plantillas_ciclo_id_seq OWNER TO postgres;
 
 --
 -- Name: plantillas_ciclo_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres

@@ -17,7 +17,7 @@ SET row_security = off;
 -- Name: fn_recalcular_costo_producto(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.fn_recalcular_costo_producto() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.fn_recalcular_costo_producto() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE
     precio_por_unidad_base NUMERIC;
@@ -53,13 +53,12 @@ BEGIN
 END;
 $$;
 
-ALTER FUNCTION public.fn_recalcular_costo_producto() OWNER TO postgres;
 
 --
 -- Name: fn_recalcular_costo_total(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.fn_recalcular_costo_total() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.fn_recalcular_costo_total() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -83,13 +82,11 @@ END;
 $$;
 
 
-ALTER FUNCTION public.fn_recalcular_costo_total() OWNER TO postgres;
-
 --
 -- Name: fn_sync_costo_actividad(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.fn_sync_costo_actividad() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.fn_sync_costo_actividad() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -103,13 +100,11 @@ END;
 $$;
 
 
-ALTER FUNCTION public.fn_sync_costo_actividad() OWNER TO postgres;
-
 --
 -- Name: fn_calcular_costo_mano_obra(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.fn_calcular_costo_mano_obra() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.fn_calcular_costo_mano_obra() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -139,13 +134,11 @@ END;
 $$;
 
 
-ALTER FUNCTION public.fn_calcular_costo_mano_obra() OWNER TO postgres;
-
 --
 -- Name: fn_calcular_costo_maquinaria(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.fn_calcular_costo_maquinaria() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.fn_calcular_costo_maquinaria() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -156,8 +149,6 @@ BEGIN
 END;
 $$;
 
-
-ALTER FUNCTION public.fn_calcular_costo_maquinaria() OWNER TO postgres;
 
 --
 -- Name: actividades_parcela; Type: TABLE; Schema: public; Owner: postgres
@@ -195,8 +186,6 @@ CREATE TABLE public.actividades_parcela (
     CONSTRAINT actividades_parcela_tipo_check CHECK (((tipo)::text = ANY (ARRAY[('preparacion_suelo'::character varying)::text, ('inundacion'::character varying)::text, ('siembra_boleo'::character varying)::text, ('siembra_trasplante'::character varying)::text, ('riego'::character varying)::text, ('fertilizacion'::character varying)::text, ('fumigacion'::character varying)::text, ('deshierba'::character varying)::text, ('cosecha'::character varying)::text, ('rozar_quemar'::character varying)::text, ('soca_riego'::character varying)::text, ('soca_fertilizacion'::character varying)::text, ('soca_fumigacion'::character varying)::text, ('cosecha_soca'::character varying)::text, ('observacion'::character varying)::text])))
 );
 
-
-ALTER TABLE public.actividades_parcela OWNER TO postgres;
 
 --
 -- Name: COLUMN actividades_parcela.numero_actividad; Type: COMMENT; Schema: public; Owner: postgres
@@ -246,8 +235,6 @@ CREATE SEQUENCE public.actividades_parcela_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.actividades_parcela_id_seq OWNER TO postgres;
-
 --
 -- Name: actividades_parcela_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
@@ -280,8 +267,6 @@ CREATE TABLE public.productos_actividad (
     CONSTRAINT productos_actividad_tipo_check CHECK (((tipo)::text = ANY ((ARRAY['herbicida'::character varying, 'fungicida'::character varying, 'insecticida'::character varying, 'fertilizante'::character varying, 'abono'::character varying, 'corrector'::character varying, 'bioestimulante'::character varying, 'otro'::character varying])::text[])))
 );
 
-
-ALTER TABLE public.productos_actividad OWNER TO postgres;
 
 --
 -- Name: COLUMN productos_actividad.precio_unitario; Type: COMMENT; Schema: public; Owner: postgres
@@ -345,8 +330,6 @@ CREATE SEQUENCE public.productos_actividad_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.productos_actividad_id_seq OWNER TO postgres;
-
 --
 -- Name: productos_actividad_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
@@ -363,8 +346,6 @@ CREATE TABLE public.detalle_riego (
     lamina_agua numeric(8,2)
 );
 
-
-ALTER TABLE public.detalle_riego OWNER TO postgres;
 
 --
 -- Name: TABLE detalle_riego; Type: COMMENT; Schema: public; Owner: postgres
@@ -387,8 +368,6 @@ CREATE TABLE public.detalle_fumigacion (
 );
 
 
-ALTER TABLE public.detalle_fumigacion OWNER TO postgres;
-
 --
 -- Name: TABLE detalle_fumigacion; Type: COMMENT; Schema: public; Owner: postgres
 --
@@ -404,8 +383,6 @@ CREATE TABLE public.detalle_fertilizacion (
     actividad_id integer NOT NULL
 );
 
-
-ALTER TABLE public.detalle_fertilizacion OWNER TO postgres;
 
 --
 -- Name: TABLE detalle_fertilizacion; Type: COMMENT; Schema: public; Owner: postgres
@@ -430,8 +407,6 @@ CREATE TABLE public.detalle_cosecha (
     CONSTRAINT detalle_cosecha_destino_check CHECK (((destino)::text = ANY ((ARRAY['piladora'::character varying, 'almacen'::character varying, 'directo'::character varying, 'otro'::character varying])::text[])))
 );
 
-
-ALTER TABLE public.detalle_cosecha OWNER TO postgres;
 
 --
 -- Name: TABLE detalle_cosecha; Type: COMMENT; Schema: public; Owner: postgres
@@ -462,8 +437,6 @@ CREATE TABLE public.detalle_mano_obra (
 );
 
 
-ALTER TABLE public.detalle_mano_obra OWNER TO postgres;
-
 --
 -- Name: TABLE detalle_mano_obra; Type: COMMENT; Schema: public; Owner: postgres
 --
@@ -492,8 +465,6 @@ CREATE TABLE public.detalle_maquinaria (
     CONSTRAINT detalle_maquinaria_unidad_cobro_check CHECK (((unidad_cobro)::text = ANY ((ARRAY['hora'::character varying, 'hectarea'::character varying, 'saco'::character varying, 'otro'::character varying])::text[])))
 );
 
-
-ALTER TABLE public.detalle_maquinaria OWNER TO postgres;
 
 --
 -- Name: TABLE detalle_maquinaria; Type: COMMENT; Schema: public; Owner: postgres

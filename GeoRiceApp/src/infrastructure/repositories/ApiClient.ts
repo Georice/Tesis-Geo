@@ -3,11 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 // Parrales — IP local, útil si el túnel ngrok no está activo.
-export const BASE_URL = Platform.OS === 'android'
-  ? 'http://192.168.100.6:3000/api'
-  : 'http://localhost:3000/api';
+// export const BASE_URL = Platform.OS === 'android'
+//   ? 'http://192.168.100.6:3000/api'
+//   : 'http://localhost:3000/api';
 
-// export const BASE_URL = 'https://vacancy-google-explain.ngrok-free.dev/api';
+export const BASE_URL = 'https://vacancy-google-explain.ngrok-free.dev/api';
 
 //Brando
 // export const BASE_URL = Platform.OS === 'android'

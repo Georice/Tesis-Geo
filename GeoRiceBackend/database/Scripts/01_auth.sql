@@ -38,8 +38,6 @@ END;
 $$;
 
 
-ALTER FUNCTION public.fn_set_updated_at() OWNER TO postgres;
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -61,7 +59,6 @@ CREATE TABLE IF NOT EXISTS public.usuarios (
     CONSTRAINT usuarios_pkey PRIMARY KEY (id)
 );
 
-ALTER TABLE public.usuarios OWNER TO postgres;
 
 CREATE UNIQUE INDEX IF NOT EXISTS usuarios_email_key  ON public.usuarios (email);
 CREATE UNIQUE INDEX IF NOT EXISTS usuarios_cedula_key ON public.usuarios (cedula);

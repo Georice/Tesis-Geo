@@ -33,8 +33,6 @@ CREATE TABLE public.zonas (
 );
 
 
-ALTER TABLE public.zonas OWNER TO postgres;
-
 --
 -- Name: zonas_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
@@ -47,8 +45,6 @@ CREATE SEQUENCE public.zonas_id_seq
     NO MAXVALUE
     CACHE 1;
 
-
-ALTER SEQUENCE public.zonas_id_seq OWNER TO postgres;
 
 --
 -- Name: zonas_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -76,8 +72,6 @@ CREATE TABLE public.capas_parcela (
 );
 
 
-ALTER TABLE public.capas_parcela OWNER TO postgres;
-
 --
 -- Name: capas_parcela_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
@@ -90,8 +84,6 @@ CREATE SEQUENCE public.capas_parcela_id_seq
     NO MAXVALUE
     CACHE 1;
 
-
-ALTER SEQUENCE public.capas_parcela_id_seq OWNER TO postgres;
 
 --
 -- Name: capas_parcela_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
@@ -125,8 +117,6 @@ CREATE TABLE public.parcelas (
 );
 
 
-ALTER TABLE public.parcelas OWNER TO postgres;
-
 --
 -- Name: parcelas_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
@@ -139,8 +129,6 @@ CREATE SEQUENCE public.parcelas_id_seq
     NO MAXVALUE
     CACHE 1;
 
-
-ALTER SEQUENCE public.parcelas_id_seq OWNER TO postgres;
 
 --
 -- Name: parcelas_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
