@@ -4,6 +4,9 @@ node_modules/
 # Variables de entorno
 .env
 
+# Build (GeoRiceBackend)
+GeoRiceBackend/dist/
+
 # React Native (GeoRiceApp)
 GeoRiceApp/android/.gradle/
 GeoRiceApp/android/app/build/

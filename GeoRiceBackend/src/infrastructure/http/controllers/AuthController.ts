@@ -1,5 +1,18 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../../../application/services/AuthService';
+import { logger } from '../../../shared/logger';
+
+// Mensajes que AuthService lanza intencionalmente por reglas de negocio
+// (credenciales, estado de cuenta). Cualquier otro error (fallo de DB, JWT
+// mal configurado, etc.) no debe llegar al cliente con su texto original.
+const LOGIN_ERRORS_CONOCIDOS = new Set([
+  'Credenciales incorrectas',
+  'Usuario inactivo. Contacte al administrador.',
+]);
+const REFRESH_ERRORS_CONOCIDOS = new Set([
+  'Refresh token inválido o expirado',
+  'Usuario inactivo',
+]);
 
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -15,7 +28,12 @@ export class AuthController {
       const result = await this.authService.login(String(login), String(password));
       res.json(result);
     } catch (err: any) {
-      res.status(401).json({ error: err.message });
+      if (LOGIN_ERRORS_CONOCIDOS.has(err.message)) {
+        res.status(401).json({ error: err.message });
+      } else {
+        logger.error('Error inesperado en login:', err);
+        res.status(500).json({ error: 'No se pudo iniciar sesión. Intenta de nuevo más tarde.' });
+      }
     }
   }
 
@@ -29,7 +47,12 @@ export class AuthController {
       const result = await this.authService.refresh(String(refreshToken));
       res.json(result);
     } catch (err: any) {
-      res.status(401).json({ error: err.message });
+      if (REFRESH_ERRORS_CONOCIDOS.has(err.message)) {
+        res.status(401).json({ error: err.message });
+      } else {
+        logger.error('Error inesperado en refresh:', err);
+        res.status(500).json({ error: 'Sesión inválida. Vuelve a iniciar sesión.' });
+      }
     }
   }
 

@@ -51,6 +51,7 @@ export const ZonaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al crear zona');
+    await SyncEngine.upsertCachedEntity('zonas', json);
     return json;
   },
 
@@ -73,6 +74,7 @@ export const ZonaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al actualizar zona');
+    await SyncEngine.upsertCachedEntity('zonas', json);
     return json;
   },
 
@@ -91,5 +93,6 @@ export const ZonaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al eliminar zona');
+    await SyncEngine.removeCachedEntity('zonas', id);
   },
 };

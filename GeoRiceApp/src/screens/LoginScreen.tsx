@@ -3,12 +3,18 @@ import {
   View, Text, TextInput, TouchableOpacity, Image,
   StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../context/AuthContext';
 import Icon from '../components/Icon';
+
+type Nav = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
 const loginLogo = require('../assets/login_logo.png');
 
 const LoginScreen = () => {
+  const navigation              = useNavigation<Nav>();
   const { login }              = useAuth();
   const [email, setEmail]      = useState('');
   const [password, setPassword]= useState('');
@@ -73,6 +79,12 @@ const LoginScreen = () => {
             : <Text style={s.btnText}>Ingresar</Text>
           }
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={s.registrarseBtn}
+          onPress={() => navigation.navigate('Registro')}>
+          <Text style={s.registrarseText}>Registrarse</Text>
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -97,6 +109,8 @@ const s = StyleSheet.create({
   btn:       { backgroundColor: '#1a5c2a', borderRadius: 10, paddingVertical: 14,
                alignItems: 'center', marginTop: 4 },
   btnText:   { color: '#fff', fontWeight: '700', fontSize: 16 },
+  registrarseBtn: { alignSelf: 'flex-start', marginTop: 14 },
+  registrarseText: { color: '#1a5c2a', fontSize: 14, fontWeight: '600' },
 });
 
 export default LoginScreen;

@@ -6,6 +6,7 @@ import { RootStackParamList } from './types';
 import { useAuth } from '../context/AuthContext';
 
 import LoginScreen          from '../screens/LoginScreen';
+import RegistroScreen       from '../screens/RegistroScreen';
 import DashboardScreen      from '../screens/DashboardScreen';
 import ZonasScreen          from '../screens/ZonasScreen';
 import ActividadesScreen    from '../screens/ActividadesScreen';
@@ -32,7 +33,14 @@ const AppNavigator = () => {
     <NavigationContainer>
       <Stack.Navigator>
         {!user ? (
-          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+            <Stack.Screen
+              name="Registro"
+              component={RegistroScreen}
+              options={{ title: 'Crear cuenta' }}
+            />
+          </>
         ) : (
           <>
             <Stack.Screen name="Dashboard"    component={DashboardScreen}    options={{ headerShown: false }} />

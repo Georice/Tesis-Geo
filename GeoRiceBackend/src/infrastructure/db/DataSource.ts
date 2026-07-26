@@ -28,6 +28,13 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME,
   username: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
+  // La DB comparte "usuarios"/"tokens_actualizacion" (y otras tablas de
+  // MagnaRice) entre el schema "public" (datos reales) y "managerice_desa"
+  // (vacío). El search_path de la conexión resuelve "managerice_desa"
+  // primero, así que sin calificar el schema aquí, TypeORM (a diferencia
+  // del SQL crudo, que ya usa "public." explícito) escribía/leía en el
+  // schema vacío y violaba la FK de tokens_actualizacion en cada login.
+  schema: 'public',
   entities: [
     ParcelaModel, ZonaModel, CapaParcelaModel, ActividadParcelaModel,
     ProductoActividadModel, CicloActividadModel, UsuarioModel, RefreshTokenModel,
