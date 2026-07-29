@@ -188,5 +188,12 @@ export const CicloRepository = {
       const json = await res.json().catch(() => ({}));
       throw new Error(json.error ?? 'No se pudo finalizar el ciclo');
     }
+    // Sin esto, la caché offline (SYNC_DATA) sigue mostrando este ciclo con
+    // estado "activo" hasta el próximo login/resetAndPull — y si justo
+    // después se pierde la conexión e intenta iniciarse un ciclo nuevo,
+    // getByParcela() cae a esa caché desactualizada y lo bloquea/marca como
+    // si el ciclo recién finalizado siguiera activo.
+    const json = await res.json().catch(() => null);
+    await SyncEngine.patchCachedEntity('ciclos', cicloId, { estado: json?.estado ?? 'finalizado' });
   },
 };

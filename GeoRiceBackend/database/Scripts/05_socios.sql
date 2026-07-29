@@ -24,23 +24,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE public."EstadoSocio" AS ENUM ('ACTIVO','INACTIVO','SUSPENDIDO');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-DO $$ BEGIN CREATE TYPE public."TipoDocumento" AS ENUM ('RESOLUCION','OFICIO','CERTIFICADO','SOLICITUD','ACTA');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-DO $$ BEGIN CREATE TYPE public."EstadoDocumento" AS ENUM ('ACTIVO','ENVIADO','EMITIDO','ARCHIVADO');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-DO $$ BEGIN CREATE TYPE public."TipoReunion" AS ENUM ('ORDINARIA','EXTRAORDINARIA');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-DO $$ BEGIN CREATE TYPE public."ModalidadReunion" AS ENUM ('PRESENCIAL','VIRTUAL','MIXTA');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-DO $$ BEGIN CREATE TYPE public."EstadoReunion" AS ENUM ('PROGRAMADA','EN_CURSO','FINALIZADA','CANCELADA');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-DO $$ BEGIN CREATE TYPE public."EstadoMulta" AS ENUM ('PENDIENTE','PAGADA','EXONERADA');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Tabla socios (id TEXT — igual que usuarios.id, generado por la app con
 -- crypto.randomUUID() o por MagnaRice/Prisma según quién la cree)

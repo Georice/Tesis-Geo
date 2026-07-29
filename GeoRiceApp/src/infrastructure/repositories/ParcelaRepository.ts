@@ -75,6 +75,11 @@ export const ParcelaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al crear parcela');
+    // Sin esto, la caché offline (SYNC_DATA) no se entera de esta parcela
+    // hasta el próximo login/resetAndPull — si se pierde la señal antes de
+    // eso, getAll() cae a esa caché vieja y la parcela recién creada no
+    // aparece (ver SyncEngine.getCached más abajo).
+    await SyncEngine.upsertCachedEntity('parcelas', json);
     return json;
   },
 
@@ -97,6 +102,10 @@ export const ParcelaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al actualizar parcela');
+    // Igual que en create(): corrige la caché de una vez para que una
+    // lectura offline inmediatamente después no siga mostrando los datos
+    // de antes de esta edición.
+    await SyncEngine.upsertCachedEntity('parcelas', json);
     return json;
   },
 
@@ -119,6 +128,7 @@ export const ParcelaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al actualizar geometría');
+    await SyncEngine.upsertCachedEntity('parcelas', json);
     return json;
   },
 
@@ -137,5 +147,9 @@ export const ParcelaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al eliminar parcela');
+    // Sin esto, esta parcela reaparecería en cualquier lectura offline
+    // posterior (getAll() cae a getCached(), que seguiría teniéndola)
+    // hasta el próximo login/resetAndPull.
+    await SyncEngine.removeCachedEntity('parcelas', id);
   },
 };

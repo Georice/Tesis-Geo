@@ -33,7 +33,7 @@ export class SyncController {
       res.json(resultado);
     } catch (err: any) {
       logger.error('Error en sync:', err);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'No se pudo sincronizar. Intenta de nuevo más tarde.' });
     }
   }
 }

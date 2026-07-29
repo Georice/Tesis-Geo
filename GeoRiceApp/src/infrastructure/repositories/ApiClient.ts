@@ -1,18 +1,25 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-//import { Platform }  from 'react-native';
+import { Platform } from 'react-native';
 
 
-// Parrales — IP local, útil si el túnel ngrok no está activo.
-// export const BASE_URL = Platform.OS === 'android'
-//   ? 'http://192.168.100.6:3000/api'
-//   : 'http://localhost:3000/api';
+// En desarrollo (Metro/dev build) usa la IP local; en un build de producción
+// (__DEV__ === false) usa siempre el backend público. Reemplazar PROD_URL
+// por la URL real una vez desplegado el backend (ver Railway).
+const LOCAL_URL = Platform.OS === 'android'
+  ? 'http://192.168.100.6:3000/api'
+  : 'http://localhost:3000/api';
 
-export const BASE_URL = 'https://vacancy-google-explain.ngrok-free.dev/api';
+// export const BASE_URL = 'https://vacancy-google-explain.ngrok-free.dev/api';
 
 //Brando
 // export const BASE_URL = Platform.OS === 'android'
 //   ? 'http://192.168.1.213:3000/api'
 //   : 'http://localhost:3000/api';
+
+//prox
+const PROD_URL = 'https://<tu-backend>.up.railway.app/api';
+
+export const BASE_URL = __DEV__ ? LOCAL_URL : PROD_URL;
 
 
 export const STORAGE_KEYS = {

@@ -76,13 +76,13 @@ export class LocalUserRepository implements IUserRepository {
     return rows.map(UsuarioMapper.fromRow);
   }
 
-  async create(data: NuevoUsuarioComando): Promise<Usuario> {
+  async create(data: NuevoUsuarioComando, activo: boolean = true): Promise<Usuario> {
     const hash = await bcrypt.hash(data.password, 12);
     const id = crypto.randomUUID();
     await AppDataSource.query(
       `INSERT INTO public.usuarios
         (id, cedula, nombre, apellido, email, password, activo, "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), NOW())`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
       [
         id,
         data.cedula,
@@ -90,6 +90,7 @@ export class LocalUserRepository implements IUserRepository {
         data.apellido,
         data.email ?? null,
         hash,
+        activo,
       ],
     );
     return (await this.findById(id))!;

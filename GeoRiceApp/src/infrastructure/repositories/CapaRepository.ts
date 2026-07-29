@@ -43,6 +43,7 @@ export const CapaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al crear capa');
+    await SyncEngine.upsertCachedEntity('capas', json);
     return json;
   },
 
@@ -65,6 +66,7 @@ export const CapaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al actualizar NDVI');
+    await SyncEngine.upsertCachedEntity('capas', json);
     return json;
   },
 
@@ -87,6 +89,7 @@ export const CapaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al actualizar capa');
+    await SyncEngine.upsertCachedEntity('capas', json);
     return json;
   },
 
@@ -105,5 +108,6 @@ export const CapaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al eliminar capa');
+    await SyncEngine.removeCachedEntity('capas', id);
   },
 };

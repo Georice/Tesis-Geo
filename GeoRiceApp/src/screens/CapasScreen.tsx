@@ -10,6 +10,7 @@ import { Colors } from '../theme/colors';
 import { Capa } from '../domain/entities/Capa';
 import { GetCapas } from '../application/usecases/capa/GetCapas';
 import { DeleteCapa } from '../application/usecases/capa/DeleteCapa';
+import { SyncEngine } from '../infrastructure/sync/SyncEngine';
 import Icon from '../components/Icon';
 import IconLabel from '../components/IconLabel';
 
@@ -50,7 +51,14 @@ const CapasScreen: React.FC = () => {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: async () => {
         try { await DeleteCapa(capa.id); await cargar(); }
-        catch (e: any) { Alert.alert('Error', e.message); }
+        catch (e: any) {
+          if (e instanceof SyncEngine.OfflineQueuedError) {
+            await cargar();
+            Alert.alert('Sin conexión', e.message);
+            return;
+          }
+          Alert.alert('Error', e.message);
+        }
       }},
     ]);
   };
