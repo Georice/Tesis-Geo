@@ -4,9 +4,10 @@ import { JwtPayload } from '../../../application/services/AuthService';
 import { AppDataSource } from '../../db/DataSource';
 
 // Igual que `authenticate`, pero además acepta el token vía ?token= en el
-// query string. Necesario para los endpoints de descarga (/reportes/export/*)
-// que se abren con Linking.openURL en el navegador del dispositivo, el cual
-// no puede enviar el header Authorization.
+// query string, como fallback para los endpoints de descarga
+// (/reportes/export/*) por si se abren directo en un navegador (donde no
+// se puede mandar el header Authorization). La app normalmente pide estos
+// endpoints con fetch() y sí manda el header.
 export async function authenticateFlexible(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
   const token  = header?.startsWith('Bearer ')
@@ -22,7 +23,7 @@ export async function authenticateFlexible(req: Request, res: Response, next: Ne
     const payload = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     const rows = await AppDataSource.query(
-      `SELECT id FROM public.usuarios WHERE id = $1 AND estado = 'activo' LIMIT 1`,
+      `SELECT id FROM public.usuarios WHERE id = $1 AND activo = true LIMIT 1`,
       [payload.sub],
     );
     if (!rows[0]) {

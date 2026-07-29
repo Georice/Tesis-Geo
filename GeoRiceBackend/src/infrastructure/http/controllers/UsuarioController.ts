@@ -22,8 +22,7 @@ export class UsuarioController {
 
   async create(req: Request, res: Response): Promise<void> {
     try {
-      const createdBy = req.user!.sub;
-      const nuevo = await new CreateUsuario(this.repo).execute(req.body, createdBy);
+      const nuevo = await new CreateUsuario(this.repo).execute(req.body);
       res.status(201).json(nuevo);
     } catch (err: any) {
       if (err.code === '23505' || err.message?.includes('duplicate')) {
@@ -36,9 +35,8 @@ export class UsuarioController {
 
   async update(req: Request, res: Response): Promise<void> {
     try {
-      const id        = String(req.params.id);
-      const updatedBy = req.user!.sub;
-      const usuario   = await new UpdateUsuario(this.repo).execute(id, req.body, updatedBy);
+      const id      = String(req.params.id);
+      const usuario = await new UpdateUsuario(this.repo).execute(id, req.body);
       res.json(usuario);
     } catch (err: any) {
       if (err.code === '23505' || err.message?.includes('duplicate')) {
@@ -51,9 +49,8 @@ export class UsuarioController {
 
   async activate(req: Request, res: Response): Promise<void> {
     try {
-      const id        = String(req.params.id);
-      const updatedBy = req.user!.sub;
-      await new ActivateUsuario(this.repo).execute(id, updatedBy);
+      const id = String(req.params.id);
+      await new ActivateUsuario(this.repo).execute(id);
       res.json({ mensaje: 'Usuario activado' });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -62,9 +59,9 @@ export class UsuarioController {
 
   async deactivate(req: Request, res: Response): Promise<void> {
     try {
-      const id        = String(req.params.id);
-      const updatedBy = req.user!.sub;
-      await new DeactivateUsuario(this.repo).execute(id, updatedBy);
+      const id          = String(req.params.id);
+      const solicitanteId = req.user!.sub;
+      await new DeactivateUsuario(this.repo).execute(id, solicitanteId);
       res.json({ mensaje: 'Usuario desactivado' });
     } catch (err: any) {
       res.status(err.message?.includes('propia cuenta') ? 400 : 500).json({ error: err.message });

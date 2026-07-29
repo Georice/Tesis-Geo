@@ -1,7 +1,9 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- GeoRice BD - 05_socios.sql
 -- Módulo socios (MagnaRice - compañero Crisspa)
--- ENUMs y tabla socios adaptados con INTEGER para alinearse con usuarios.id
+-- Tabla maestra de socios, id TEXT igual que usuarios (Prisma). El vínculo
+-- confiable entre usuarios y socios es la cédula (usuarioId puede quedar
+-- sin poblar para cuentas históricas) — ver AuthService.resolveRol().
 -- ═══════════════════════════════════════════════════════════════════════════
 
 SET statement_timeout = 0;
@@ -40,25 +42,27 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE public."EstadoMulta" AS ENUM ('PENDIENTE','PAGADA','EXONERADA');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- Tabla socios (adaptada a INTEGER para FK con usuarios.id)
+-- Tabla socios (id TEXT — igual que usuarios.id, generado por la app con
+-- crypto.randomUUID() o por MagnaRice/Prisma según quién la cree)
 CREATE TABLE IF NOT EXISTS public.socios (
-    id            SERIAL        PRIMARY KEY,
-    cedula        VARCHAR(10)   NOT NULL UNIQUE,
+    id            TEXT          NOT NULL,
+    cedula        VARCHAR(10)   NOT NULL,
     nombre        TEXT          NOT NULL,
     apellido      TEXT          NOT NULL,
-    email         TEXT          UNIQUE,
-    telefono      TEXT          NOT NULL DEFAULT '',
+    email         TEXT,
+    telefono      TEXT          NOT NULL,
     direccion     TEXT,
     rol           public."RolSocio"    NOT NULL DEFAULT 'SOCIO',
-    nivel_acceso  public."NivelAcceso" NOT NULL DEFAULT 'MIEMBRO',
+    "nivelAcceso" public."NivelAcceso" NOT NULL DEFAULT 'MIEMBRO',
     estado        public."EstadoSocio" NOT NULL DEFAULT 'ACTIVO',
-    fecha_ingreso TIMESTAMP     NOT NULL DEFAULT NOW(),
-    created_at    TIMESTAMP     NOT NULL DEFAULT NOW(),
-    updated_at    TIMESTAMP     NOT NULL DEFAULT NOW(),
-    usuario_id    INTEGER       REFERENCES public.usuarios(id) ON DELETE SET NULL
+    "fechaIngreso" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt"   TIMESTAMP(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"   TIMESTAMP(3)  NOT NULL,
+    "usuarioId"   TEXT,
+    CONSTRAINT socios_pkey PRIMARY KEY (id),
+    CONSTRAINT socios_usuarioId_fkey FOREIGN KEY ("usuarioId") REFERENCES public.usuarios(id) ON DELETE SET NULL
 );
 
--- Columna email agregada a usuarios para compatibilidad con AuthService
-ALTER TABLE public.usuarios ADD COLUMN IF NOT EXISTS email VARCHAR(100) UNIQUE;
-
-CREATE UNIQUE INDEX IF NOT EXISTS socios_usuario_id_key ON public.socios(usuario_id);
+CREATE UNIQUE INDEX IF NOT EXISTS socios_cedula_key    ON public.socios (cedula);
+CREATE UNIQUE INDEX IF NOT EXISTS socios_email_key     ON public.socios (email);
+CREATE UNIQUE INDEX IF NOT EXISTS socios_usuarioId_key ON public.socios ("usuarioId");

@@ -1,44 +1,38 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
-import { RolUsuario, EstadoUsuario } from '../../../domain/types/UsuarioTypes';
+import { Entity, PrimaryColumn, Column } from 'typeorm';
 
 // Modelo de persistencia (TypeORM). Es la única clase acoplada a la
 // tecnología de base de datos para este agregado; el dominio (Usuario.ts)
 // no la conoce.
+//
+// Tabla `usuarios` propiedad de MagnaRice (Prisma) — id TEXT sin default
+// en DB, se genera en la app con crypto.randomUUID() al crear. Las
+// columnas createdAt/updatedAt son camelCase tal cual las creó Prisma.
 @Entity({ name: 'usuarios', schema: 'public' })
 export class UsuarioModel {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  @PrimaryColumn({ type: 'text' })
+  id!: string;
 
   @Column({ type: 'varchar', length: 10, unique: true })
   cedula!: string;
 
-  @Column({ type: 'varchar', length: 100 })
-  nombres!: string;
+  @Column({ type: 'text' })
+  nombre!: string;
 
-  @Column({ type: 'varchar', length: 100 })
-  apellidos!: string;
+  @Column({ type: 'text' })
+  apellido!: string;
 
-  @Column({ type: 'varchar', length: 50, unique: true })
-  usuario!: string;
-
-  @Column({ name: 'password_hash', type: 'text', select: false })
-  passwordHash!: string;
-
-  @Column({ type: 'varchar', length: 20, default: 'socio' })
-  rol!: RolUsuario;
-
-  @Column({ type: 'varchar', length: 20, default: 'activo' })
-  estado!: EstadoUsuario;
-
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: 'text', unique: true, nullable: true })
   email!: string | null;
 
-  @Column({ name: 'fecha_registro', type: 'timestamp', default: () => 'NOW()' })
-  fechaRegistro!: Date;
+  @Column({ type: 'text', select: false })
+  password!: string;
 
-  @Column({ name: 'updated_at', type: 'timestamp', default: () => 'NOW()' })
+  @Column({ type: 'boolean', default: true })
+  activo!: boolean;
+
+  @Column({ name: 'createdAt', type: 'timestamp' })
+  createdAt!: Date;
+
+  @Column({ name: 'updatedAt', type: 'timestamp' })
   updatedAt!: Date;
-
-  @Column({ name: 'updated_by', type: 'text', nullable: true })
-  updatedBy!: string | null;
 }

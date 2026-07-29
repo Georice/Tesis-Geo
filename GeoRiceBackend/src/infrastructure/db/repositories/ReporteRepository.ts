@@ -123,7 +123,7 @@ export class ReporteRepository implements IReporteRepository {
         a.id, a.fecha, a.tipo, a.estado,
         p.nombre                                          AS "parcelaNombre",
         c.tipo                                             AS "cicloTipo",
-        (u.nombres || ' ' || u.apellidos)                  AS "socioNombre",
+        (u.nombre || ' ' || u.apellido)                    AS "socioNombre",
         COALESCE(a.costo_insumos, 0)::numeric              AS "costoInsumos",
         COALESCE(a.costo_total_actividad, 0)::numeric      AS "costoTotal"
       FROM public.actividades_parcela a
@@ -143,7 +143,7 @@ export class ReporteRepository implements IReporteRepository {
 
   private async getSocioNombre(usuarioId: string): Promise<string | null> {
     const rows = await AppDataSource.query(
-      `SELECT (nombres || ' ' || apellidos) AS nombre FROM public.usuarios WHERE id = $1`,
+      `SELECT (nombre || ' ' || apellido) AS nombre FROM public.usuarios WHERE id = $1`,
       [usuarioId],
     );
     return rows[0]?.nombre ?? null;

@@ -22,16 +22,11 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
-    // Verifica contra public.usuarios de MagnaRice.
-    // MagnaRice usa boolean "activo", no varchar "estado".
-    // const rows = await AppDataSource.query(
-    //   `SELECT id FROM public.usuarios WHERE id = $1 AND activo = true LIMIT 1`,
-    //   [payload.sub],
-    // );
+    // Verifica contra public.usuarios de MagnaRice (boolean "activo").
     const rows = await AppDataSource.query(
-  `SELECT id FROM public.usuarios WHERE id = $1 AND estado = 'activo' LIMIT 1`,
-  [payload.sub],
-);
+      `SELECT id FROM public.usuarios WHERE id = $1 AND activo = true LIMIT 1`,
+      [payload.sub],
+    );
     if (!rows[0]) {
       res.status(401).json({ error: 'Sesión inválida' });
       return;

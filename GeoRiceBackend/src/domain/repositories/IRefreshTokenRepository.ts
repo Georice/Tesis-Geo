@@ -7,8 +7,8 @@ export interface RefreshTokenConUsuario {
 }
 
 export interface IRefreshTokenRepository {
-  create(usuarioId: number, tokenHash: string, expiresAt: Date): Promise<RefreshToken>;
-  findActivoConUsuario(tokenHash: string): Promise<RefreshTokenConUsuario | null>;
-  revoke(id: number): Promise<void>;
-  revokeByHash(tokenHash: string): Promise<void>;
+  create(usuarioId: string, hashToken: string, expiraEn: Date): Promise<RefreshToken>;
+  findActivoConUsuario(hashToken: string): Promise<RefreshTokenConUsuario | null>;
+  revoke(id: string): Promise<void>;
+  revokeByHash(hashToken: string): Promise<void>;
 }

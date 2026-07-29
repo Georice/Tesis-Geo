@@ -9,8 +9,8 @@ import { SyncEngine } from '../infrastructure/sync/SyncEngine';
 
 export interface AuthUser {
   id:             string;
-  nombres:        string;
-  apellidos:      string;
+  nombre:         string;
+  apellido:       string;
   email:          string;
   rol:            'administrador' | 'socio';
   nombreCompleto: string;
@@ -96,11 +96,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { accessToken, refreshToken, usuario: payload } = await res.json();
     const fullUser: AuthUser = {
       id:             payload.sub,
-      nombres:        payload.nombres,
-      apellidos:      payload.apellidos,
+      nombre:         payload.nombre,
+      apellido:       payload.apellido,
       email,
       rol:            payload.rol,
-      nombreCompleto: `${payload.nombres} ${payload.apellidos}`,
+      nombreCompleto: `${payload.nombre} ${payload.apellido}`,
     };
     await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
     await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);

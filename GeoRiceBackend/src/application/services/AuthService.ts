@@ -6,10 +6,10 @@ import { IRefreshTokenRepository } from '../../domain/repositories/IRefreshToken
 import { AppDataSource } from '../../infrastructure/db/DataSource';
 
 export interface JwtPayload {
-  sub:       string;
-  rol:       'administrador' | 'socio';
-  nombres:   string;
-  apellidos: string;
+  sub:      string;
+  rol:      'administrador' | 'socio';
+  nombre:   string;
+  apellido: string;
 }
 
 export class AuthService {
@@ -18,25 +18,27 @@ export class AuthService {
     private readonly refreshTokenRepo: IRefreshTokenRepository,
   ) {}
 
-  async login(email: string, password: string) {
-    const user = await this.userRepo.findByEmail(email);
+  async login(login: string, password: string) {
+    const user = await this.userRepo.findByEmail(login);
     if (!user) throw new Error('Credenciales incorrectas');
-    if (user.estado !== 'activo') throw new Error('Usuario inactivo. Contacte al administrador.');
+    if (!user.activo) throw new Error('Usuario inactivo. Contacte al administrador.');
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
+    const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new Error('Credenciales incorrectas');
 
+    const rol = await this.resolveRol(user.cedula);
+
     const payload: JwtPayload = {
-      sub:       String(user.id),
-      rol:       user.rol as 'administrador' | 'socio',
-      nombres:   user.nombres,
-      apellidos: user.apellidos,
+      sub:      user.id,
+      rol,
+      nombre:   user.nombre,
+      apellido: user.apellido,
     };
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '15m' });
     const { refreshToken, tokenHash, expiresAt } = this.generateRefreshToken();
 
-    await this.refreshTokenRepo.create(Number(user.id), tokenHash, expiresAt);
+    await this.refreshTokenRepo.create(user.id, tokenHash, expiresAt);
 
     return { accessToken, refreshToken, usuario: payload };
   }
@@ -54,32 +56,19 @@ export class AuthService {
 
     await this.refreshTokenRepo.revoke(record.token.id);
 
-    // El rol efectivo puede venir de una tabla legada `socios` (nivel_acceso ADMIN).
-    const socioRows = await AppDataSource.query(
-      `SELECT
-        CASE
-          WHEN s.nivel_acceso = 'ADMIN' THEN 'administrador'
-          WHEN s.id IS NULL THEN u.rol
-          ELSE 'socio'
-        END AS rol
-       FROM usuarios u
-       LEFT JOIN socios s ON s.usuario_id = u.id
-       WHERE u.id = $1 LIMIT 1`,
-      [record.usuario.id],
-    );
-    const rol = (socioRows[0]?.rol ?? 'socio') as 'administrador' | 'socio';
+    const rol = await this.resolveRol(record.usuario.cedula);
 
     const payload: JwtPayload = {
-      sub:       String(record.usuario.id),
+      sub:      record.usuario.id,
       rol,
-      nombres:   record.usuario.nombres,
-      apellidos: record.usuario.apellidos,
+      nombre:   record.usuario.nombre,
+      apellido: record.usuario.apellido,
     };
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '15m' });
     const { refreshToken, tokenHash: newHash, expiresAt: newExpires } = this.generateRefreshToken();
 
-    await this.refreshTokenRepo.create(Number(record.usuario.id), newHash, newExpires);
+    await this.refreshTokenRepo.create(record.usuario.id, newHash, newExpires);
 
     return { accessToken, refreshToken };
   }
@@ -87,6 +76,26 @@ export class AuthService {
   async logout(rawToken: string): Promise<void> {
     const tokenHash = this.hashToken(rawToken);
     await this.refreshTokenRepo.revokeByHash(tokenHash);
+  }
+
+  // Rol efectivo: por defecto 'socio' (solo existe en usuarios). Si la misma
+  // cédula aparece en socios (tabla maestra de MagnaRice) y es PRESIDENTE o
+  // tiene nivelAcceso ADMIN, sube a 'administrador'. Única fuente de verdad
+  // para el rol — la usan tanto login() como refresh() para no repetir la
+  // inconsistencia que había antes (refresh consultaba socios, login no).
+  private async resolveRol(cedula: string): Promise<'administrador' | 'socio'> {
+    const rows = await AppDataSource.query(
+      `SELECT rol, "nivelAcceso" AS "nivelAcceso"
+       FROM public.socios
+       WHERE cedula = $1
+       LIMIT 1`,
+      [cedula],
+    );
+    const socio = rows[0];
+    if (socio && (socio.rol === 'PRESIDENTE' || socio.nivelAcceso === 'ADMIN')) {
+      return 'administrador';
+    }
+    return 'socio';
   }
 
   private generateRefreshToken() {

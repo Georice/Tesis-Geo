@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { AppDataSource } from '../DataSource';
 import { Usuario } from '../../../domain/entities/Usuario';
 import {
@@ -9,39 +10,45 @@ import {
 } from '../../../domain/repositories/IUserRepository';
 import { UsuarioMapper } from '../mappers/UsuarioMapper';
 
-// ── Credenciales para login (busca por cédula o usuario) ──────────────────
+// ── Credenciales para login (busca por cédula o email) ────────────────────
 const SELECT_CRED = `
   SELECT
-    u.id::text                                              AS id,
-    u.password_hash                                        AS "passwordHash",
-    u.rol                                                  AS rol,
-    u.estado                                               AS estado,
-    u.nombres                                              AS nombres,
-    u.apellidos                                            AS apellidos
+    u.id                                                     AS id,
+    u.cedula                                                 AS cedula,
+    u.password                                               AS "password",
+    u.activo                                                 AS activo,
+    u.nombre                                                 AS nombre,
+    u.apellido                                                AS apellido
   FROM public.usuarios u
 `;
 
-// ── Datos públicos del usuario ─────────────────────────────────────────────
+// ── Datos públicos del usuario, con rol efectivo resuelto vía socios ──────
+// Mismo criterio que AuthService.resolveRol(): PRESIDENTE o nivelAcceso
+// ADMIN en socios (match por cédula) → administrador, si no, socio.
 const SELECT_PUB = `
   SELECT
-    u.id::text                                              AS id,
-    u.nombres                                              AS nombres,
-    u.apellidos                                            AS apellidos,
-    u.cedula,
-    u.usuario,
-    u.email,
-    u.rol                                                  AS rol,
-    u.estado                                               AS estado,
-    u.fecha_registro                                       AS "fechaRegistro"
+    u.id                                                     AS id,
+    u.nombre                                                 AS nombre,
+    u.apellido                                                AS apellido,
+    u.cedula                                                 AS cedula,
+    u.email                                                  AS email,
+    u.activo                                                 AS activo,
+    u."createdAt"                                            AS "createdAt",
+    u."updatedAt"                                            AS "updatedAt",
+    CASE
+      WHEN s.rol = 'PRESIDENTE' OR s."nivelAcceso" = 'ADMIN' THEN 'administrador'
+      ELSE 'socio'
+    END                                                       AS rol
   FROM public.usuarios u
+  LEFT JOIN public.socios s ON s.cedula = u.cedula
 `;
 
 export class LocalUserRepository implements IUserRepository {
 
-  // Login con cédula (socios) o nombre de usuario (administradores)
+  // Login con cédula o email
   async findByEmail(login: string): Promise<CredencialesLogin | null> {
     const rows = await AppDataSource.query(
-      `${SELECT_CRED} WHERE u.cedula = $1 OR u.usuario = $1 OR u.email = $1 LIMIT 1`,
+      `${SELECT_CRED} WHERE u.cedula = $1 OR u.email = $1 LIMIT 1`,
       [login],
     );
     return rows[0] ?? null;
@@ -57,51 +64,48 @@ export class LocalUserRepository implements IUserRepository {
 
   async findAll(): Promise<Usuario[]> {
     const rows = await AppDataSource.query(
-      `${SELECT_PUB} ORDER BY u.apellidos, u.nombres`,
+      `${SELECT_PUB} ORDER BY u.apellido, u.nombre`,
     );
     return rows.map(UsuarioMapper.fromRow);
   }
 
   async findSoloActivos(): Promise<Usuario[]> {
     const rows = await AppDataSource.query(
-      `${SELECT_PUB} WHERE u.estado = 'activo' ORDER BY u.apellidos, u.nombres`,
+      `${SELECT_PUB} WHERE u.activo = true ORDER BY u.apellido, u.nombre`,
     );
     return rows.map(UsuarioMapper.fromRow);
   }
 
-  async create(data: NuevoUsuarioComando, createdBy: string): Promise<Usuario> {
+  async create(data: NuevoUsuarioComando): Promise<Usuario> {
     const hash = await bcrypt.hash(data.password, 12);
-    const rows = await AppDataSource.query(
+    const id = crypto.randomUUID();
+    await AppDataSource.query(
       `INSERT INTO public.usuarios
-        (cedula, nombres, apellidos, usuario, password_hash, rol, estado, email, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, 'activo', $7, $8)
-       RETURNING id`,
+        (id, cedula, nombre, apellido, email, password, activo, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), NOW())`,
       [
+        id,
         data.cedula,
-        data.nombres,
-        data.apellidos,
-        data.usuario ?? data.cedula,
-        hash,
-        data.rol ?? 'socio',
+        data.nombre,
+        data.apellido,
         data.email ?? null,
-        createdBy,
+        hash,
       ],
     );
-    return (await this.findById(rows[0].id))!;
+    return (await this.findById(id))!;
   }
 
-  async update(id: string, data: ActualizarUsuarioComando, updatedBy: string): Promise<Usuario> {
-    const sets: string[] = ['updated_at = NOW()'];
+  async update(id: string, data: ActualizarUsuarioComando): Promise<Usuario> {
+    const sets: string[] = ['"updatedAt" = NOW()'];
     const params: unknown[] = [];
 
-    params.push(updatedBy); sets.push(`updated_by = $${params.length}`);
-    if (data.nombres   != null) { params.push(data.nombres);   sets.push(`nombres = $${params.length}`); }
-    if (data.apellidos != null) { params.push(data.apellidos); sets.push(`apellidos = $${params.length}`); }
-    if (data.email     != null) { params.push(data.email);     sets.push(`email = $${params.length}`); }
-    if (data.estado    != null) { params.push(data.estado);    sets.push(`estado = $${params.length}`); }
-    if (data.password  != null) {
+    if (data.nombre   != null) { params.push(data.nombre);   sets.push(`nombre = $${params.length}`); }
+    if (data.apellido != null) { params.push(data.apellido); sets.push(`apellido = $${params.length}`); }
+    if (data.cedula   != null) { params.push(data.cedula);   sets.push(`cedula = $${params.length}`); }
+    if (data.email    != null) { params.push(data.email);    sets.push(`email = $${params.length}`); }
+    if (data.password != null) {
       params.push(await bcrypt.hash(data.password, 12));
-      sets.push(`password_hash = $${params.length}`);
+      sets.push(`password = $${params.length}`);
     }
 
     params.push(id);
@@ -112,17 +116,17 @@ export class LocalUserRepository implements IUserRepository {
     return (await this.findById(id))!;
   }
 
-  async activate(id: string, updatedBy: string): Promise<void> {
+  async activate(id: string): Promise<void> {
     await AppDataSource.query(
-      `UPDATE public.usuarios SET estado = 'activo', updated_at = NOW(), updated_by = $2 WHERE id = $1`,
-      [id, updatedBy],
+      `UPDATE public.usuarios SET activo = true, "updatedAt" = NOW() WHERE id = $1`,
+      [id],
     );
   }
 
-  async deactivate(id: string, updatedBy: string): Promise<void> {
+  async deactivate(id: string): Promise<void> {
     await AppDataSource.query(
-      `UPDATE public.usuarios SET estado = 'inactivo', updated_at = NOW(), updated_by = $2 WHERE id = $1`,
-      [id, updatedBy],
+      `UPDATE public.usuarios SET activo = false, "updatedAt" = NOW() WHERE id = $1`,
+      [id],
     );
   }
 }

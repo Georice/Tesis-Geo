@@ -394,8 +394,8 @@ CREATE TABLE public.actividades_parcela (
     fecha_inicio timestamp without time zone,
     fecha_fin timestamp without time zone,
     updated_at timestamp without time zone DEFAULT now(),
-    created_by integer,
-    updated_by integer,
+    created_by text,
+    updated_by text,
     numero_actividad integer,
     costo_insumos numeric(10,2),
     costo_total_actividad numeric(10,2),
@@ -476,8 +476,8 @@ CREATE TABLE public.capas_parcela (
     ndvi_estimado numeric(4,2),
     fecha_actualizacion timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now(),
-    created_by integer,
-    updated_by integer,
+    created_by text,
+    updated_by text,
     CONSTRAINT capas_parcela_ndvi_estimado_check CHECK (((ndvi_estimado >= (0)::numeric) AND (ndvi_estimado <= (1)::numeric))),
     CONSTRAINT capas_parcela_tipo_check CHECK (((tipo)::text = ANY (ARRAY[('activo'::character varying)::text, ('descanso'::character varying)::text, ('lindero'::character varying)::text])))
 );
@@ -523,8 +523,8 @@ CREATE TABLE public.ciclos_actividad (
     observaciones text,
     fecha_registro timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now(),
-    created_by integer,
-    updated_by integer,
+    created_by text,
+    updated_by text,
     CONSTRAINT chk_ciclos_tipo CHECK (((tipo)::text = ANY (ARRAY[('siembra_boleo'::character varying)::text, ('siembra_trasplante'::character varying)::text, ('soca'::character varying)::text, ('resoca'::character varying)::text])))
 );
 
@@ -789,10 +789,10 @@ CREATE TABLE public.parcelas (
     ciclo_actual character varying(20) DEFAULT 'siembra_normal_boleo'::character varying,
     area_ha double precision,
     area_cuadras double precision,
-    usuario_id integer NOT NULL,
+    usuario_id text NOT NULL,
     updated_at timestamp without time zone DEFAULT now(),
-    created_by integer,
-    updated_by integer,
+    created_by text,
+    updated_by text,
     CONSTRAINT parcelas_ciclo_actual_check CHECK (((ciclo_actual)::text = ANY (ARRAY[('siembra_normal_boleo'::character varying)::text, ('siembra_normal_trasplante'::character varying)::text, ('soca'::character varying)::text, ('resoca'::character varying)::text, ('en_preparacion'::character varying)::text]))),
     CONSTRAINT parcelas_estado_check CHECK (((estado)::text = ANY (ARRAY[('activo'::character varying)::text, ('descanso'::character varying)::text, ('cosechado'::character varying)::text, ('preparacion'::character varying)::text])))
 );
@@ -968,134 +968,59 @@ ALTER SEQUENCE public.productos_actividad_id_seq OWNER TO managerice;
 ALTER SEQUENCE public.productos_actividad_id_seq OWNED BY public.productos_actividad.id;
 
 
---
--- Name: refresh_tokens; Type: TABLE; Schema: public; Owner: managerice
---
-
-CREATE TABLE public.refresh_tokens (
-    id integer NOT NULL,
-    usuario_id integer NOT NULL,
-    token_hash character varying(255) NOT NULL,
-    expires_at timestamp without time zone NOT NULL,
-    creado_en timestamp without time zone DEFAULT now(),
-    revocado boolean DEFAULT false
-);
-
-
-ALTER TABLE public.refresh_tokens OWNER TO managerice;
-
---
--- Name: refresh_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: managerice
---
-
-CREATE SEQUENCE public.refresh_tokens_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.refresh_tokens_id_seq OWNER TO managerice;
-
---
--- Name: refresh_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: managerice
---
-
-ALTER SEQUENCE public.refresh_tokens_id_seq OWNED BY public.refresh_tokens.id;
-
+-- Los refresh tokens de sesión se guardan en "tokens_actualizacion"
+-- (MagnaRice/Prisma, ya existente en la DB compartida) — GeoRice no crea
+-- ni mantiene su propia tabla de refresh tokens. Ver RefreshTokenModel.ts.
 
 --
 -- Name: socios; Type: TABLE; Schema: public; Owner: managerice
 --
+-- id TEXT igual que usuarios.id (Prisma/MagnaRice). El vínculo confiable
+-- con usuarios es la cédula, no "usuarioId" (puede quedar sin poblar para
+-- cuentas históricas) — ver AuthService.resolveRol().
 
 CREATE TABLE public.socios (
-    id integer NOT NULL,
+    id text NOT NULL,
     cedula character varying(10) NOT NULL,
     nombre text NOT NULL,
     apellido text NOT NULL,
     email text,
-    telefono text DEFAULT ''::text NOT NULL,
+    telefono text NOT NULL,
     direccion text,
     rol public."RolSocio" DEFAULT 'SOCIO'::public."RolSocio" NOT NULL,
-    nivel_acceso public."NivelAcceso" DEFAULT 'MIEMBRO'::public."NivelAcceso" NOT NULL,
+    "nivelAcceso" public."NivelAcceso" DEFAULT 'MIEMBRO'::public."NivelAcceso" NOT NULL,
     estado public."EstadoSocio" DEFAULT 'ACTIVO'::public."EstadoSocio" NOT NULL,
-    fecha_ingreso timestamp without time zone DEFAULT now() NOT NULL,
-    created_at timestamp without time zone DEFAULT now() NOT NULL,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL,
-    usuario_id integer
+    "fechaIngreso" timestamp(3) without time zone DEFAULT now() NOT NULL,
+    "createdAt" timestamp(3) without time zone DEFAULT now() NOT NULL,
+    "updatedAt" timestamp(3) without time zone NOT NULL,
+    "usuarioId" text
 );
 
 
 ALTER TABLE public.socios OWNER TO managerice;
 
---
--- Name: socios_id_seq; Type: SEQUENCE; Schema: public; Owner: managerice
---
-
-CREATE SEQUENCE public.socios_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.socios_id_seq OWNER TO managerice;
-
---
--- Name: socios_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: managerice
---
-
-ALTER SEQUENCE public.socios_id_seq OWNED BY public.socios.id;
-
 
 --
 -- Name: usuarios; Type: TABLE; Schema: public; Owner: managerice
 --
+-- Propiedad de MagnaRice (Prisma). id TEXT sin default en DB — la app lo
+-- genera con crypto.randomUUID() al crear. Sin columnas rol/estado propias:
+-- el rol efectivo se resuelve en runtime uniendo por cédula contra "socios".
 
 CREATE TABLE public.usuarios (
-    id integer NOT NULL,
-    cedula character varying(13) NOT NULL,
-    nombres character varying(100) NOT NULL,
-    apellidos character varying(100) NOT NULL,
-    usuario character varying(50) NOT NULL,
-    password_hash character varying(255) NOT NULL,
-    rol character varying(20) DEFAULT 'socio'::character varying NOT NULL,
-    estado character varying(10) DEFAULT 'activo'::character varying NOT NULL,
-    fecha_registro timestamp without time zone DEFAULT now(),
-    updated_at timestamp without time zone DEFAULT now(),
-    updated_by integer,
-    email character varying(100),
-    CONSTRAINT usuarios_estado_check CHECK (((estado)::text = ANY (ARRAY[('activo'::character varying)::text, ('inactivo'::character varying)::text]))),
-    CONSTRAINT usuarios_rol_check CHECK (((rol)::text = ANY (ARRAY[('administrador'::character varying)::text, ('socio'::character varying)::text])))
+    id text NOT NULL,
+    email text,
+    password text NOT NULL,
+    nombre text NOT NULL,
+    apellido text NOT NULL,
+    activo boolean DEFAULT true NOT NULL,
+    "createdAt" timestamp(3) without time zone DEFAULT now() NOT NULL,
+    "updatedAt" timestamp(3) without time zone NOT NULL,
+    cedula character varying(10) NOT NULL
 );
 
 
 ALTER TABLE public.usuarios OWNER TO managerice;
-
---
--- Name: usuarios_id_seq; Type: SEQUENCE; Schema: public; Owner: managerice
---
-
-CREATE SEQUENCE public.usuarios_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.usuarios_id_seq OWNER TO managerice;
-
---
--- Name: usuarios_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: managerice
---
-
-ALTER SEQUENCE public.usuarios_id_seq OWNED BY public.usuarios.id;
 
 
 --
@@ -1108,10 +1033,10 @@ CREATE TABLE public.zonas (
     descripcion text,
     geometria public.geometry(Polygon,4326),
     fecha_creacion timestamp without time zone DEFAULT now(),
-    usuario_id integer NOT NULL,
+    usuario_id text NOT NULL,
     updated_at timestamp without time zone DEFAULT now(),
-    created_by integer,
-    updated_by integer
+    created_by text,
+    updated_by text
 );
 
 
@@ -1186,27 +1111,6 @@ ALTER TABLE ONLY public.plantillas_ciclo ALTER COLUMN id SET DEFAULT nextval('pu
 --
 
 ALTER TABLE ONLY public.productos_actividad ALTER COLUMN id SET DEFAULT nextval('public.productos_actividad_id_seq'::regclass);
-
-
---
--- Name: refresh_tokens id; Type: DEFAULT; Schema: public; Owner: managerice
---
-
-ALTER TABLE ONLY public.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('public.refresh_tokens_id_seq'::regclass);
-
-
---
--- Name: socios id; Type: DEFAULT; Schema: public; Owner: managerice
---
-
-ALTER TABLE ONLY public.socios ALTER COLUMN id SET DEFAULT nextval('public.socios_id_seq'::regclass);
-
-
---
--- Name: usuarios id; Type: DEFAULT; Schema: public; Owner: managerice
---
-
-ALTER TABLE ONLY public.usuarios ALTER COLUMN id SET DEFAULT nextval('public.usuarios_id_seq'::regclass);
 
 
 --
@@ -1320,20 +1224,6 @@ ALTER TABLE ONLY public.productos_actividad
     ADD CONSTRAINT productos_actividad_pkey PRIMARY KEY (id);
 
 
---
--- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: managerice
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
-
-
---
--- Name: refresh_tokens refresh_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: managerice
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_token_hash_key UNIQUE (token_hash);
 
 
 --
@@ -1398,14 +1288,6 @@ ALTER TABLE ONLY public.usuarios
 
 ALTER TABLE ONLY public.usuarios
     ADD CONSTRAINT usuarios_pkey PRIMARY KEY (id);
-
-
---
--- Name: usuarios usuarios_usuario_unique; Type: CONSTRAINT; Schema: public; Owner: managerice
---
-
-ALTER TABLE ONLY public.usuarios
-    ADD CONSTRAINT usuarios_usuario_unique UNIQUE (usuario);
 
 
 --
@@ -1514,18 +1396,6 @@ CREATE INDEX idx_productos_presentacion ON public.productos_actividad USING btre
 CREATE INDEX idx_productos_updated_at ON public.productos_actividad USING btree (updated_at);
 
 
---
--- Name: idx_refresh_tokens_hash; Type: INDEX; Schema: public; Owner: managerice
---
-
-CREATE INDEX idx_refresh_tokens_hash ON public.refresh_tokens USING btree (token_hash);
-
-
---
--- Name: idx_refresh_tokens_usuario; Type: INDEX; Schema: public; Owner: managerice
---
-
-CREATE INDEX idx_refresh_tokens_usuario ON public.refresh_tokens USING btree (usuario_id);
 
 
 --
@@ -1533,27 +1403,6 @@ CREATE INDEX idx_refresh_tokens_usuario ON public.refresh_tokens USING btree (us
 --
 
 CREATE INDEX idx_usuarios_cedula ON public.usuarios USING btree (cedula);
-
-
---
--- Name: idx_usuarios_estado; Type: INDEX; Schema: public; Owner: managerice
---
-
-CREATE INDEX idx_usuarios_estado ON public.usuarios USING btree (estado);
-
-
---
--- Name: idx_usuarios_rol; Type: INDEX; Schema: public; Owner: managerice
---
-
-CREATE INDEX idx_usuarios_rol ON public.usuarios USING btree (rol);
-
-
---
--- Name: idx_usuarios_usuario; Type: INDEX; Schema: public; Owner: managerice
---
-
-CREATE INDEX idx_usuarios_usuario ON public.usuarios USING btree (usuario);
 
 
 --
@@ -1581,7 +1430,7 @@ CREATE INDEX idx_zonas_usuario_id ON public.zonas USING btree (usuario_id);
 -- Name: socios_usuario_id_key; Type: INDEX; Schema: public; Owner: managerice
 --
 
-CREATE UNIQUE INDEX socios_usuario_id_key ON public.socios USING btree (usuario_id);
+CREATE UNIQUE INDEX socios_usuario_id_key ON public.socios USING btree ("usuarioId");
 
 
 --
@@ -1673,13 +1522,6 @@ CREATE TRIGGER trg_sync_costo_mano_obra AFTER INSERT OR DELETE OR UPDATE ON publ
 --
 
 CREATE TRIGGER trg_sync_costo_maquinaria AFTER INSERT OR DELETE OR UPDATE ON public.detalle_maquinaria FOR EACH ROW EXECUTE FUNCTION public.fn_sync_costo_actividad();
-
-
---
--- Name: usuarios trg_usuarios_updated_at; Type: TRIGGER; Schema: public; Owner: managerice
---
-
-CREATE TRIGGER trg_usuarios_updated_at BEFORE UPDATE ON public.usuarios FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 
 
 --
@@ -1873,28 +1715,13 @@ ALTER TABLE ONLY public.productos_actividad
     ADD CONSTRAINT productos_actividad_actividad_id_fkey FOREIGN KEY (actividad_id) REFERENCES public.actividades_parcela(id) ON DELETE CASCADE;
 
 
---
--- Name: refresh_tokens refresh_tokens_usuario_fkey; Type: FK CONSTRAINT; Schema: public; Owner: managerice
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_usuario_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE CASCADE;
-
 
 --
 -- Name: socios socios_usuario_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: managerice
 --
 
 ALTER TABLE ONLY public.socios
-    ADD CONSTRAINT socios_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id) ON DELETE SET NULL;
-
-
---
--- Name: usuarios usuarios_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: managerice
---
-
-ALTER TABLE ONLY public.usuarios
-    ADD CONSTRAINT usuarios_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+    ADD CONSTRAINT socios_usuario_id_fkey FOREIGN KEY ("usuarioId") REFERENCES public.usuarios(id) ON DELETE SET NULL;
 
 
 --

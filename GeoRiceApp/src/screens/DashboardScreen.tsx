@@ -156,7 +156,7 @@ const DashboardScreen = () => {
     } else if (action === 'logout') {
       Alert.alert(
         'Cerrar sesión',
-        `¿Deseas salir, ${user?.nombres}?`,
+        `¿Deseas salir, ${user?.nombre}?`,
         [
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Salir', style: 'destructive', onPress: logout },

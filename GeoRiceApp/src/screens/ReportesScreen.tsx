@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal,
-  ActivityIndicator, RefreshControl, Linking, Alert,
+  ActivityIndicator, RefreshControl, Alert, Platform,
 } from 'react-native';
+import RNBlobUtil from 'react-native-blob-util';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '../theme/colors';
@@ -125,7 +126,32 @@ const ReportesScreen: React.FC = () => {
       if (esAdmin && socioId) params.set('usuarioId', socioId);
 
       const url = `${BASE_URL}/reportes/export/${tipo}?${params.toString()}`;
-      await Linking.openURL(url);
+      const ext  = tipo === 'pdf' ? 'pdf' : 'xlsx';
+      const mime = tipo === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const dest = `${RNBlobUtil.fs.dirs.CacheDir}/reporte_${fmt(fechaInicio)}_${fmt(fechaFin)}.${ext}`;
+
+      // No se puede usar Linking.openURL aquí: al abrir la URL en el
+      // navegador del sistema, ngrok (plan free) detecta el User-Agent de
+      // navegador y devuelve su página de aviso HTML en vez de reenviar la
+      // petición al backend — el header ngrok-skip-browser-warning solo
+      // sirve si viaja en la petición saliente, algo que Linking.openURL no
+      // permite. Por eso se descarga con fetch (sí acepta headers) y se
+      // abre el archivo ya guardado con el visor nativo del dispositivo.
+      const res = await RNBlobUtil.config({ path: dest }).fetch('GET', url, {
+        Authorization: `Bearer ${token}`,
+        'ngrok-skip-browser-warning': 'true',
+      });
+
+      const status = res.info().status;
+      if (status !== 200) throw new Error(`No se pudo descargar el reporte (HTTP ${status})`);
+
+      if (Platform.OS === 'android') {
+        await RNBlobUtil.android.actionViewIntent(dest, mime);
+      } else {
+        await RNBlobUtil.ios.previewDocument(dest);
+      }
     } catch (e: any) {
       Alert.alert('Error', e.message ?? 'No se pudo descargar el reporte');
     } finally {
@@ -176,7 +202,7 @@ const ReportesScreen: React.FC = () => {
             <TouchableOpacity style={s.dropdown} onPress={() => setModalSocio(true)}>
               <Text style={s.dropdownText}>
                 {socioNombreSeleccionado
-                  ? `${socioNombreSeleccionado.nombres} ${socioNombreSeleccionado.apellidos}`
+                  ? `${socioNombreSeleccionado.nombre} ${socioNombreSeleccionado.apellido}`
                   : 'Todos los socios'}
               </Text>
               <Text style={s.dropdownArrow}>V</Text>
@@ -326,7 +352,7 @@ const ReportesScreen: React.FC = () => {
                   style={[s.modalItem, socioId === soc.id && s.modalItemOn]}
                   onPress={() => { setSocioId(soc.id); setModalSocio(false); }}>
                   <Text style={[s.modalItemText, socioId === soc.id && { color: Colors.verde, fontWeight: '600' }]}>
-                    {soc.nombres} {soc.apellidos}
+                    {soc.nombre} {soc.apellido}
                   </Text>
                 </TouchableOpacity>
               ))}
