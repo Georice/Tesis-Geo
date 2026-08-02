@@ -139,7 +139,10 @@ export const CicloRepository = {
     let base: any[];
     try {
       const res = await apiFetch(`/parcelas/${parcelaId}/ciclos`);
-      if (!res.ok) throw new Error('Error al obtener ciclos');
+      if (!res.ok) {
+        await res.text().catch(() => {});
+        throw new Error('Error al obtener ciclos');
+      }
       base = await res.json();
     } catch (err) {
       if (!SyncEngine.isNetworkError(err)) throw err;

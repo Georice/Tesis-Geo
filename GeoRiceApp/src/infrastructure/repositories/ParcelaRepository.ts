@@ -27,7 +27,10 @@ export const ParcelaRepository = {
     let base: Parcela[];
     try {
       const res = await apiFetch('/parcelas');
-      if (!res.ok) throw new Error(`GET /parcelas falló: ${res.status}`);
+      if (!res.ok) {
+        await res.text().catch(() => {});
+        throw new Error(`GET /parcelas falló: ${res.status}`);
+      }
       const data: any[] = await res.json();
       base = data.map(mapParcela);
     } catch (err) {

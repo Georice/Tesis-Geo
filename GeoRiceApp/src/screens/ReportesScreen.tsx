@@ -112,6 +112,7 @@ const ReportesScreen: React.FC = () => {
   };
 
   const descargar = async (tipo: 'pdf' | 'excel') => {
+    console.log('[descargar] INICIO', tipo);
     try {
       setExportando(tipo);
       const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
@@ -131,6 +132,7 @@ const ReportesScreen: React.FC = () => {
         ? 'application/pdf'
         : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       const dest = `${RNBlobUtil.fs.dirs.CacheDir}/reporte_${fmt(fechaInicio)}_${fmt(fechaFin)}.${ext}`;
+      console.log('[descargar] url=', url, 'dest=', dest);
 
       // No se puede usar Linking.openURL aquí: al abrir la URL en el
       // navegador del sistema, ngrok (plan free) detecta el User-Agent de
@@ -143,16 +145,20 @@ const ReportesScreen: React.FC = () => {
         Authorization: `Bearer ${token}`,
         'ngrok-skip-browser-warning': 'true',
       });
+      console.log('[descargar] fetch resuelto, info=', JSON.stringify(res.info()));
 
       const status = res.info().status;
       if (status !== 200) throw new Error(`No se pudo descargar el reporte (HTTP ${status})`);
 
       if (Platform.OS === 'android') {
+        console.log('[descargar] abriendo con actionViewIntent, mime=', mime);
         await RNBlobUtil.android.actionViewIntent(dest, mime);
+        console.log('[descargar] actionViewIntent OK');
       } else {
         await RNBlobUtil.ios.previewDocument(dest);
       }
     } catch (e: any) {
+      console.log('[descargar] ERROR', tipo, e && e.message, JSON.stringify(e));
       Alert.alert('Error', e.message ?? 'No se pudo descargar el reporte');
     } finally {
       setExportando(null);

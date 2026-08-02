@@ -165,7 +165,10 @@ export const SyncEngine = {
     const since = await AsyncStorage.getItem(STORAGE_KEYS.SYNC_TIMESTAMP);
     const query = since ? `?since=${encodeURIComponent(since)}` : '';
     const res   = await apiFetch(`/sync${query}`);
-    if (!res.ok) throw new Error(`GET /sync falló: ${res.status}`);
+    if (!res.ok) {
+      await res.text().catch(() => {});
+      throw new Error(`GET /sync falló: ${res.status}`);
+    }
     const data = await res.json();
 
     const merged = since

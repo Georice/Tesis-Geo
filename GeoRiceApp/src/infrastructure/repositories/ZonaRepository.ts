@@ -8,7 +8,10 @@ export const ZonaRepository = {
     let base: Zona[];
     try {
       const res = await apiFetch('/zonas');
-      if (!res.ok) throw new Error(`GET /zonas falló: ${res.status}`);
+      if (!res.ok) {
+        await res.text().catch(() => {});
+        throw new Error(`GET /zonas falló: ${res.status}`);
+      }
       base = await res.json();
     } catch (err) {
       if (!SyncEngine.isNetworkError(err)) throw err;

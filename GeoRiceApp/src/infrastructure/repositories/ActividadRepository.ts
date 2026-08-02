@@ -111,7 +111,10 @@ export const ActividadRepository = {
     const query = page ? `?page=${page}&pageSize=${pageSize ?? 20}` : '';
     try {
       const res = await apiFetch(`/parcelas/${parcelaId}/actividades${query}`);
-      if (!res.ok) throw new Error('Error al obtener actividades');
+      if (!res.ok) {
+        await res.text().catch(() => {});
+        throw new Error('Error al obtener actividades');
+      }
       const json: PaginatedActividades = await res.json();
       return [...pendientes, ...(json.data ?? [])];
     } catch (err) {

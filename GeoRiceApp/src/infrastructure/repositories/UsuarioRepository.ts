@@ -22,7 +22,10 @@ export const UsuarioRepository = {
       const cached = await AsyncStorage.getItem(STORAGE_KEYS.USUARIOS_CACHE);
       return cached ? JSON.parse(cached) : [];
     }
-    if (!res.ok) throw new Error(`GET /usuarios falló: ${res.status}`);
+    if (!res.ok) {
+      await res.text().catch(() => {});
+      throw new Error(`GET /usuarios falló: ${res.status}`);
+    }
     const data: Usuario[] = await res.json();
     await AsyncStorage.setItem(STORAGE_KEYS.USUARIOS_CACHE, JSON.stringify(data));
     return data;

@@ -29,6 +29,7 @@ export class UsuarioController {
       if (err.code === '23505' || err.message?.includes('duplicate')) {
         res.status(409).json({ error: 'La cédula o email ya existe' });
       } else {
+        logger.error('Error al crear usuario:', err);
         res.status(400).json({ error: err.message });
       }
     }
@@ -44,6 +45,7 @@ export class UsuarioController {
       if (err.code === '23505' || err.message?.includes('duplicate')) {
         res.status(409).json({ error: 'La cédula o email ya existe' });
       } else {
+        logger.error('Error al registrar usuario:', err);
         res.status(400).json({ error: err.message });
       }
     }
