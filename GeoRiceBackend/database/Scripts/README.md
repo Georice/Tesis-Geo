@@ -9,5 +9,6 @@ Ejecutar en orden en pgAdmin contra `georice_db`:
 | `03_ciclos_fases.sql` | Ciclos agrícolas | `ciclos_actividad`, `fases_ciclo`, `plantillas_ciclo` |
 | `04_actividades.sql` | Actividades | `actividades_parcela`, `productos_actividad` |
 | `05_socios.sql` | Socios (MagnaRice) | `socios` + ENUMs |
+| `06_password_reset.sql` | Recuperacion GeoRice | `georice_password_reset_tokens` |
 
 > `schema.sql` se mantiene como dump completo de referencia (pg_dump).

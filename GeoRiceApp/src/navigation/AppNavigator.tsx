@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 
 import LoginScreen          from '../screens/LoginScreen';
 import RegistroScreen       from '../screens/RegistroScreen';
+import RecuperarPasswordScreen from '../screens/RecuperarPasswordScreen';
 import DashboardScreen      from '../screens/DashboardScreen';
 import ZonasScreen          from '../screens/ZonasScreen';
 import ActividadesScreen    from '../screens/ActividadesScreen';
@@ -39,6 +40,11 @@ const AppNavigator = () => {
               name="Registro"
               component={RegistroScreen}
               options={{ title: 'Crear cuenta' }}
+            />
+            <Stack.Screen
+              name="RecuperarPassword"
+              component={RecuperarPasswordScreen}
+              options={{ title: 'Recuperar contrasena' }}
             />
           </>
         ) : (

@@ -81,6 +81,12 @@ const LoginScreen = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={s.forgotBtn}
+          onPress={() => navigation.navigate('RecuperarPassword')}>
+          <Text style={s.forgotText}>Olvidaste tu contrasena?</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={s.registrarseBtn}
           onPress={() => navigation.navigate('Registro')}>
           <Text style={s.registrarseText}>Registrarse</Text>
@@ -109,6 +115,8 @@ const s = StyleSheet.create({
   btn:       { backgroundColor: '#1a5c2a', borderRadius: 10, paddingVertical: 14,
                alignItems: 'center', marginTop: 4 },
   btnText:   { color: '#fff', fontWeight: '700', fontSize: 16 },
+  forgotBtn: { alignSelf: 'center', marginTop: 14 },
+  forgotText: { color: '#1a5c2a', fontSize: 14, fontWeight: '700' },
   registrarseBtn: { alignSelf: 'flex-start', marginTop: 14 },
   registrarseText: { color: '#1a5c2a', fontSize: 14, fontWeight: '600' },
 });

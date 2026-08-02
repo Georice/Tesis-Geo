@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   row: {

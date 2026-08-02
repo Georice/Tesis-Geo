@@ -10,8 +10,13 @@ const LOGIN_ERRORS_CONOCIDOS = new Set([
   'Usuario inactivo. Contacte al administrador.',
 ]);
 const REFRESH_ERRORS_CONOCIDOS = new Set([
-  'Refresh token inválido o expirado',
+  'Refresh token invalido o expirado',
   'Usuario inactivo',
+]);
+const RESET_ERRORS_CONOCIDOS = new Set([
+  'Correo y codigo son requeridos',
+  'La contrasena debe tener al menos 8 caracteres',
+  'Codigo de recuperacion invalido o expirado',
 ]);
 
 export class AuthController {
@@ -32,7 +37,43 @@ export class AuthController {
         res.status(401).json({ error: err.message });
       } else {
         logger.error('Error inesperado en login:', err);
-        res.status(500).json({ error: 'No se pudo iniciar sesión. Intenta de nuevo más tarde.' });
+        res.status(500).json({ error: 'No se pudo iniciar sesion. Intenta de nuevo mas tarde.' });
+      }
+    }
+  }
+
+  async forgotPassword(req: Request, res: Response): Promise<void> {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        res.status(400).json({ error: 'El correo es requerido' });
+        return;
+      }
+      const result = await this.authService.forgotPassword(String(email));
+      res.json({ mensaje: result.mensaje, resetCode: result.resetCode });
+    } catch (err: any) {
+      logger.error('Error inesperado en recuperacion de contrasena:', err);
+      res.status(500).json({ error: 'No se pudo enviar el codigo. Intenta de nuevo mas tarde.' });
+    }
+  }
+
+  async resetPassword(req: Request, res: Response): Promise<void> {
+    try {
+      const { email, codigo, code, token, password, newPassword, new_password } = req.body;
+      const cleanCode = codigo ?? code ?? token;
+      const cleanPassword = password ?? newPassword ?? new_password;
+      const result = await this.authService.resetPassword(
+        String(email ?? ''),
+        String(cleanCode ?? ''),
+        String(cleanPassword ?? ''),
+      );
+      res.json(result);
+    } catch (err: any) {
+      if (RESET_ERRORS_CONOCIDOS.has(err.message)) {
+        res.status(400).json({ error: err.message });
+      } else {
+        logger.error('Error inesperado al cambiar contrasena:', err);
+        res.status(500).json({ error: 'No se pudo cambiar la contrasena. Intenta de nuevo mas tarde.' });
       }
     }
   }
@@ -51,7 +92,7 @@ export class AuthController {
         res.status(401).json({ error: err.message });
       } else {
         logger.error('Error inesperado en refresh:', err);
-        res.status(500).json({ error: 'Sesión inválida. Vuelve a iniciar sesión.' });
+        res.status(500).json({ error: 'Sesion invalida. Vuelve a iniciar sesion.' });
       }
     }
   }
@@ -60,9 +101,9 @@ export class AuthController {
     try {
       const { refreshToken } = req.body;
       if (refreshToken) await this.authService.logout(String(refreshToken));
-      res.json({ mensaje: 'Sesión cerrada' });
+      res.json({ mensaje: 'Sesion cerrada' });
     } catch {
-      res.json({ mensaje: 'Sesión cerrada' });
+      res.json({ mensaje: 'Sesion cerrada' });
     }
   }
 
