@@ -7,7 +7,9 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { Colors } from '../theme/colors';
-import { apiFetch } from '../infrastructure/repositories/ApiClient';
+import { CicloRepository } from '../infrastructure/repositories/CicloRepository';
+import Icon from '../components/Icon';
+import IconLabel from '../components/IconLabel';
 
 type Nav   = NativeStackNavigationProp<RootStackParamList, 'IniciarCiclo'>;
 type Route = RouteProp<RootStackParamList, 'IniciarCiclo'>;
@@ -16,7 +18,7 @@ type TipoCiclo = 'siembra_boleo' | 'siembra_trasplante' | 'soca' | 'resoca';
 
 interface InfoCiclo {
   label:       string;
-  emoji:       string;
+  icon:        string;
   descripcion: string;
   duracion:    string;
   actividades: number;
@@ -26,7 +28,7 @@ interface InfoCiclo {
 const CICLOS: Record<TipoCiclo, InfoCiclo> = {
   siembra_boleo: {
     label:       'Siembra Boleo',
-    emoji:       '🌱',
+    icon:        'sprout',
     descripcion: 'Siembra directa al voleo sobre el terreno inundado',
     duracion:    '~110 días',
     actividades: 11,
@@ -34,7 +36,7 @@ const CICLOS: Record<TipoCiclo, InfoCiclo> = {
   },
   siembra_trasplante: {
     label:       'Siembra Trasplante',
-    emoji:       '🌿',
+    icon:        'leaf',
     descripcion: 'Trasplante de plántulas desde semillero al campo',
     duracion:    '~120 días',
     actividades: 11,
@@ -42,7 +44,7 @@ const CICLOS: Record<TipoCiclo, InfoCiclo> = {
   },
   soca: {
     label:       'Soca',
-    emoji:       '♻️',
+    icon:        'recycle',
     descripcion: 'Segundo ciclo aprovechando el rebrote del arroz',
     duracion:    '~75 días',
     actividades: 7,
@@ -50,7 +52,7 @@ const CICLOS: Record<TipoCiclo, InfoCiclo> = {
   },
   resoca: {
     label:       'Resoca',
-    emoji:       '🔄',
+    icon:        'sync',
     descripcion: 'Tercer ciclo de rebrote después de la soca',
     duracion:    '~65 días',
     actividades: 5,
@@ -77,8 +79,7 @@ const IniciarCicloScreen: React.FC = () => {
   const cargarCicloActivo = useCallback(async () => {
     try {
       setLoadingCiclo(true);
-      const res  = await apiFetch(`/parcelas/${parcelaId}/ciclos`);
-      const data = await res.json();
+      const data = await CicloRepository.getByParcela(parcelaId);
       const activo = data.find((c: any) => c.estado === 'activo');
       setCicloActivo(activo ?? null);
 } catch (e: any) {
@@ -104,37 +105,33 @@ const IniciarCicloScreen: React.FC = () => {
 
   setGuardando(true);
   try {
-    const res = await apiFetch(`/parcelas/${parcelaId}/ciclos`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tipo:            tipoCiclo,
-        fechaInicio:     new Date(fechaInicio).toISOString(),
-        variedadSemilla: variedad.trim() || undefined,
-        areaSembrada:    area ? Number(area) : undefined,
-        observaciones:   observaciones.trim() || undefined,
-      }),
+    const data = await CicloRepository.iniciar(parcelaId, {
+      tipo:            tipoCiclo,
+      fechaInicio:     new Date(fechaInicio).toISOString(),
+      variedadSemilla: variedad.trim() || undefined,
+      areaSembrada:    area ? Number(area) : undefined,
+      observaciones:   observaciones.trim() || undefined,
     });
 
-    console.log('STATUS:', res.status);
-    const data = await res.json();
-    console.log('RESPUESTA:', JSON.stringify(data).substring(0, 200));
-
-    if (!res.ok) {
-      Alert.alert('Error', data.error ?? 'No se pudo iniciar el ciclo');
-      return;
-    }
-
     const info = CICLOS[tipoCiclo];
-    Alert.alert(
-      '✅ Ciclo iniciado',
-      `${info.label} iniciado con ${data.actividades?.length ?? 0} actividades generadas automáticamente.`,
-      [{ text: 'Ver actividades', onPress: () => navigation.navigate('Actividades', { parcela }) }],
-    );
+    const numActividades = data.actividades?.length ?? 0;
+    if ((data.ciclo as any)?.pendingSync) {
+      Alert.alert(
+        'Sin conexión',
+        `${info.label} guardado localmente con ${numActividades} actividades generadas — ya puedes registrar avances sobre ellas. Las fases se completan solas cuando vuelva la señal y se sincronice.`,
+        [{ text: 'Ver actividades', onPress: () => navigation.navigate('Actividades', { parcela }) }],
+      );
+    } else {
+      Alert.alert(
+        'Ciclo iniciado',
+        `${info.label} iniciado con ${numActividades} actividades generadas automáticamente.`,
+        [{ text: 'Ver actividades', onPress: () => navigation.navigate('Actividades', { parcela }) }],
+      );
+    }
     cargarCicloActivo(); // ← recargar para mostrar ciclo activo
   } catch (e: any) {
     console.log('ERROR CICLO:', e.message);
-    Alert.alert('Error de conexión', e.message ?? 'No se pudo conectar al servidor');
+    Alert.alert('Error', e.message ?? 'No se pudo iniciar el ciclo');
   } finally {
     setGuardando(false);
   }
@@ -145,14 +142,10 @@ const IniciarCicloScreen: React.FC = () => {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Finalizar', style: 'destructive', onPress: async () => {
         try {
-          const res = await apiFetch(`/parcelas/${parcelaId}/ciclos/${cicloActivo.id}/finalizar`, {
-            method: 'PUT',
-          });
-          if (res.ok) {
-            Alert.alert('✅ Ciclo finalizado');
-            cargarCicloActivo();
-          }
-        } catch { Alert.alert('Error', 'No se pudo finalizar el ciclo'); }
+          await CicloRepository.finalizar(parcelaId, cicloActivo.id);
+          Alert.alert('Ciclo finalizado');
+          cargarCicloActivo();
+        } catch (e: any) { Alert.alert('Error', e.message ?? 'No se pudo finalizar el ciclo'); }
       }},
     ]);
   };
@@ -173,9 +166,11 @@ const IniciarCicloScreen: React.FC = () => {
       {cicloActivo && (
         <View style={s.cicloActivoCard}>
           <View style={s.cicloActivoHeader}>
-            <Text style={s.cicloActivoEmoji}>
-              {CICLOS[cicloActivo.tipo as TipoCiclo]?.emoji ?? '🌾'}
-            </Text>
+            <Icon
+              name={CICLOS[cicloActivo.tipo as TipoCiclo]?.icon ?? 'barley'}
+              size={32}
+              color={Colors.verde}
+            />
             <View style={{ flex: 1 }}>
               <Text style={s.cicloActivoTitulo}>Ciclo activo</Text>
               <Text style={s.cicloActivoTipo}>
@@ -184,13 +179,19 @@ const IniciarCicloScreen: React.FC = () => {
               <Text style={s.cicloActivoFecha}>
                 Inicio: {cicloActivo.fechaInicio?.split('T')[0]}
               </Text>
+              {cicloActivo.pendingSync && (
+                <View style={s.pendingBadge}>
+                  <Icon name="cloud-upload-outline" size={11} color="#b45309" />
+                  <Text style={s.pendingText}>Pendiente de sincronizar</Text>
+                </View>
+              )}
             </View>
             <View style={s.estadoBadge}>
               <Text style={s.estadoBadgeText}>ACTIVO</Text>
             </View>
           </View>
           <TouchableOpacity style={s.btnFinalizar} onPress={handleFinalizar}>
-            <Text style={s.btnFinalizarText}>🏁 Finalizar ciclo</Text>
+            <IconLabel icon="flag-checkered" label="Finalizar ciclo" textStyle={s.btnFinalizarText} style={{ justifyContent: 'center' }} />
           </TouchableOpacity>
         </View>
       )}
@@ -198,9 +199,10 @@ const IniciarCicloScreen: React.FC = () => {
       {/* Formulario nuevo ciclo */}
       {!cicloActivo && (
         <>
-          <View style={s.infoCard}>
-            <Text style={s.infoText}>
-              🌾 Al iniciar un ciclo se generan automáticamente todas las actividades
+          <View style={[s.infoCard, s.infoRow]}>
+            <Icon name="barley" size={14} color={Colors.verde} />
+            <Text style={[s.infoText, { marginLeft: 6, flexShrink: 1 }]}>
+              Al iniciar un ciclo se generan automáticamente todas las actividades
               del calendario agrícola según el tipo de siembra.
             </Text>
           </View>
@@ -212,16 +214,16 @@ const IniciarCicloScreen: React.FC = () => {
               <TouchableOpacity key={key}
                 style={[s.cicloCard, tipoCiclo === key && { borderColor: info.color, borderWidth: 2 }]}
                 onPress={() => setTipoCiclo(key)}>
-                <Text style={s.cicloEmoji}>{info.emoji}</Text>
+                <Icon name={info.icon} size={24} color={info.color} />
                 <Text style={s.cicloLabel}>{info.label}</Text>
                 <Text style={s.cicloDesc}>{info.descripcion}</Text>
                 <View style={s.cicloStats}>
-                  <Text style={[s.cicloStat, { color: info.color }]}>⏱ {info.duracion}</Text>
-                  <Text style={[s.cicloStat, { color: info.color }]}>📋 {info.actividades} act.</Text>
+                  <IconLabel icon="timer-outline" label={info.duracion} size={12} color={info.color} textStyle={s.cicloStat} gap={3} />
+                  <IconLabel icon="clipboard-text" label={`${info.actividades} act.`} size={12} color={info.color} textStyle={s.cicloStat} gap={3} />
                 </View>
                 {tipoCiclo === key && (
                   <View style={[s.cicloCheck, { backgroundColor: info.color }]}>
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>✓</Text>
+                    <Icon name="check" size={12} color="#fff" />
                   </View>
                 )}
               </TouchableOpacity>
@@ -257,9 +259,11 @@ const IniciarCicloScreen: React.FC = () => {
           {/* Preview de actividades */}
           {tipoCiclo && (
             <View style={s.previewCard}>
-              <Text style={s.previewTitulo}>
-                📋 Se generarán {CICLOS[tipoCiclo].actividades} actividades:
-              </Text>
+              <IconLabel
+                icon="clipboard-text"
+                label={`Se generarán ${CICLOS[tipoCiclo].actividades} actividades:`}
+                textStyle={s.previewTitulo}
+              />
               {getActividadesPreview(tipoCiclo).map((act, i) => (
                 <View key={i} style={s.previewItem}>
                   <Text style={s.previewNum}>{i + 1}</Text>
@@ -280,9 +284,10 @@ const IniciarCicloScreen: React.FC = () => {
             style={[s.btnIniciar, (!tipoCiclo || guardando) && { opacity: 0.4 }]}
             onPress={handleIniciar}
             disabled={!tipoCiclo || guardando}>
-            <Text style={s.btnIniciarText}>
-              {guardando ? 'Iniciando ciclo...' : '🌱 Iniciar ciclo'}
-            </Text>
+            {guardando
+              ? <Text style={s.btnIniciarText}>Iniciando ciclo...</Text>
+              : <IconLabel icon="sprout" label="Iniciar ciclo" textStyle={s.btnIniciarText} style={{ justifyContent: 'center' }} />
+            }
           </TouchableOpacity>
         </>
       )}
@@ -344,12 +349,12 @@ const s = StyleSheet.create({
   content:            { padding: 16, gap: 12 },
   infoCard:           { backgroundColor: Colors.verdeClaro, borderRadius: 12, padding: 12,
                         borderWidth: 0.5, borderColor: Colors.verdeBorder },
+  infoRow:            { flexDirection: 'row', alignItems: 'center' },
   infoText:           { fontSize: 12, color: Colors.verde },
   secTitulo:          { fontSize: 14, fontWeight: '600', color: '#333' },
   ciclosGrid:         { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   cicloCard:          { width: '47%', backgroundColor: Colors.blanco, borderRadius: 14,
                         borderWidth: 0.5, borderColor: Colors.grisBorde, padding: 12, gap: 4 },
-  cicloEmoji:         { fontSize: 24 },
   cicloLabel:         { fontSize: 13, fontWeight: '600', color: '#1a2b16' },
   cicloDesc:          { fontSize: 11, color: Colors.grisTexto },
   cicloStats:         { flexDirection: 'row', gap: 8, marginTop: 4 },
@@ -381,10 +386,13 @@ const s = StyleSheet.create({
   cicloActivoCard:    { backgroundColor: Colors.verdeClaro, borderRadius: 14, borderWidth: 0.5,
                         borderColor: Colors.verdeBorder, padding: 16 },
   cicloActivoHeader:  { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
-  cicloActivoEmoji:   { fontSize: 32 },
   cicloActivoTitulo:  { fontSize: 12, color: Colors.grisTexto },
   cicloActivoTipo:    { fontSize: 16, fontWeight: '700', color: Colors.verde },
   cicloActivoFecha:   { fontSize: 12, color: Colors.grisTexto, marginTop: 2 },
+  pendingBadge:       { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6,
+                        backgroundColor: '#fef3c7', borderRadius: 8, paddingHorizontal: 8,
+                        paddingVertical: 3, alignSelf: 'flex-start' },
+  pendingText:        { fontSize: 10, color: '#b45309', fontWeight: '600' },
   estadoBadge:        { backgroundColor: Colors.verde, borderRadius: 20,
                         paddingHorizontal: 10, paddingVertical: 4 },
   estadoBadgeText:    { color: '#fff', fontSize: 10, fontWeight: '700' },

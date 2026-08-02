@@ -6,11 +6,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { MenuItem } from '../domain/entities/MenuItem';
+import Icon from './Icon';
 
 const DRAWER_WIDTH = Math.min(Dimensions.get('window').width * 0.78, 300);
 const PILL_WIDTH   = 40;
 
-const logoGeoRice = require('../assets/logo_georice.png');
+const logoGeoRice = require('../assets/login_logo.png');
 
 interface Props {
   visible: boolean;
@@ -79,11 +80,13 @@ const AppDrawer: React.FC<Props> = ({
 
               {/* Encabezado verde */}
               <View style={[styles.userHeader, { paddingTop: insets.top + 24 }]}>
-                <Image
-                  source={logoGeoRice}
-                  style={styles.logo}
-                  resizeMode="contain"
-                />
+                <View style={styles.logoWrapper}>
+                  <Image
+                    source={logoGeoRice}
+                    style={styles.logo}
+                    resizeMode="contain"
+                  />
+                </View>
                 <Text style={styles.userName} numberOfLines={2}>{userName}</Text>
                 <Text style={styles.userRoleLabel}>{roleLabel}</Text>
               </View>
@@ -105,7 +108,12 @@ const AppDrawer: React.FC<Props> = ({
                       style={styles.menuItem}
                       onPress={() => handleItemPress(item.action)}
                       activeOpacity={0.7}>
-                      <Text style={styles.menuItemIcon}>{item.icon}</Text>
+                      <Icon
+                        name={item.icon}
+                        size={20}
+                        color={item.action === 'logout' ? Colors.rojo : '#1a1a1a'}
+                        style={styles.menuItemIcon}
+                      />
                       <Text style={[
                         styles.menuItemLabel,
                         item.action === 'logout' && styles.menuItemLabelLogout,
@@ -126,7 +134,7 @@ const AppDrawer: React.FC<Props> = ({
               onPress={onClose}
               activeOpacity={1}>
               <View style={styles.closePill}>
-                <Text style={styles.closePillIcon}>‹</Text>
+                <Icon name="chevron-left" size={22} color={Colors.verde} style={styles.closePillIcon} />
               </View>
             </TouchableOpacity>
 
@@ -187,10 +195,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 24,
   },
-  logo: {
-    width: 80,
-    height: 80,
+  logoWrapper: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: Colors.blanco,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  logo: {
+    width: 92,
+    height: 92,
   },
   userName: {
     fontSize: 16,

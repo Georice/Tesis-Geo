@@ -6,12 +6,14 @@ import { RootStackParamList } from './types';
 import { useAuth } from '../context/AuthContext';
 
 import LoginScreen          from '../screens/LoginScreen';
+import RegistroScreen       from '../screens/RegistroScreen';
 import DashboardScreen      from '../screens/DashboardScreen';
 import ZonasScreen          from '../screens/ZonasScreen';
 import ActividadesScreen    from '../screens/ActividadesScreen';
 import CapasScreen          from '../screens/CapasScreen';
 import IniciarCicloScreen   from '../screens/IniciarCicloScreen';
 import AdminUsuariosScreen  from '../screens/AdminUsuariosScreen';
+import ReportesScreen       from '../screens/ReportesScreen';
 import { Colors }           from '../theme/colors';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -31,7 +33,14 @@ const AppNavigator = () => {
     <NavigationContainer>
       <Stack.Navigator>
         {!user ? (
-          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+            <Stack.Screen
+              name="Registro"
+              component={RegistroScreen}
+              options={{ title: 'Crear cuenta' }}
+            />
+          </>
         ) : (
           <>
             <Stack.Screen name="Dashboard"    component={DashboardScreen}    options={{ headerShown: false }} />
@@ -44,6 +53,16 @@ const AppNavigator = () => {
               component={AdminUsuariosScreen}
               options={{
                 title: 'Administración de usuarios',
+                headerStyle: { backgroundColor: Colors.verde },
+                headerTintColor: Colors.blanco,
+                headerTitleStyle: { fontWeight: '700' },
+              }}
+            />
+            <Stack.Screen
+              name="Reportes"
+              component={ReportesScreen}
+              options={{
+                title: 'Reportes',
                 headerStyle: { backgroundColor: Colors.verde },
                 headerTintColor: Colors.blanco,
                 headerTitleStyle: { fontWeight: '700' },

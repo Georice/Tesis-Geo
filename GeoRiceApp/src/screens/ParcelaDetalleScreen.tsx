@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import Icon from '../components/Icon';
 
 interface Props {
   parcela: any;
@@ -17,44 +18,84 @@ const ParcelaDetalleScreen: React.FC<Props> = ({
   onEliminar, onCerrar, onActividades, onCapas, onIniciarCiclo
 }) => (
   <>
-    <Text style={s.titulo}>Parcela {parcela?.nombre ?? parcela?.p_nombre}</Text>
-    <Text style={s.texto}>Propietario: {parcela?.propietario ?? parcela?.p_propietario}</Text>
-    <Text style={s.texto}>Cultivo: {parcela?.cultivo ?? parcela?.p_cultivo}</Text>
-    <Text style={s.texto}>Área: {Number(parcela?.area_ha ?? parcela?.p_area_ha ?? 0).toFixed(2)} ha</Text>
-    <View style={s.row}>
-      <TouchableOpacity style={s.btn} onPress={onEditarDatos}>
-        <Text style={s.btnText}>✏️ Editar</Text>
+    <View style={s.infoCard}>
+      <View style={s.infoHeader}>
+        <Text style={s.titulo} numberOfLines={1}>
+          Parcela {parcela?.nombre ?? parcela?.p_nombre}
+        </Text>
+        <TouchableOpacity
+          style={s.btnCerrar}
+          onPress={onCerrar}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Icon name="close" size={20} color="#666" />
+        </TouchableOpacity>
+      </View>
+      <Text style={s.texto}>Propietario: {parcela?.propietario ?? parcela?.p_propietario}</Text>
+      <Text style={s.texto}>Cultivo: {parcela?.cultivo ?? parcela?.p_cultivo}</Text>
+      <Text style={s.texto}>Área: {Number(parcela?.area_ha ?? parcela?.p_area_ha ?? 0).toFixed(2)} ha</Text>
+      {(parcela?.p_pending_sync || parcela?.pendingSync) && (
+        <View style={s.pendingBadge}>
+          <Icon name="cloud-upload-outline" size={12} color="#b45309" />
+          <Text style={s.pendingText}>Pendiente de sincronizar</Text>
+        </View>
+      )}
+    </View>
+
+    <View style={s.card}>
+      <TouchableOpacity style={s.item} onPress={onEditarDatos}>
+        <Icon name="pencil" size={18} color="#2563eb" style={s.itemIcon} />
+        <Text style={s.itemLabel}>Editar</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={s.btn} onPress={onEditarGeometria}>
-        <Text style={s.btnText}>📐 Geometría</Text>
+      <TouchableOpacity style={s.item} onPress={onEditarGeometria}>
+        <Icon name="ruler-square" size={18} color="#f59e0b" style={s.itemIcon} />
+        <Text style={s.itemLabel}>Geometría</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[s.btn, { backgroundColor: 'red' }]} onPress={onEliminar}>
-        <Text style={s.btnText}>🗑️</Text>
+      <TouchableOpacity style={s.item} onPress={onEliminar}>
+        <Icon name="delete" size={18} color="#dc2626" style={s.itemIcon} />
+        <Text style={s.itemLabel}>Eliminar</Text>
       </TouchableOpacity>
     </View>
-    <View style={[s.row, { marginTop: 8 }]}>
-      <TouchableOpacity style={[s.btn, { backgroundColor: '#8B5CF6' }]} onPress={onActividades}>
-        <Text style={s.btnText}>📋 Actividades</Text>
+
+    <View style={[s.card, { marginTop: 8 }]}>
+      <TouchableOpacity style={s.item} onPress={onIniciarCiclo}>
+        <Icon name="sprout" size={18} color="#1a5c2a" style={s.itemIcon} />
+        <Text style={s.itemLabel}>Ciclo</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[s.btn, { backgroundColor: '#FF6B35' }]} onPress={onCapas}>
-        <Text style={s.btnText}>🧩 Capas</Text>
+      <TouchableOpacity style={s.item} onPress={onActividades}>
+        <Icon name="clipboard-text" size={18} color="#8B5CF6" style={s.itemIcon} />
+        <Text style={s.itemLabel}>Actividades</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[s.btn, { backgroundColor: '#1a5c2a' }]} onPress={onIniciarCiclo}>
-        <Text style={s.btnText}>🌱 Ciclo</Text>
+      <TouchableOpacity style={s.item} onPress={onCapas}>
+        <Icon name="puzzle" size={18} color="#FF6B35" style={s.itemIcon} />
+        <Text style={s.itemLabel}>Capas</Text>
       </TouchableOpacity>
     </View>
-    <TouchableOpacity style={[s.btn, { marginTop: 8, alignSelf: 'center' }]} onPress={onCerrar}>
-      <Text style={s.btnText}>✕ Cerrar</Text>
-    </TouchableOpacity>
   </>
 );
 
 const s = StyleSheet.create({
-  titulo: { fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
-  texto:  { fontSize: 13, color: '#333', marginBottom: 3 },
-  row:    { flexDirection: 'row', justifyContent: 'space-around' },
-  btn:    { backgroundColor: '#007AFF', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
-  btnText:{ color: '#fff', fontWeight: 'bold', fontSize: 12 },
+  infoCard:   { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12,
+                padding: 12, marginBottom: 8, elevation: 5,
+                shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1, shadowRadius: 4 },
+  infoHeader: { flexDirection: 'row', alignItems: 'center',
+                justifyContent: 'space-between', marginBottom: 8 },
+  titulo:     { fontSize: 16, fontWeight: 'bold', flex: 1, marginRight: 8 },
+  btnCerrar:  { width: 32, height: 32, borderRadius: 16,
+                alignItems: 'center', justifyContent: 'center',
+                backgroundColor: 'rgba(0,0,0,0.06)' },
+  texto:      { fontSize: 13, color: '#333', marginBottom: 3 },
+  pendingBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4,
+                  backgroundColor: '#fef3c7', borderRadius: 8, paddingHorizontal: 8,
+                  paddingVertical: 4, alignSelf: 'flex-start' },
+  pendingText:  { fontSize: 11, color: '#b45309', fontWeight: '600' },
+  card:       { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12,
+                flexDirection: 'row', padding: 6, elevation: 5,
+                shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1, shadowRadius: 4 },
+  item:       { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8 },
+  itemIcon:   { marginBottom: 4 },
+  itemLabel:  { fontSize: 11, color: '#444', fontWeight: '600' },
 });
 
 export default ParcelaDetalleScreen;

@@ -1,5 +1,5 @@
 export interface AuthContext {
-  usuarioId:      number;
+  usuarioId:      string;   // UUID — id de public.usuarios (MagnaRice)
   rol:            'administrador' | 'socio';
   nombreCompleto: string;
 }

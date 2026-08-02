@@ -1,42 +1,53 @@
 import { AppDataSource } from '../DataSource';
+import { CapaParcelaModel } from '../models/CapaParcelaModel';
 import { CapaParcela } from '../../../domain/entities/CapaParcela';
-import { ICapaParcelaRepository } from '../../../domain/repositories/ICapaParcelaRepository';
+import {
+  ICapaParcelaRepository,
+  CrearCapaComando,
+  ActualizarCapaComando,
+} from '../../../domain/repositories/ICapaParcelaRepository';
+import { CapaParcelaMapper } from '../mappers/CapaParcelaMapper';
 
 export class CapaParcelaRepository implements ICapaParcelaRepository {
-  private repo = AppDataSource.getRepository(CapaParcela);
+  private repo = AppDataSource.getRepository(CapaParcelaModel);
 
   async findByParcela(parcelaId: number): Promise<CapaParcela[]> {
-    return this.repo.find({ where: { parcelaId } });
+    const rows = await this.repo.find({ where: { parcelaId } });
+    return rows.map(CapaParcelaMapper.toDomain);
   }
 
   async findById(id: number): Promise<CapaParcela | null> {
-    return this.repo.findOneBy({ id });
+    const row = await this.repo.findOneBy({ id });
+    return row ? CapaParcelaMapper.toDomain(row) : null;
   }
 
-  // async create(data: Partial<CapaParcela>): Promise<CapaParcela> {
-  //   const capa = this.repo.create(data);
-  //   return this.repo.save(capa);
-  // }
-
-  async create(data: Partial<CapaParcela>): Promise<CapaParcela> {
-  if (data.geometria && data.parcelaId) {
+  async create(data: CrearCapaComando): Promise<CapaParcela> {
     const dentroParcela = await this.isInsideParcela(data.parcelaId, data.geometria);
     if (!dentroParcela) throw new Error('La capa debe estar dentro de los límites de la parcela');
 
     const result = await AppDataSource.query(
-      `INSERT INTO capas_parcela (parcela_id, tipo, geometria)
-       VALUES ($1, $2, ST_GeomFromGeoJSON($3))
+      `INSERT INTO capas_parcela (parcela_id, tipo, geometria, ndvi_estimado, created_by, updated_by)
+       VALUES ($1, $2, ST_GeomFromGeoJSON($3), $4, $5, $6)
        RETURNING id`,
-      [data.parcelaId, data.tipo, JSON.stringify(data.geometria)]
+      [
+        data.parcelaId, data.tipo, JSON.stringify(data.geometria),
+        data.ndviEstimado ?? null, data.createdBy ?? null, data.updatedBy ?? null,
+      ]
     );
-    const savedId = result[0].id;
-    return this.findById(savedId) as Promise<CapaParcela>;
+    return (await this.findById(result[0].id))!;
   }
-  const capa = this.repo.create(data);
-  return this.repo.save(capa);
-}
-  async update(id: number, data: Partial<CapaParcela>): Promise<CapaParcela | null> {
-    await this.repo.update(id, data);
+
+  async update(id: number, data: ActualizarCapaComando): Promise<CapaParcela | null> {
+    const { geometria, ...rest } = data;
+    if (Object.keys(rest).length > 0) {
+      await this.repo.update(id, rest);
+    }
+    if (geometria) {
+      await AppDataSource.query(
+        `UPDATE capas_parcela SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
+        [JSON.stringify(geometria), id]
+      );
+    }
     return this.findById(id);
   }
 
@@ -45,25 +56,15 @@ export class CapaParcelaRepository implements ICapaParcelaRepository {
     return this.findById(id);
   }
 
-  // async updateGeometry(id: number, parcelaId: number, geometria: object): Promise<CapaParcela | null> {
-  //   const dentro = await this.isInsideParcela(parcelaId, geometria);
-  //   if (!dentro) throw new Error('La nueva geometría debe estar dentro de los límites de la parcela');
-  //   await this.repo.query(
-  //     `UPDATE capas_parcela SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
-  //     [JSON.stringify(geometria), id]
-  //   );
-  //   return this.findById(id);
-  // }
-
   async updateGeometry(id: number, parcelaId: number, geometria: object): Promise<CapaParcela | null> {
-  const dentro = await this.isInsideParcela(parcelaId, geometria);
-  if (!dentro) throw new Error('La nueva geometría debe estar dentro de los límites de la parcela');
-  await AppDataSource.query(
-    `UPDATE capas_parcela SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
-    [JSON.stringify(geometria), id]
-  );
-  return this.findById(id);
-}
+    const dentro = await this.isInsideParcela(parcelaId, geometria);
+    if (!dentro) throw new Error('La nueva geometría debe estar dentro de los límites de la parcela');
+    await AppDataSource.query(
+      `UPDATE capas_parcela SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
+      [JSON.stringify(geometria), id]
+    );
+    return this.findById(id);
+  }
 
   async delete(id: number): Promise<boolean> {
     const result = await this.repo.delete(id);

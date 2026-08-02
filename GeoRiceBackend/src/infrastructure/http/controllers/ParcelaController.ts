@@ -1,5 +1,5 @@
 import { Request, Response }        from 'express';
-import { ParcelaRepository }        from '../../db/repositories/ParcelaRepository';
+import { IParcelaRepository }       from '../../../domain/repositories/IParcelaRepository';
 import { CreateParcela }            from '../../../application/usecases/parcelas/CreateParcela';
 import { GetParcelas }              from '../../../application/usecases/parcelas/GetParcelas';
 import { UpdateParcela }            from '../../../application/usecases/parcelas/UpdateParcela';
@@ -8,21 +8,21 @@ import { DeleteParcela }            from '../../../application/usecases/parcelas
 import { AuthContext }              from '../../../shared/types/AuthContext';
 import { logger }                   from '../../../shared/logger';
 
-const repo = new ParcelaRepository();
-
 function buildCtx(req: Request): AuthContext {
   return {
-    usuarioId:      Number(req.user!.sub),
+    usuarioId:      req.user!.sub,
     rol:            req.user!.rol,
-    nombreCompleto: `${req.user!.nombres} ${req.user!.apellidos}`,
+    nombreCompleto: `${req.user!.nombre} ${req.user!.apellido}`,
   };
 }
 
 export class ParcelaController {
+  constructor(private readonly repo: IParcelaRepository) {}
+
   async getAll(req: Request, res: Response): Promise<void> {
     try {
       const ctx      = buildCtx(req);
-      const parcelas = await new GetParcelas(repo).execute(ctx);
+      const parcelas = await new GetParcelas(this.repo).execute(ctx);
       logger.info(`GET /api/parcelas → ${parcelas.length} parcelas (usuario=${ctx.usuarioId})`);
       res.json(parcelas);
     } catch (error) {
@@ -34,7 +34,7 @@ export class ParcelaController {
   async create(req: Request, res: Response): Promise<void> {
     try {
       const ctx     = buildCtx(req);
-      const parcela = await new CreateParcela(repo).execute(req.body, ctx);
+      const parcela = await new CreateParcela(this.repo).execute(req.body, ctx);
       logger.info(`POST /api/parcelas → Parcela creada id=${parcela?.id} (usuario=${ctx.usuarioId})`);
       res.status(201).json(parcela);
     } catch (error) {
@@ -48,7 +48,7 @@ export class ParcelaController {
     try {
       const id      = Number(req.params.id);
       const ctx     = buildCtx(req);
-      const parcela = await new UpdateParcela(repo).execute(id, req.body, ctx);
+      const parcela = await new UpdateParcela(this.repo).execute(id, req.body, ctx);
       if (!parcela) { res.status(404).json({ error: 'Parcela no encontrada' }); return; }
       logger.info(`PUT /api/parcelas/${id} actualizada`);
       res.json(parcela);
@@ -66,7 +66,7 @@ export class ParcelaController {
       const ctx = buildCtx(req);
       const { geometria } = req.body;
       if (!geometria) { res.status(400).json({ error: 'Se requiere geometria' }); return; }
-      const parcela = await new UpdateParcelaGeometry(repo).execute(id, geometria, ctx);
+      const parcela = await new UpdateParcelaGeometry(this.repo).execute(id, geometria, ctx);
       if (!parcela) { res.status(404).json({ error: 'Parcela no encontrada' }); return; }
       logger.info(`PUT /api/parcelas/${id}/geometry actualizada`);
       res.json(parcela);
@@ -82,7 +82,7 @@ export class ParcelaController {
     try {
       const id      = Number(req.params.id);
       const ctx     = buildCtx(req);
-      const deleted = await new DeleteParcela(repo).execute(id, ctx);
+      const deleted = await new DeleteParcela(this.repo).execute(id, ctx);
       if (!deleted) { res.status(404).json({ error: 'Parcela no encontrada' }); return; }
       logger.info(`DELETE /api/parcelas/${id} eliminada`);
       res.json({ mensaje: 'Parcela eliminada', id });

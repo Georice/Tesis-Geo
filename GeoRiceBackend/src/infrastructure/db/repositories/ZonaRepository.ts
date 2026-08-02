@@ -1,12 +1,18 @@
 import { AppDataSource }       from '../DataSource';
+import { ZonaModel }           from '../models/ZonaModel';
 import { Zona }                from '../../../domain/entities/Zona';
-import { IZonaRepository }     from '../../../domain/repositories/IZonaRepository';
+import {
+  IZonaRepository,
+  CrearZonaComando,
+  ActualizarZonaComando,
+} from '../../../domain/repositories/IZonaRepository';
 import { AuthContext }         from '../../../shared/types/AuthContext';
+import { ZonaMapper }          from '../mappers/ZonaMapper';
 
 export class ZonaRepository implements IZonaRepository {
-  private repo = AppDataSource.getRepository(Zona);
+  private repo = AppDataSource.getRepository(ZonaModel);
 
-  async findAll(ctx: AuthContext): Promise<any[]> {
+  async findAll(ctx: AuthContext): Promise<Zona[]> {
     const conds: string[] = [];
     const params: any[]   = [];
 
@@ -17,26 +23,36 @@ export class ZonaRepository implements IZonaRepository {
 
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
 
-    return AppDataSource.query(`
+    const rows = await AppDataSource.query(`
       SELECT z.id, z.usuario_id AS "usuarioId", z.nombre, z.descripcion,
              z.fecha_creacion AS "fechaCreacion", z.updated_at AS "updatedAt",
+             z.created_by AS "createdBy", z.updated_by AS "updatedBy",
              ST_AsGeoJSON(z.geometria)::json AS geometria
       FROM zonas z ${where}
       ORDER BY z.nombre
     `, params);
+    return rows.map(ZonaMapper.fromRow);
   }
 
-  async findById(id: number): Promise<any | null> {
+  async findById(id: number): Promise<Zona | null> {
     const result = await AppDataSource.query(`
       SELECT z.id, z.usuario_id AS "usuarioId", z.nombre, z.descripcion,
              z.fecha_creacion AS "fechaCreacion", z.updated_at AS "updatedAt",
+             z.created_by AS "createdBy", z.updated_by AS "updatedBy",
              ST_AsGeoJSON(z.geometria)::json AS geometria
       FROM zonas z WHERE z.id = $1
     `, [id]);
-    return result[0] ?? null;
+    return result[0] ? ZonaMapper.fromRow(result[0]) : null;
   }
 
-  async create(data: any, ctx: AuthContext): Promise<any> {
+  async create(data: CrearZonaComando, ctx: AuthContext): Promise<Zona> {
+    let geom: any = null;
+    if (data.geometria) {
+      geom = this.closeRing(data.geometria);
+      const overlap = await this.hasOverlap(geom);
+      if (overlap) throw new Error('La zona se superpone con una zona existente');
+    }
+
     const zona = this.repo.create({
       usuarioId:  ctx.usuarioId,
       nombre:     data.nombre,
@@ -46,18 +62,17 @@ export class ZonaRepository implements IZonaRepository {
     });
     const saved = await this.repo.save(zona);
 
-    if (data.geometria) {
-      const geom = this.closeRing(data.geometria);
+    if (geom) {
       await AppDataSource.query(
         `UPDATE zonas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
         [JSON.stringify(geom), saved.id]
       );
     }
 
-    return this.findById(saved.id);
+    return (await this.findById(saved.id))!;
   }
 
-  async update(id: number, data: any, ctx: AuthContext): Promise<any | null> {
+  async update(id: number, data: ActualizarZonaComando, ctx: AuthContext): Promise<Zona | null> {
     await this.verifyOwnership(id, ctx);
 
     const sets: string[] = ['updated_by = $1', 'updated_at = NOW()'];
@@ -74,6 +89,9 @@ export class ZonaRepository implements IZonaRepository {
 
     if (data.geometria) {
       const geom = this.closeRing(data.geometria);
+      const overlap = await this.hasOverlap(geom, id);
+      if (overlap) throw new Error('La nueva geometría se superpone con una zona existente');
+
       await AppDataSource.query(
         `UPDATE zonas SET geometria = ST_GeomFromGeoJSON($1) WHERE id = $2`,
         [JSON.stringify(geom), id]
@@ -91,6 +109,23 @@ export class ZonaRepository implements IZonaRepository {
     return (result.affected ?? 0) > 0;
   }
 
+  async hasOverlap(geometria: object, excludeId?: number): Promise<boolean> {
+    const params: any[] = [JSON.stringify(geometria)];
+    let excludeClause = '';
+    if (excludeId) {
+      params.push(excludeId);
+      excludeClause = `AND id != $${params.length}`;
+    }
+    const result = await AppDataSource.query(`
+      SELECT COUNT(*)::int AS total
+      FROM zonas
+      WHERE ST_Intersects(geometria, ST_GeomFromGeoJSON($1))
+        AND NOT ST_Touches(geometria, ST_GeomFromGeoJSON($1))
+        ${excludeClause}
+    `, params);
+    return (result[0]?.total ?? 0) > 0;
+  }
+
   async assignParcelasInsideZona(zonaId: number): Promise<number> {
     const result = await AppDataSource.query(`
       UPDATE parcelas SET zona_id = $1
@@ -98,6 +133,13 @@ export class ZonaRepository implements IZonaRepository {
         AND (zona_id IS NULL OR zona_id != $1)
     `, [zonaId]);
     return result[1] ?? 0;
+  }
+
+  async countParcelasAsignadas(zonaId: number): Promise<number> {
+    const result = await AppDataSource.query(
+      `SELECT COUNT(*)::int AS total FROM parcelas WHERE zona_id = $1`, [zonaId]
+    );
+    return Number(result[0]?.total ?? 0);
   }
 
   private async verifyOwnership(id: number, ctx: AuthContext): Promise<void> {

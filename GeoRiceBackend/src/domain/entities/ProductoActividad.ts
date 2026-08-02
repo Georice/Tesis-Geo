@@ -1,62 +1,64 @@
-import {
-  Entity, PrimaryGeneratedColumn, Column,
-  ManyToOne, JoinColumn, UpdateDateColumn,
-} from 'typeorm';
-import { ActividadParcela } from './ActividadParcela';
+import { TipoProducto } from '../types/ProductoTypes';
 
-@Entity('productos_actividad')
+export interface ProductoActividadProps {
+  id: number;
+  actividadId: number;
+  nombre: string;
+  tipo: TipoProducto | null;
+  dosis: number | null;
+  unidad: string | null;
+  dosisPorTanque: number | null;
+  dosisHa: number | null;
+  dosisPorUnidadMo: number | null;
+  dosisTotal: number | null;
+  presentacionMl: number | null;
+  precioPresentacion: number | null;
+  frascoUsados: number | null;
+  precioUnitario: number | null;
+  costoTotal: number | null;
+  updatedAt: Date;
+}
+
+// Entidad de dominio pura: sin decoradores de TypeORM.
 export class ProductoActividad {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  readonly id: number;
+  readonly actividadId: number;
+  readonly nombre: string;
+  readonly tipo: TipoProducto | null;
+  readonly dosis: number | null;
+  readonly unidad: string | null;
+  readonly dosisPorTanque: number | null;
+  readonly dosisHa: number | null;
+  readonly dosisPorUnidadMo: number | null;
+  readonly dosisTotal: number | null;
+  readonly presentacionMl: number | null;
+  readonly precioPresentacion: number | null;
+  readonly frascoUsados: number | null;
+  readonly precioUnitario: number | null;
+  readonly costoTotal: number | null;
+  readonly updatedAt: Date;
 
-  @Column({ name: 'actividad_id' })
-  actividadId!: number;
+  private constructor(props: ProductoActividadProps) {
+    this.id                 = props.id;
+    this.actividadId         = props.actividadId;
+    this.nombre              = props.nombre;
+    this.tipo                = props.tipo;
+    this.dosis                = props.dosis;
+    this.unidad               = props.unidad;
+    this.dosisPorTanque       = props.dosisPorTanque;
+    this.dosisHa              = props.dosisHa;
+    this.dosisPorUnidadMo     = props.dosisPorUnidadMo;
+    this.dosisTotal           = props.dosisTotal;
+    this.presentacionMl       = props.presentacionMl;
+    this.precioPresentacion   = props.precioPresentacion;
+    this.frascoUsados         = props.frascoUsados;
+    this.precioUnitario       = props.precioUnitario;
+    this.costoTotal           = props.costoTotal;
+    this.updatedAt            = props.updatedAt;
+  }
 
-  @ManyToOne(() => ActividadParcela, a => a.productos, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'actividad_id' })
-  actividad!: ActividadParcela;
-
-  @Column({ type: 'varchar', length: 100 })
-  nombre!: string;
-
-  @Column({ type: 'varchar', length: 30, nullable: true })
-  tipo!: 'herbicida' | 'fungicida' | 'insecticida' | 'fertilizante' | 'abono' | 'corrector' | 'bioestimulante' | 'otro';
-
-  @Column({ type: 'decimal', precision: 10, scale: 4, nullable: true })
-  dosis!: number;
-
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  unidad!: string;
-
-  @Column({ name: 'dosis_por_tanque', type: 'decimal', precision: 10, scale: 4, nullable: true })
-  dosisPorTanque!: number;
-
-  @Column({ name: 'dosis_ha', type: 'decimal', precision: 10, scale: 4, nullable: true })
-  dosisHa!: number;
-
-  @Column({ name: 'dosis_por_unidad_mo', type: 'decimal', precision: 10, scale: 4, nullable: true })
-  dosisPorUnidadMo!: number;  // kg por saco echado (fertilización)
-
-  @Column({ name: 'dosis_total', type: 'decimal', precision: 10, scale: 4, nullable: true })
-  dosisTotal!: number;
-
-  // ── Presentación ──────────────────────────────────────────────
-  @Column({ name: 'presentacion_ml', type: 'integer', nullable: true })
-  presentacionMl!: number;  // ml del frasco o gramos del saco (25000=25kg, 50000=50kg)
-
-  @Column({ name: 'precio_presentacion', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  precioPresentacion!: number;  // precio del frasco/saco completo
-
-  @Column({ name: 'frascos_usados', type: 'decimal', precision: 10, scale: 4, nullable: true })
-  frascoUsados!: number;  // calculado: dosis_total ÷ (presentacion_ml/1000)
-
-  // ── Costo ─────────────────────────────────────────────────────
-  @Column({ name: 'precio_unitario', type: 'decimal', precision: 10, scale: 4, nullable: true })
-  precioUnitario!: number;  // calculado: precio_presentacion ÷ (presentacion_ml/1000)
-
-  @Column({ name: 'costo_total', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  costoTotal!: number;  // calculado: dosis_total × precio_unitario
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
+  static create(props: ProductoActividadProps): ProductoActividad {
+    if (!props.nombre?.trim()) throw new Error('El nombre del producto es obligatorio');
+    return new ProductoActividad(props);
+  }
 }

@@ -1,23 +1,33 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
+  View, Text, TextInput, TouchableOpacity, Image,
   StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../context/AuthContext';
+import Icon from '../components/Icon';
+
+type Nav = NativeStackNavigationProp<RootStackParamList, 'Login'>;
+
+const loginLogo = require('../assets/login_logo.png');
 
 const LoginScreen = () => {
+  const navigation              = useNavigation<Nav>();
   const { login }              = useAuth();
-  const [usuario, setUsuario]  = useState('');
+  const [email, setEmail]      = useState('');
   const [password, setPassword]= useState('');
   const [loading, setLoading]  = useState(false);
+  const [verPassword, setVerPassword] = useState(false);
 
   const handleLogin = async () => {
-    if (!usuario.trim() || !password.trim()) {
-      Alert.alert('Error', 'Ingresa usuario y contraseña'); return;
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Error', 'Ingresa correo y contraseña'); return;
     }
     setLoading(true);
     try {
-      await login(usuario.trim(), password);
+      await login(email.trim(), password);
     } catch (e: any) {
       Alert.alert('Error de acceso', e.message ?? 'No se pudo iniciar sesión');
     } finally {
@@ -28,37 +38,52 @@ const LoginScreen = () => {
   return (
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={s.card}>
-        <Text style={s.logo}>🌾</Text>
+        <Image source={loginLogo} style={s.logo} resizeMode="contain" />
         <Text style={s.titulo}>GeoRice</Text>
         <Text style={s.subtitulo}>Sistema de Georreferenciación Agrícola</Text>
 
         <TextInput
           style={s.input}
-          value={usuario}
-          onChangeText={setUsuario}
-          placeholder="Usuario"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Cédula o correo electrónico"
           placeholderTextColor="#aaa"
           autoCapitalize="none"
           autoCorrect={false}
+          keyboardType="email-address"
         />
-        <TextInput
-          style={s.input}
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Contraseña"
-          placeholderTextColor="#aaa"
-          secureTextEntry
-          onSubmitEditing={handleLogin}
-        />
+        <View style={s.passwordWrapper}>
+          <TextInput
+            style={s.passwordInput}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Contraseña"
+            placeholderTextColor="#aaa"
+            secureTextEntry={!verPassword}
+            onSubmitEditing={handleLogin}
+          />
+          <TouchableOpacity
+            style={s.eyeBtn}
+            onPress={() => setVerPassword(v => !v)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Icon name={verPassword ? 'eye-off' : 'eye'} size={20} color="#888" />
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
-          style={[s.btn, (loading || !usuario || !password) && { opacity: 0.5 }]}
+          style={[s.btn, (loading || !email || !password) && { opacity: 0.5 }]}
           onPress={handleLogin}
-          disabled={loading || !usuario.trim() || !password.trim()}>
+          disabled={loading || !email.trim() || !password.trim()}>
           {loading
             ? <ActivityIndicator color="#fff" />
             : <Text style={s.btnText}>Ingresar</Text>
           }
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={s.registrarseBtn}
+          onPress={() => navigation.navigate('Registro')}>
+          <Text style={s.registrarseText}>Registrarse</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -70,15 +95,22 @@ const s = StyleSheet.create({
   card:      { backgroundColor: '#fff', borderRadius: 16, padding: 28,
                shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
                shadowOpacity: 0.1, shadowRadius: 12, elevation: 8 },
-  logo:      { fontSize: 52, textAlign: 'center', marginBottom: 4 },
+  logo:      { width: 160, height: 160, alignSelf: 'center', marginBottom: 4 },
   titulo:    { fontSize: 28, fontWeight: '800', color: '#1a5c2a', textAlign: 'center', marginBottom: 4 },
   subtitulo: { fontSize: 13, color: '#888', textAlign: 'center', marginBottom: 28 },
   input:     { borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
                paddingHorizontal: 14, paddingVertical: 12, marginBottom: 14,
                fontSize: 16, backgroundColor: '#fafafa' },
+  passwordWrapper: { justifyContent: 'center', marginBottom: 14 },
+  passwordInput:   { borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
+                     paddingHorizontal: 14, paddingRight: 44, paddingVertical: 12,
+                     fontSize: 16, backgroundColor: '#fafafa' },
+  eyeBtn:          { position: 'absolute', right: 12 },
   btn:       { backgroundColor: '#1a5c2a', borderRadius: 10, paddingVertical: 14,
                alignItems: 'center', marginTop: 4 },
   btnText:   { color: '#fff', fontWeight: '700', fontSize: 16 },
+  registrarseBtn: { alignSelf: 'flex-start', marginTop: 14 },
+  registrarseText: { color: '#1a5c2a', fontSize: 14, fontWeight: '600' },
 });
 
 export default LoginScreen;

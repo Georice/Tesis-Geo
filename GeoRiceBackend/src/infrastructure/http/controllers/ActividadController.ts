@@ -1,30 +1,44 @@
 import { Request, Response }             from 'express';
-import { ActividadParcelaRepository }    from '../../db/repositories/ActividadParcelaRepository';
+import { IActividadParcelaRepository }   from '../../../domain/repositories/IActividadParcelaRepository';
+import { ICicloRepository }              from '../../../domain/repositories/ICicloRepository';
+import { IParcelaRepository }            from '../../../domain/repositories/IParcelaRepository';
 import { CreateActividad }               from '../../../application/usecases/actividades/CreateActividad';
 import { GetActividadesByParcela }       from '../../../application/usecases/actividades/GetActividadesByParcela';
 import { UpdateActividad }               from '../../../application/usecases/actividades/UpdateActividad';
 import { DeleteActividad }               from '../../../application/usecases/actividades/DeleteActividad';
-import { AppDataSource }                 from '../../db/DataSource';
+import { VerifyParcelaAccess }           from '../../../application/services/VerifyParcelaAccess';
+import { AuthContext }                   from '../../../shared/types/AuthContext';
 import { logger }                        from '../../../shared/logger';
 
-const repo = new ActividadParcelaRepository();
-
-async function verifyParcelaAccess(parcelaId: number, usuarioId: number, rol: string): Promise<void> {
-  if (rol === 'administrador') return;
-  const result = await AppDataSource.query(
-    `SELECT id FROM parcelas WHERE id = $1 AND usuario_id = $2`, [parcelaId, usuarioId]
-  );
-  if (!result[0]) throw new Error('Parcela no encontrada o no autorizado');
+function buildCtx(req: Request): AuthContext {
+  return {
+    usuarioId:      req.user!.sub,
+    rol:            req.user!.rol,
+    nombreCompleto: `${req.user!.nombre} ${req.user!.apellido}`,
+  };
 }
 
 export class ActividadController {
+  private readonly verifyParcelaAccess: VerifyParcelaAccess;
+
+  constructor(
+    private readonly repo: IActividadParcelaRepository,
+    private readonly cicloRepo: ICicloRepository,
+    private readonly parcelaRepo: IParcelaRepository,
+  ) {
+    this.verifyParcelaAccess = new VerifyParcelaAccess(parcelaRepo);
+  }
+
   async getByParcela(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      await verifyParcelaAccess(parcelaId, Number(req.user!.sub), req.user!.rol);
-      const actividades = await new GetActividadesByParcela(repo).execute(parcelaId);
-      logger.info(`GET actividades parcela=${parcelaId} → ${actividades.length}`);
-      res.json(actividades);
+      await this.verifyParcelaAccess.execute(parcelaId, buildCtx(req));
+      const page     = req.query.page ? Number(req.query.page) : undefined;
+      const pageSize = req.query.pageSize ? Number(req.query.pageSize) : undefined;
+
+      const resultado = await new GetActividadesByParcela(this.repo, this.cicloRepo).execute(parcelaId, page, pageSize);
+      logger.info(`GET actividades parcela=${parcelaId} → ${resultado.total} totales`);
+      res.json(resultado);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al obtener actividades';
       res.status(message.includes('autorizado') ? 403 : 500).json({ error: message });
@@ -34,50 +48,27 @@ export class ActividadController {
   async create(req: Request, res: Response): Promise<void> {
     try {
       const parcelaId = Number(req.params.parcelaId);
-      const usuarioId = Number(req.user!.sub);
-      await verifyParcelaAccess(parcelaId, usuarioId, req.user!.rol);
+      const usuarioId = req.user!.sub;
+      await this.verifyParcelaAccess.execute(parcelaId, buildCtx(req));
 
       const {
         tipo, estado, fecha, fechaInicio, fechaFin,
         metodo, insumo, cantidad, unidad,
-        laminaAgua, rendimientoHa, totalSacos, humedad,
-        precioQq, costoCosecha, destino,
-        plagaDetectada, nivelDano, nivelAlerta,
-        capacidadTanque, numTanques,
-        // mano de obra legacy
-        numJornales, pagoJornal, costoManoObra,
-        // mano de obra nuevo modelo
-        unidadManoObra, cantidadUnidadMo, precioUnidadMo,
-        numTrabajadores, descripcionUnidadMo,
-        // maquinaria
-        tipoMaquinaria, unidadCobro, cantidadUnidades,
-        costoPorUnidad, costoMaquinaria,
-        // sembradores trasplante
-        numTareas, precioTarea, costoSembradores,
-        // costos calculados
-        costoInsumos, costoTotalActividad,
-        // otros
-        observaciones, capaId, cicloId, productos,
+        nivelAlerta, observaciones, capaId, cicloId,
+        ordenPlantilla, productos,
+        detalleRiego, detalleFumigacion, detalleFertilizacion,
+        detalleCosecha, detalleManoObra, detalleMaquinaria,
       } = req.body;
 
-      const actividad = await new CreateActividad(repo).execute({
+      const actividad = await new CreateActividad(this.repo, this.cicloRepo, this.parcelaRepo).execute({
         parcelaId, tipo, estado, fecha, fechaInicio, fechaFin,
         metodo, insumo, cantidad, unidad,
-        laminaAgua, rendimientoHa, totalSacos, humedad,
-        precioQq, costoCosecha, destino,
-        plagaDetectada, nivelDano, nivelAlerta,
-        capacidadTanque, numTanques,
-        numJornales, pagoJornal, costoManoObra,
-        unidadManoObra, cantidadUnidadMo, precioUnidadMo,
-        numTrabajadores, descripcionUnidadMo,
-        tipoMaquinaria, unidadCobro, cantidadUnidades,
-        costoPorUnidad, costoMaquinaria,
-        numTareas, precioTarea, costoSembradores,
-        costoInsumos, costoTotalActividad,
-        observaciones, capaId, cicloId,
+        nivelAlerta, observaciones, capaId, cicloId,
+        ordenPlantilla, productos,
+        detalleRiego, detalleFumigacion, detalleFertilizacion,
+        detalleCosecha, detalleManoObra, detalleMaquinaria,
         createdBy: usuarioId, updatedBy: usuarioId,
-        productos,
-      } as any);
+      });
 
       logger.info(`POST actividad creada id=${actividad.id} parcela=${parcelaId}`);
       res.status(201).json(actividad);
@@ -91,53 +82,30 @@ export class ActividadController {
   async update(req: Request, res: Response): Promise<void> {
     try {
       const id        = Number(req.params.id);
-      const usuarioId = Number(req.user!.sub);
+      const usuarioId = req.user!.sub;
 
-      const existing = await repo.findById(id);
+      const existing = await this.repo.findById(id);
       if (!existing) { res.status(404).json({ error: 'Actividad no encontrada' }); return; }
-      await verifyParcelaAccess(existing.parcelaId, usuarioId, req.user!.rol);
+      await this.verifyParcelaAccess.execute(existing.parcelaId, buildCtx(req));
 
       const {
         tipo, estado, fecha, fechaInicio, fechaFin,
         metodo, insumo, cantidad, unidad,
-        laminaAgua, rendimientoHa, totalSacos, humedad,
-        precioQq, costoCosecha, destino,
-        plagaDetectada, nivelDano, nivelAlerta,
-        capacidadTanque, numTanques,
-        // mano de obra legacy
-        numJornales, pagoJornal, costoManoObra,
-        // mano de obra nuevo modelo
-        unidadManoObra, cantidadUnidadMo, precioUnidadMo,
-        numTrabajadores, descripcionUnidadMo,
-        // maquinaria
-        tipoMaquinaria, unidadCobro, cantidadUnidades,
-        costoPorUnidad, costoMaquinaria,
-        // sembradores trasplante
-        numTareas, precioTarea, costoSembradores,
-        // costos calculados
-        costoInsumos, costoTotalActividad,
-        // otros
-        observaciones, capaId, productos,
+        nivelAlerta, observaciones, capaId,
+        ordenPlantilla, productos,
+        detalleRiego, detalleFumigacion, detalleFertilizacion,
+        detalleCosecha, detalleManoObra, detalleMaquinaria,
       } = req.body;
 
-      const actividad = await new UpdateActividad(repo).execute(id, {
+      const actividad = await new UpdateActividad(this.repo, this.parcelaRepo).execute(id, {
         tipo, estado, fecha, fechaInicio, fechaFin,
         metodo, insumo, cantidad, unidad,
-        laminaAgua, rendimientoHa, totalSacos, humedad,
-        precioQq, costoCosecha, destino,
-        plagaDetectada, nivelDano, nivelAlerta,
-        capacidadTanque, numTanques,
-        numJornales, pagoJornal, costoManoObra,
-        unidadManoObra, cantidadUnidadMo, precioUnidadMo,
-        numTrabajadores, descripcionUnidadMo,
-        tipoMaquinaria, unidadCobro, cantidadUnidades,
-        costoPorUnidad, costoMaquinaria,
-        numTareas, precioTarea, costoSembradores,
-        costoInsumos, costoTotalActividad,
-        observaciones, capaId,
+        nivelAlerta, observaciones, capaId,
+        ordenPlantilla, productos,
+        detalleRiego, detalleFumigacion, detalleFertilizacion,
+        detalleCosecha, detalleManoObra, detalleMaquinaria,
         updatedBy: usuarioId,
-        productos,
-      } as any);
+      });
 
       logger.info(`PUT actividad ${id} actualizada`);
       res.json(actividad);
@@ -150,14 +118,13 @@ export class ActividadController {
 
   async remove(req: Request, res: Response): Promise<void> {
     try {
-      const id        = Number(req.params.id);
-      const usuarioId = Number(req.user!.sub);
+      const id = Number(req.params.id);
 
-      const existing = await repo.findById(id);
+      const existing = await this.repo.findById(id);
       if (!existing) { res.status(404).json({ error: 'Actividad no encontrada' }); return; }
-      await verifyParcelaAccess(existing.parcelaId, usuarioId, req.user!.rol);
+      await this.verifyParcelaAccess.execute(existing.parcelaId, buildCtx(req));
 
-      const deleted = await new DeleteActividad(repo).execute(id);
+      const deleted = await new DeleteActividad(this.repo).execute(id);
       if (!deleted) { res.status(404).json({ error: 'Actividad no encontrada' }); return; }
       logger.info(`DELETE actividad ${id} eliminada`);
       res.json({ mensaje: 'Actividad eliminada', id });

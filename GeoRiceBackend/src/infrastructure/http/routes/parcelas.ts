@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { ParcelaController } from '../controllers/ParcelaController';
+import { ParcelaRepository } from '../../db/repositories/ParcelaRepository';
 
 const router = Router();
-const controller = new ParcelaController();
+const repo = new ParcelaRepository();
+const controller = new ParcelaController(repo);
 
 router.get('/', (req, res) => controller.getAll(req, res));
 router.post('/', (req, res) => controller.create(req, res));

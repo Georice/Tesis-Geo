@@ -1,75 +1,65 @@
-import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn,
-  ManyToOne, JoinColumn,
-} from 'typeorm';
-import { Zona }    from './Zona';
-import { Usuario } from './Usuario';
+import { EstadoParcela, CicloActualParcela } from '../types/ParcelaTypes';
 
-@Entity('parcelas')
+export interface ParcelaProps {
+  id: number;
+  usuarioId: string;
+  zonaId: number | null;
+  nombre: string;
+  propietario: string | null;
+  cultivo: string;
+  geometria: object;
+  estado: EstadoParcela;
+  cicloActual: CicloActualParcela | null;
+  areaHa: number;
+  areaCuadras: number;
+  fechaCreacion: Date;
+  updatedAt: Date;
+  createdBy: string | null;
+  updatedBy: string | null;
+}
+
+// Entidad de dominio pura: sin decoradores de TypeORM.
+// La persistencia vive en infrastructure/db/models/ParcelaModel.ts.
 export class Parcela {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  readonly id: number;
+  readonly usuarioId: string;
+  readonly zonaId: number | null;
+  readonly nombre: string;
+  readonly propietario: string | null;
+  readonly cultivo: string;
+  readonly geometria: object;
+  readonly estado: EstadoParcela;
+  readonly cicloActual: CicloActualParcela | null;
+  readonly areaHa: number;
+  readonly areaCuadras: number;
+  readonly fechaCreacion: Date;
+  readonly updatedAt: Date;
+  readonly createdBy: string | null;
+  readonly updatedBy: string | null;
 
-  @Column({ name: 'usuario_id' })
-  usuarioId!: number;
+  private constructor(props: ParcelaProps) {
+    this.id            = props.id;
+    this.usuarioId      = props.usuarioId;
+    this.zonaId         = props.zonaId;
+    this.nombre         = props.nombre;
+    this.propietario    = props.propietario;
+    this.cultivo        = props.cultivo;
+    this.geometria      = props.geometria;
+    this.estado         = props.estado;
+    this.cicloActual    = props.cicloActual;
+    this.areaHa         = props.areaHa;
+    this.areaCuadras    = props.areaCuadras;
+    this.fechaCreacion  = props.fechaCreacion;
+    this.updatedAt      = props.updatedAt;
+    this.createdBy      = props.createdBy;
+    this.updatedBy      = props.updatedBy;
+  }
 
-  @ManyToOne(() => Usuario, { nullable: false, eager: false })
-  @JoinColumn({ name: 'usuario_id' })
-  usuario!: Usuario;
-
-  @Column({ name: 'zona_id', nullable: true })
-  zonaId!: number | null;
-
-  @ManyToOne(() => Zona, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'zona_id' })
-  zona!: Zona;
-
-  @Column({ type: 'varchar', length: 100 })
-  nombre!: string;
-
-  // Mantenido por compatibilidad. Se auto-rellena desde usuario.nombres+apellidos.
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  propietario!: string | null;
-
-  @Column({ type: 'varchar', length: 50 })
-  cultivo!: string;
-
-  @Column({
-    type: 'geometry',
-    spatialFeatureType: 'Geometry',
-    srid: 4326,
-    nullable: true,
-  })
-  geometria!: object;
-
-  @Column({ type: 'varchar', length: 20, default: 'activo' })
-  estado!: 'activo' | 'descanso' | 'cosechado' | 'preparacion';
-
-  @Column({
-    name: 'ciclo_actual',
-    type: 'varchar',
-    length: 30,
-    nullable: true,
-    default: 'siembra_normal_boleo',
-  })
-  cicloActual!: 'siembra_normal_boleo' | 'siembra_normal_trasplante' | 'soca' | 'resoca' | 'en_preparacion';
-
-  @Column({ name: 'area_ha', type: 'double precision', nullable: true })
-  areaHa!: number;
-
-  @Column({ name: 'area_cuadras', type: 'double precision', nullable: true })
-  areaCuadras!: number;
-
-  @CreateDateColumn({ name: 'fecha_creacion' })
-  fechaCreacion!: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
-
-  @Column({ name: 'created_by', type: 'int', nullable: true })
-  createdBy!: number | null;
-
-  @Column({ name: 'updated_by', type: 'int', nullable: true })
-  updatedBy!: number | null;
+  // Factory: garantiza las invariantes mínimas de una Parcela válida.
+  static create(props: ParcelaProps): Parcela {
+    if (!props.nombre?.trim())  throw new Error('El nombre de la parcela es obligatorio');
+    if (!props.cultivo?.trim()) throw new Error('El cultivo es obligatorio');
+    if (!props.geometria)       throw new Error('La geometría es obligatoria');
+    return new Parcela(props);
+  }
 }

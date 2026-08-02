@@ -1,11 +1,13 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
+import IconLabel from '../components/IconLabel';
 
 interface Props {
   vertices: number[][];
   nombre: string;
   propietario: string;
   area: string;
+  guardando?: boolean;
   onNombreChange: (v: string) => void;
   onPropietarioChange: (v: string) => void;
   onLimpiar: () => void;
@@ -14,37 +16,41 @@ interface Props {
 }
 
 const NuevaParcelaScreen: React.FC<Props> = ({
-  vertices, nombre, propietario, area,
+  vertices, nombre, propietario, area, guardando,
   onNombreChange, onPropietarioChange,
   onLimpiar, onGuardar, onSyncOffline,
-}) => (
-  <>
-    <Text style={s.titulo}>Nueva parcela</Text>
-    <Text style={s.info}>Vértices: {vertices.length} · Área: {area} ha</Text>
-    <TextInput style={s.input} value={nombre} onChangeText={onNombreChange}
-      placeholder="Nombre *" placeholderTextColor="#aaa" />
-    <TextInput style={s.input} value={propietario} onChangeText={onPropietarioChange}
-      placeholder="Propietario" placeholderTextColor="#aaa" />
-    <View style={s.row}>
-      <TouchableOpacity style={s.btnSec} onPress={onLimpiar}>
-        <Text style={s.btnSecText}>🗑 Limpiar</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={s.btnSec} onPress={onSyncOffline}>
-        <Text style={s.btnSecText}>☁ Sync</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={[s.btn, vertices.length < 3 && { opacity: 0.4 }]}
-        onPress={onGuardar} disabled={vertices.length < 3}>
-        <Text style={s.btnText}>💾 Guardar</Text>
-      </TouchableOpacity>
-    </View>
-  </>
-);
+}) => {
+  const deshabilitado = vertices.length < 3 || !!guardando;
+  return (
+    <>
+      <Text style={s.titulo}>Nueva parcela</Text>
+      <Text style={s.info}>Vértices: {vertices.length} · Área: {area} ha</Text>
+      <TextInput style={s.input} value={nombre} onChangeText={onNombreChange}
+        placeholder="Nombre de la parcela *" placeholderTextColor="#aaa" />
+      <TextInput style={[s.input, s.inputDisabled]} value={propietario} onChangeText={onPropietarioChange}
+        placeholder="Propietario" placeholderTextColor="#aaa" editable={false} />
+      <View style={s.row}>
+        <TouchableOpacity style={s.btnSec} onPress={onLimpiar}>
+          <IconLabel icon="delete" label="Limpiar" textStyle={s.btnSecText} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.btnSec} onPress={onSyncOffline}>
+          <IconLabel icon="cloud-sync-outline" label="Sync" textStyle={s.btnSecText} />
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.btn, deshabilitado && { opacity: 0.4 }]}
+          onPress={onGuardar} disabled={deshabilitado}>
+          <IconLabel icon="content-save" label={guardando ? 'Guardando...' : 'Guardar'} textStyle={s.btnText} />
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+};
 
 const s = StyleSheet.create({
   titulo: { fontSize: 15, fontWeight: '700', marginBottom: 6 },
   info:   { fontSize: 12, color: '#999', marginBottom: 8 },
   input:  { borderWidth: 1, borderColor: '#ccc', borderRadius: 8,
             paddingHorizontal: 12, paddingVertical: 8, marginBottom: 8, fontSize: 15 },
+  inputDisabled: { backgroundColor: '#f2f2f2', color: '#666' },
   row:    { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   btn:    { backgroundColor: '#1a5c2a', borderRadius: 8, paddingVertical: 10,
             paddingHorizontal: 16, flex: 1, alignItems: 'center' },

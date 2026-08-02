@@ -1,4 +1,4 @@
-export type MenuAction = 'inicio' | 'adminUsuarios' | 'logout';
+export type MenuAction = 'inicio' | 'reportes' | 'adminUsuarios' | 'logout';
 
 export interface MenuItem {
   id: string;

@@ -1,4 +1,4 @@
-export type TipoCiclo = 'siembra_boleo' | 'siembra_trasplante' | 'soca' | 'resoca';
+import { TipoCiclo } from '../types/CicloTypes';
 
 export interface ActividadPlantilla {
   tipo: string;

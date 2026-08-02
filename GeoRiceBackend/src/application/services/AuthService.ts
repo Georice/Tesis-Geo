@@ -2,85 +2,100 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
+import { IRefreshTokenRepository } from '../../domain/repositories/IRefreshTokenRepository';
 import { AppDataSource } from '../../infrastructure/db/DataSource';
-import { RefreshToken } from '../../domain/entities/RefreshToken';
 
 export interface JwtPayload {
-  sub:       string;
-  cedula:    string;
-  rol:       'administrador' | 'socio';
-  nombres:   string;
-  apellidos: string;
+  sub:      string;
+  rol:      'administrador' | 'socio';
+  nombre:   string;
+  apellido: string;
 }
 
 export class AuthService {
-  private refreshRepo = AppDataSource.getRepository(RefreshToken);
+  constructor(
+    private readonly userRepo: IUserRepository,
+    private readonly refreshTokenRepo: IRefreshTokenRepository,
+  ) {}
 
-  constructor(private readonly userRepo: IUserRepository) {}
-
-  async login(usuario: string, password: string) {
-    const user = await this.userRepo.findByUsuario(usuario);
+  async login(login: string, password: string) {
+    const user = await this.userRepo.findByEmail(login);
     if (!user) throw new Error('Credenciales incorrectas');
-    if (user.estado !== 'activo') throw new Error('Usuario inactivo. Contacte al administrador.');
+    if (!user.activo) throw new Error('Usuario inactivo. Contacte al administrador.');
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
+    const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new Error('Credenciales incorrectas');
 
+    const rol = await this.resolveRol(user.cedula);
+
     const payload: JwtPayload = {
-      sub:       String(user.id),
-      cedula:    user.cedula,
-      rol:       user.rol as 'administrador' | 'socio',
-      nombres:   user.nombres,
-      apellidos: user.apellidos,
+      sub:      user.id,
+      rol,
+      nombre:   user.nombre,
+      apellido: user.apellido,
     };
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '15m' });
     const { refreshToken, tokenHash, expiresAt } = this.generateRefreshToken();
 
-    await this.refreshRepo.save(
-      this.refreshRepo.create({ usuarioId: user.id, tokenHash, expiresAt })
-    );
+    await this.refreshTokenRepo.create(user.id, tokenHash, expiresAt);
 
     return { accessToken, refreshToken, usuario: payload };
   }
 
   async refresh(rawToken: string) {
     const tokenHash = this.hashToken(rawToken);
-    const record = await this.refreshRepo.findOne({
-      where: { tokenHash, revocado: false },
-      relations: ['usuario'],
-    });
+    const record = await this.refreshTokenRepo.findActivoConUsuario(tokenHash);
 
-    if (!record || record.expiresAt < new Date()) {
+    if (!record || record.token.expirado) {
       throw new Error('Refresh token inválido o expirado');
     }
-    if (record.usuario.estado !== 'activo') {
+    if (!record.usuario.activo) {
       throw new Error('Usuario inactivo');
     }
 
-    await this.refreshRepo.update(record.id, { revocado: true });
+    await this.refreshTokenRepo.revoke(record.token.id);
+
+    const rol = await this.resolveRol(record.usuario.cedula);
 
     const payload: JwtPayload = {
-      sub:       String(record.usuario.id),
-      cedula:    record.usuario.cedula,
-      rol:       record.usuario.rol,
-      nombres:   record.usuario.nombres,
-      apellidos: record.usuario.apellidos,
+      sub:      record.usuario.id,
+      rol,
+      nombre:   record.usuario.nombre,
+      apellido: record.usuario.apellido,
     };
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '15m' });
     const { refreshToken, tokenHash: newHash, expiresAt: newExpires } = this.generateRefreshToken();
 
-    await this.refreshRepo.save(
-      this.refreshRepo.create({ usuarioId: record.usuario.id, tokenHash: newHash, expiresAt: newExpires })
-    );
+    await this.refreshTokenRepo.create(record.usuario.id, newHash, newExpires);
 
     return { accessToken, refreshToken };
   }
 
   async logout(rawToken: string): Promise<void> {
     const tokenHash = this.hashToken(rawToken);
-    await this.refreshRepo.update({ tokenHash }, { revocado: true });
+    await this.refreshTokenRepo.revokeByHash(tokenHash);
+  }
+
+  // Rol efectivo: por defecto 'socio' (solo existe en usuarios). Si la misma
+  // cédula aparece en socios (tabla maestra de MagnaRice) y es PRESIDENTE o
+  // tiene nivelAcceso ADMIN, sube a 'administrador'. Única fuente de verdad
+  // para el rol — la usan tanto login() como refresh() para no repetir la
+  // inconsistencia que había antes (refresh consultaba socios, login no).
+  private async resolveRol(cedula: string): Promise<'administrador' | 'socio'> {
+    const rows = await AppDataSource.query(
+      `SELECT rol, "nivelAcceso" AS "nivelAcceso"
+       FROM public.socios
+       WHERE cedula = $1
+       LIMIT 1`,
+      [cedula],
+    );
+    const socio = rows[0];
+    if (socio && (socio.rol === 'PRESIDENTE' || socio.nivelAcceso === 'ADMIN')) {
+      return 'administrador';
+    }
+    return 'socio';
   }
 
   private generateRefreshToken() {

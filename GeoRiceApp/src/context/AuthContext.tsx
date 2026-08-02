@@ -5,13 +5,13 @@ import {
   BASE_URL, STORAGE_KEYS, clearSession,
   setForceLogoutCallback, apiFetch,
 } from '../infrastructure/repositories/ApiClient';
+import { SyncEngine } from '../infrastructure/sync/SyncEngine';
 
 export interface AuthUser {
-  id:             number;
-  cedula:         string;
-  nombres:        string;
-  apellidos:      string;
-  usuario:        string;
+  id:             string;
+  nombre:         string;
+  apellido:       string;
+  email:          string;
   rol:            'administrador' | 'socio';
   nombreCompleto: string;
 }
@@ -40,7 +40,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Carga inicial desde AsyncStorage
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEYS.USER)
-      .then(raw => { if (raw) setUser(JSON.parse(raw)); })
+      .then(raw => {
+        if (raw) {
+          setUser(JSON.parse(raw));
+          // Sesión ya activa (app reabierta): refresca la caché offline en
+          // segundo plano por si quedó desactualizada o incompleta.
+          // Completa por la misma razón que en login (ver más abajo).
+          SyncEngine.resetAndPull().catch(() => {});
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -75,11 +83,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const login = async (usuario: string, password: string): Promise<void> => {
+  const login = async (email: string, password: string): Promise<void> => {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ usuario, password }),
+      body:    JSON.stringify({ email, password }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -87,18 +95,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     const { accessToken, refreshToken, usuario: payload } = await res.json();
     const fullUser: AuthUser = {
-      id:             Number(payload.sub),
-      cedula:         payload.cedula,
-      nombres:        payload.nombres,
-      apellidos:      payload.apellidos,
-      usuario:        usuario,
+      id:             payload.sub,
+      nombre:         payload.nombre,
+      apellido:       payload.apellido,
+      email,
       rol:            payload.rol,
-      nombreCompleto: `${payload.nombres} ${payload.apellidos}`,
+      nombreCompleto: `${payload.nombre} ${payload.apellido}`,
     };
     await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
     await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
     await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(fullUser));
     setUser(fullUser);
+
+    // Con buena señal en el login, se precarga todo (parcelas, zonas, capas,
+    // actividades, ciclos) para poder trabajar sin conexión en campo. No se
+    // espera (fire-and-forget): el login no debe bloquearse por esto.
+    //
+    // Siempre completa (resetAndPull), no incremental: un pull incremental
+    // solo trae filas modificadas desde el último sync, así que cualquier
+    // corrección de datos en el backend (como el fix de fases) nunca
+    // llegaría a un dispositivo cuya caché ya tenía esas filas guardadas
+    // "sin cambios" desde antes del fix.
+    SyncEngine.resetAndPull().catch(() => {});
   };
 
   const logout = async (): Promise<void> => {

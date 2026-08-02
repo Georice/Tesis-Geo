@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
+import IconLabel from '../components/IconLabel';
 
 interface Props {
   editingData: any;
@@ -22,10 +23,10 @@ const ParcelaEditarScreen: React.FC<Props> = ({ editingData, onChangeData, onCan
       placeholder="Cultivo" placeholderTextColor="#aaa" />
     <View style={s.row}>
       <TouchableOpacity style={s.btnSec} onPress={onCancelar}>
-        <Text style={s.btnSecText}>✕ Cancelar</Text>
+        <IconLabel icon="close" label="Cancelar" textStyle={s.btnSecText} />
       </TouchableOpacity>
       <TouchableOpacity style={s.btn} onPress={onGuardar}>
-        <Text style={s.btnText}>💾 Guardar</Text>
+        <IconLabel icon="content-save" label="Guardar" textStyle={s.btnText} />
       </TouchableOpacity>
     </View>
   </>

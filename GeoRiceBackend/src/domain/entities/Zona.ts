@@ -1,45 +1,41 @@
-import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn,
-  ManyToOne, JoinColumn,
-} from 'typeorm';
-import { Usuario } from './Usuario';
+export interface ZonaProps {
+  id: number;
+  usuarioId: string;
+  nombre: string;
+  descripcion: string | null;
+  geometria: object | null;
+  fechaCreacion: Date;
+  updatedAt: Date;
+  createdBy: string | null;
+  updatedBy: string | null;
+}
 
-@Entity('zonas')
+// Entidad de dominio pura: sin decoradores de TypeORM.
 export class Zona {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  readonly id: number;
+  readonly usuarioId: string;
+  readonly nombre: string;
+  readonly descripcion: string | null;
+  readonly geometria: object | null;
+  readonly fechaCreacion: Date;
+  readonly updatedAt: Date;
+  readonly createdBy: string | null;
+  readonly updatedBy: string | null;
 
-  @Column({ name: 'usuario_id' })
-  usuarioId!: number;
+  private constructor(props: ZonaProps) {
+    this.id            = props.id;
+    this.usuarioId      = props.usuarioId;
+    this.nombre         = props.nombre;
+    this.descripcion    = props.descripcion;
+    this.geometria      = props.geometria;
+    this.fechaCreacion  = props.fechaCreacion;
+    this.updatedAt      = props.updatedAt;
+    this.createdBy      = props.createdBy;
+    this.updatedBy      = props.updatedBy;
+  }
 
-  @ManyToOne(() => Usuario, { nullable: false, eager: false })
-  @JoinColumn({ name: 'usuario_id' })
-  usuario!: Usuario;
-
-  @Column({ type: 'varchar', length: 100 })
-  nombre!: string;
-
-  @Column({ type: 'text', nullable: true })
-  descripcion!: string | null;
-
-  @Column({
-    type: 'geometry',
-    spatialFeatureType: 'Polygon',
-    srid: 4326,
-    nullable: true,
-  })
-  geometria!: object;
-
-  @CreateDateColumn({ name: 'fecha_creacion' })
-  fechaCreacion!: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
-
-  @Column({ name: 'created_by', type: 'int', nullable: true })
-  createdBy!: number | null;
-
-  @Column({ name: 'updated_by', type: 'int', nullable: true })
-  updatedBy!: number | null;
+  static create(props: ZonaProps): Zona {
+    if (!props.nombre?.trim()) throw new Error('El nombre de la zona es obligatorio');
+    return new Zona(props);
+  }
 }

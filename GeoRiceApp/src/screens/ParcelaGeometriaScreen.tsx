@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import IconLabel from '../components/IconLabel';
 
 interface Props {
   editingGeometry: number[][];
@@ -18,14 +19,14 @@ const ParcelaGeometriaScreen: React.FC<Props> = ({
     <Text style={s.info}>Vértices: {editingGeometry.length} · Área: {area} ha</Text>
     <View style={s.row}>
       <TouchableOpacity style={s.btnSec} onPress={onEliminarUltimo}>
-        <Text style={s.btnSecText}>↩ Deshacer</Text>
+        <IconLabel icon="undo" label="Deshacer" textStyle={s.btnSecText} />
       </TouchableOpacity>
       <TouchableOpacity style={s.btnSec} onPress={onCancelar}>
-        <Text style={[s.btnSecText, { color: 'red' }]}>✕ Cancelar</Text>
+        <IconLabel icon="close" label="Cancelar" textStyle={[s.btnSecText, { color: 'red' }]} />
       </TouchableOpacity>
       <TouchableOpacity style={[s.btn, editingGeometry.length < 3 && { opacity: 0.4 }]}
         onPress={onGuardar} disabled={editingGeometry.length < 3}>
-        <Text style={s.btnText}>💾 Guardar</Text>
+        <IconLabel icon="content-save" label="Guardar" textStyle={s.btnText} />
       </TouchableOpacity>
     </View>
   </>

@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { ZonaController } from '../controllers/ZonaController';
+import { ZonaRepository } from '../../db/repositories/ZonaRepository';
 
 const router = Router();
-const controller = new ZonaController();
+const repo = new ZonaRepository();
+const controller = new ZonaController(repo);
 
 router.get('/', (req, res) => controller.getAll(req, res));
 router.post('/', (req, res) => controller.create(req, res));

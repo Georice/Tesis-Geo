@@ -1,53 +1,37 @@
+import { Usuario } from '../entities/Usuario';
+
 export interface CredencialesLogin {
-  id:           number;
-  passwordHash: string;
-  rol:          string;
-  estado:       string;
+  id:           string;
   cedula:       string;
-  nombres:      string;
-  apellidos:    string;
+  password:     string;
+  activo:       boolean;
+  nombre:       string;
+  apellido:     string;
 }
 
-export interface UsuarioPublico {
-  id:            number;
-  cedula:        string;
-  nombres:       string;
-  apellidos:     string;
-  usuario:       string;
-  rol:           'administrador' | 'socio';
-  estado:        'activo' | 'inactivo';
-  fechaRegistro: Date;
+export interface NuevoUsuarioComando {
+  nombre:     string;
+  apellido:   string;
+  cedula:     string;
+  email?:     string;
+  password:   string;
 }
 
-export interface CreateUsuarioDTO {
-  cedula:    string;
-  nombres:   string;
-  apellidos: string;
-  usuario:   string;
-  password:  string;
-  rol:       'administrador' | 'socio';
-}
-
-export interface UpdateUsuarioDTO {
+export interface ActualizarUsuarioComando {
+  nombre?:    string;
+  apellido?:  string;
   cedula?:    string;
-  nombres?:   string;
-  apellidos?: string;
-  usuario?:   string;
+  email?:     string;
   password?:  string;
-  rol?:       'administrador' | 'socio';
-  estado?:    'activo' | 'inactivo';
 }
 
-// Contrato puro. AuthService depende sólo de esta interfaz.
-// LocalUserRepository la implementa en Etapa 1.
-// ExternalUserRepository la implementará en Etapa 2 sin tocar AuthService.
 export interface IUserRepository {
-  findByUsuario(usuario: string): Promise<CredencialesLogin | null>;
-  findById(id: number): Promise<UsuarioPublico | null>;
-  findAll(): Promise<UsuarioPublico[]>;
-  findSoloActivos(): Promise<UsuarioPublico[]>;
-  create(data: CreateUsuarioDTO, createdBy: number): Promise<UsuarioPublico>;
-  update(id: number, data: UpdateUsuarioDTO, updatedBy: number): Promise<UsuarioPublico>;
-  activate(id: number, updatedBy: number): Promise<void>;
-  deactivate(id: number, updatedBy: number): Promise<void>;
+  findByEmail(login: string): Promise<CredencialesLogin | null>;
+  findById(id: string): Promise<Usuario | null>;
+  findAll(): Promise<Usuario[]>;
+  findSoloActivos(): Promise<Usuario[]>;
+  create(data: NuevoUsuarioComando, activo?: boolean): Promise<Usuario>;
+  update(id: string, data: ActualizarUsuarioComando): Promise<Usuario>;
+  activate(id: string): Promise<void>;
+  deactivate(id: string): Promise<void>;
 }
