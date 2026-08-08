@@ -12,12 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //export const BASE_URL = 'https://vacancy-google-explain.ngrok-free.dev/api';
 
 //produccion en nube
-// export const BASE_URL = 'https://georice-backend-production.up.railway.app';
-export const BASE_URL = 'https://tesis-geo-production.up.railway.app/api';
-//export const BASE_URL = 'https://georice-backend-production.up.railway.app/api';
 
-
-//Brando
 // export const BASE_URL = Platform.OS === 'android'
 //   ? 'http://192.168.1.213:3000/api'
 //   : 'http://localhost:3000/api';
@@ -26,6 +21,14 @@ export const BASE_URL = 'https://tesis-geo-production.up.railway.app/api';
 // const PROD_URL = 'https://<tu-backend>.up.railway.app/api';
 
 // export const BASE_URL = __DEV__ ? LOCAL_URL : PROD_URL;
+
+
+
+
+//produccion en nube
+export const BASE_URL = 'https://tesis-geo-production.up.railway.app/api';
+
+
 
 
 export const STORAGE_KEYS = {
