@@ -22,10 +22,33 @@ export const UsuarioRepository = {
       const cached = await AsyncStorage.getItem(STORAGE_KEYS.USUARIOS_CACHE);
       return cached ? JSON.parse(cached) : [];
     }
-    if (!res.ok) throw new Error(`GET /usuarios falló: ${res.status}`);
+    if (!res.ok) {
+      await res.text().catch(() => {});
+      throw new Error(`GET /usuarios falló: ${res.status}`);
+    }
     const data: Usuario[] = await res.json();
     await AsyncStorage.setItem(STORAGE_KEYS.USUARIOS_CACHE, JSON.stringify(data));
     return data;
+  },
+
+  // Auto-registro público (sin sesión): la cuenta queda inactiva hasta que
+  // un administrador la habilite. No devuelve un Usuario completo, solo el
+  // mensaje que se muestra en RegistroScreen.
+  register: async (data: CreateUsuarioDto): Promise<{ mensaje: string }> => {
+    let res: Response;
+    try {
+      res = await apiFetch('/usuarios/registro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      if (!SyncEngine.isNetworkError(err)) throw err;
+      throw new Error('Registrarse requiere conexión a internet. Intenta de nuevo cuando tengas señal.');
+    }
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Error al registrar usuario');
+    return json;
   },
 
   create: async (data: CreateUsuarioDto): Promise<Usuario> => {

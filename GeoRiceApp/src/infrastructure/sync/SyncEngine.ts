@@ -165,7 +165,10 @@ export const SyncEngine = {
     const since = await AsyncStorage.getItem(STORAGE_KEYS.SYNC_TIMESTAMP);
     const query = since ? `?since=${encodeURIComponent(since)}` : '';
     const res   = await apiFetch(`/sync${query}`);
-    if (!res.ok) throw new Error(`GET /sync falló: ${res.status}`);
+    if (!res.ok) {
+      await res.text().catch(() => {});
+      throw new Error(`GET /sync falló: ${res.status}`);
+    }
     const data = await res.json();
 
     const merged = since
@@ -186,6 +189,49 @@ export const SyncEngine = {
   async getCached(): Promise<SyncSnapshot> {
     const raw = await AsyncStorage.getItem(STORAGE_KEYS.SYNC_DATA);
     return raw ? JSON.parse(raw) : EMPTY_SNAPSHOT;
+  },
+
+  // Corrige en el snapshot cacheado un registro puntual justo después de una
+  // mutación ONLINE exitosa que no dispara un pull() completo (p. ej.
+  // finalizar un ciclo). Sin esto, una lectura offline inmediatamente
+  // después (getByParcela cae a getCached() sin red) seguiría mostrando el
+  // estado viejo hasta el próximo login/resetAndPull — p. ej. un ciclo ya
+  // finalizado en el servidor pero que la caché todavía marca "activo".
+  async patchCachedEntity(field: keyof SyncSnapshot, id: number, patch: Record<string, any>): Promise<void> {
+    const cached = await this.getCached();
+    const list = cached[field] as any[];
+    const idx = list.findIndex(item => item.id === id);
+    if (idx === -1) return;
+    list[idx] = { ...list[idx], ...patch };
+    await AsyncStorage.setItem(STORAGE_KEYS.SYNC_DATA, JSON.stringify(cached));
+  },
+
+  // Igual necesidad que patchCachedEntity, pero para creaciones/ediciones
+  // online donde ya se tiene el objeto completo que devolvió el servidor:
+  // lo reemplaza si ya existía (por id) o lo agrega si es nuevo. Llamar
+  // justo después de un create()/update() exitoso evita que una lectura
+  // offline inmediatamente después (getCached()) siga mostrando el estado
+  // de antes de esa mutación hasta el próximo login/resetAndPull.
+  async upsertCachedEntity(field: keyof SyncSnapshot, item: any): Promise<void> {
+    if (item?.id == null) return;
+    const cached = await this.getCached();
+    const list = cached[field] as any[];
+    const idx = list.findIndex(i => i.id === item.id);
+    if (idx === -1) list.push(item); else list[idx] = item;
+    await AsyncStorage.setItem(STORAGE_KEYS.SYNC_DATA, JSON.stringify(cached));
+  },
+
+  // Contraparte de upsertCachedEntity para eliminaciones online exitosas —
+  // sin esto, un registro borrado en el servidor reaparecería en cualquier
+  // lectura offline posterior (cae a esta misma caché) hasta el próximo
+  // pull() completo.
+  async removeCachedEntity(field: keyof SyncSnapshot, id: number): Promise<void> {
+    const cached = await this.getCached();
+    const list = cached[field] as any[];
+    const next = list.filter(i => i.id !== id);
+    if (next.length === list.length) return;
+    (cached as any)[field] = next;
+    await AsyncStorage.setItem(STORAGE_KEYS.SYNC_DATA, JSON.stringify(cached));
   },
 
   // ── Cola de mutaciones pendientes ───────────────────────────────
@@ -211,30 +257,37 @@ export const SyncEngine = {
   // todavía no existe (p. ej. `/parcelas/${dependencyToken(opId)}/actividades`).
   // flushQueue lo sustituye por el id real una vez que esa operación padre
   // se sincroniza.
-  dependencyToken(opId: string): string {
-    return `{{${opId}}}`;
+  //
+  // Cuando la operación padre es "iniciar ciclo", UNA sola operación crea
+  // el ciclo Y hasta 11 actividades de la plantilla — no alcanza con el
+  // opId para identificar a cuál de esas actividades se refiere. En ese
+  // caso se pasa además `ordenPlantilla` para formar una clave compuesta
+  // (`opId:orden`) que sí distingue cada actividad generada (ver
+  // flushQueue, donde se resuelve una entrada por cada una).
+  dependencyToken(opId: string, ordenPlantilla?: number): string {
+    return ordenPlantilla != null ? `{{${opId}:${ordenPlantilla}}}` : `{{${opId}}}`;
   },
 
-  // Sustituye cualquier placeholder `{{opId}}` presente en `path` por el id
-  // real ya resuelto de esa operación padre (si lo hay).
+  // Sustituye cualquier placeholder `{{key}}` presente en `path` por el id
+  // real ya resuelto (key es el opId solo, o `opId:ordenPlantilla`).
   substitutePathTokens(path: string, resolvedIds: Map<string, number>): string {
     let out = path;
-    for (const [opId, realId] of resolvedIds) {
-      out = out.split(this.dependencyToken(opId)).join(String(realId));
+    for (const [key, realId] of resolvedIds) {
+      out = out.split(`{{${key}}}`).join(String(realId));
     }
     return out;
   },
 
   // Igual que arriba pero para un campo del body (p. ej. `cicloId` de una
   // actividad que se engancha a un ciclo todavía sin id real). El
-  // placeholder viaja como STRING dentro del JSON (`"cicloId":"{{opId}}"`);
+  // placeholder viaja como STRING dentro del JSON (`"cicloId":"{{key}}"`);
   // acá se sustituye por el número real sin comillas, para que quede como
   // un id numérico válido en vez de un string.
   substituteBodyTokens(body: unknown, resolvedIds: Map<string, number>): unknown {
     if (body === undefined) return body;
     let json = JSON.stringify(body);
-    for (const [opId, realId] of resolvedIds) {
-      json = json.split(`"${this.dependencyToken(opId)}"`).join(String(realId));
+    for (const [key, realId] of resolvedIds) {
+      json = json.split(`"{{${key}}}"`).join(String(realId));
     }
     return JSON.parse(json);
   },
@@ -283,6 +336,19 @@ export const SyncEngine = {
               // este ciclo) se queda pendiente para siempre.
               const realId = json?.id ?? json?.ciclo?.id;
               if (realId != null) resolvedIds.set(op.id, realId);
+              // Además de la ciclo en sí, "iniciar ciclo" crea de una vez
+              // las actividades de su plantilla. Cada una se resuelve por
+              // separado (clave compuesta `opId:ordenPlantilla`) para que
+              // una edición hecha offline sobre una de esas actividades
+              // (ver ActividadRepository.update) sepa a cuál id real
+              // apuntar una vez sincronizado el ciclo.
+              if (Array.isArray(json?.actividades)) {
+                for (const act of json.actividades) {
+                  if (act?.ordenPlantilla != null && act?.id != null) {
+                    resolvedIds.set(`${op.id}:${act.ordenPlantilla}`, act.id);
+                  }
+                }
+              }
             }
             // El registro local temporal (si lo había) ya cumplió su
             // función: el siguiente pull() trae la versión real del servidor.
@@ -398,5 +464,29 @@ export const SyncEngine = {
     if (next.length !== all.length) {
       await AsyncStorage.setItem(STORAGE_KEYS.LOCAL_RECORDS, JSON.stringify(next));
     }
+  },
+
+  // A diferencia de removeLocalRecordByOpId, borra solo ESE registro por su
+  // tempId — necesario cuando varios registros comparten queuedOpId (las
+  // actividades de una plantilla de ciclo) y se quiere descartar solo uno.
+  async removeLocalRecord(entity: QueuedEntity, tempId: number): Promise<void> {
+    const all = await this.getAllLocalRecords();
+    const next = all.filter(r => !(r.entity === entity && r.tempId === tempId));
+    if (next.length !== all.length) {
+      await AsyncStorage.setItem(STORAGE_KEYS.LOCAL_RECORDS, JSON.stringify(next));
+    }
+  },
+
+  // Aplica una edición hecha offline directamente sobre el registro local
+  // (para que la UI la refleje de inmediato) sin tocar su `queuedOpId` — la
+  // operación PUT real que la sincroniza se encola aparte (ver
+  // ActividadRepository.update).
+  async updateLocalRecord(entity: QueuedEntity, tempId: number, patch: any): Promise<LocalRecord | undefined> {
+    const all = await this.getAllLocalRecords();
+    const record = all.find(r => r.entity === entity && r.tempId === tempId);
+    if (!record) return undefined;
+    record.data = { ...record.data, ...patch };
+    await AsyncStorage.setItem(STORAGE_KEYS.LOCAL_RECORDS, JSON.stringify(all));
+    return record;
   },
 };

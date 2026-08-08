@@ -78,6 +78,23 @@ function synthesizeLocal(tempId: number, parcelaId: number, data: Omit<CreateAct
   } as Actividad;
 }
 
+// Una actividad con id<0 todavía no existe en el servidor: puede venir de
+// `create()` (su propia operación POST sigue en cola) o haber sido generada
+// junto con la plantilla al iniciar un ciclo offline (comparte `queuedOpId`
+// con la operación "iniciar ciclo" — ver CicloRepository.iniciarCicloOffline).
+// Distinguir el caso importa porque en el segundo, una sola operación crea
+// VARIAS actividades a la vez, así que hace falta la clave compuesta
+// `opId:ordenPlantilla` (ver SyncEngine.dependencyToken) para apuntar a la
+// correcta una vez sincronizada; en el primero, el opId de la actividad ya
+// es único.
+async function resolverTokenPendiente(record: { queuedOpId: string; data: any }): Promise<string> {
+  const queue = await SyncEngine.getQueue();
+  const parentOp = queue.find(op => op.id === record.queuedOpId);
+  return parentOp?.entity === 'ciclo'
+    ? SyncEngine.dependencyToken(record.queuedOpId, record.data.ordenPlantilla)
+    : SyncEngine.dependencyToken(record.queuedOpId);
+}
+
 export const ActividadRepository = {
 
   getByParcela: async (parcelaId: number, page?: number, pageSize?: number): Promise<Actividad[]> => {
@@ -92,18 +109,37 @@ export const ActividadRepository = {
     }
 
     const query = page ? `?page=${page}&pageSize=${pageSize ?? 20}` : '';
-    let base: Actividad[];
     try {
       const res = await apiFetch(`/parcelas/${parcelaId}/actividades${query}`);
-      if (!res.ok) throw new Error('Error al obtener actividades');
+      if (!res.ok) {
+        await res.text().catch(() => {});
+        throw new Error('Error al obtener actividades');
+      }
       const json: PaginatedActividades = await res.json();
-      base = json.data ?? [];
+      return [...pendientes, ...(json.data ?? [])];
     } catch (err) {
       if (!SyncEngine.isNetworkError(err)) throw err;
-      const cached = await SyncEngine.getCached();
-      base = cached.actividades.filter((a: any) => (a.parcelaId ?? a.parcela_id) === parcelaId);
     }
-    return [...pendientes, ...base];
+
+    // Offline: replicar la misma regla que aplica el backend (ver
+    // GetActividadesByParcela) — si hay un ciclo activo, se muestran SOLO
+    // sus actividades (las de su plantilla, unas pocas); si no hay ninguno,
+    // el histórico completo. Sin este filtro, `cached.actividades` trae
+    // TODO lo alguna vez sincronizado de esta parcela (incluyendo ciclos ya
+    // finalizados), y se mezclaba con las del ciclo recién iniciado offline
+    // — p. ej. un ciclo "resoca" con 5 actividades de plantilla aparecía
+    // junto con las 11 de un "siembra_boleo" anterior.
+    const cached = await SyncEngine.getCached();
+    const cacheParcela = cached.actividades.filter((a: any) => (a.parcelaId ?? a.parcela_id) === parcelaId);
+
+    const ciclos = await CicloRepository.getByParcela(parcelaId);
+    const cicloActivo = (ciclos as any[]).find(c => c.estado === 'activo');
+    if (!cicloActivo) return [...pendientes, ...cacheParcela];
+
+    return [
+      ...pendientes.filter(a => a.cicloId === cicloActivo.id),
+      ...cacheParcela.filter((a: any) => (a.cicloId ?? a.ciclo_id) === cicloActivo.id),
+    ];
   },
 
   create: async (parcelaId: number, data: CreateActividadDTO): Promise<Actividad> => {
@@ -171,7 +207,23 @@ export const ActividadRepository = {
   },
 
   update: async (parcelaId: number, id: number, data: UpdateActividadDTO): Promise<Actividad> => {
-    if (id < 0) throw new Error('Esta actividad todavía no se sincronizó. Espera a tener conexión.');
+    if (id < 0) {
+      const record = await SyncEngine.findLocalRecord('actividad', id);
+      if (!record) throw new Error('Esta actividad todavía no se sincronizó. Espera a tener conexión.');
+
+      const token = await resolverTokenPendiente(record);
+      await SyncEngine.enqueue({
+        entity: 'actividad', method: 'PUT',
+        path: `/parcelas/${parcelaId}/actividades/${token}`,
+        body: data,
+        label: `Editar actividad (${(record.data as any).tipo ?? 'sin tipo'}) — pendiente de sincronizar`,
+        dependsOnOpIds: [record.queuedOpId],
+      });
+
+      const updated = await SyncEngine.updateLocalRecord('actividad', id, data);
+      return updated!.data as Actividad;
+    }
+
     let res: Response;
     try {
       res = await apiFetch(`/parcelas/${parcelaId}/actividades/${id}`, {
@@ -193,7 +245,32 @@ export const ActividadRepository = {
   },
 
   delete: async (parcelaId: number, id: number): Promise<void> => {
-    if (id < 0) throw new Error('Esta actividad todavía no se sincronizó. Espera a tener conexión.');
+    if (id < 0) {
+      const record = await SyncEngine.findLocalRecord('actividad', id);
+      if (!record) throw new Error('Esta actividad todavía no se sincronizó. Espera a tener conexión.');
+
+      const queue = await SyncEngine.getQueue();
+      const parentOp = queue.find(op => op.id === record.queuedOpId);
+      if (parentOp?.entity === 'actividad' && parentOp.method === 'POST') {
+        // Esta actividad nunca llegó a mandarse: basta con descartar su
+        // propia creación en cola, no hace falta avisarle al servidor.
+        await SyncEngine.discardOperation(record.queuedOpId);
+        return;
+      }
+
+      const token = await resolverTokenPendiente(record);
+      await SyncEngine.enqueue({
+        entity: 'actividad', method: 'DELETE',
+        path: `/parcelas/${parcelaId}/actividades/${token}`,
+        label: `Eliminar actividad (${(record.data as any).tipo ?? 'sin tipo'}) — pendiente de sincronizar`,
+        dependsOnOpIds: [record.queuedOpId],
+      });
+      // Solo se quita ESTE registro local: removeLocalRecordByOpId borraría
+      // también las demás actividades de la plantilla que comparten el
+      // opId del ciclo (si este id venía de ahí).
+      await SyncEngine.removeLocalRecord('actividad', id);
+      return;
+    }
     let res: Response;
     try {
       res = await apiFetch(`/parcelas/${parcelaId}/actividades/${id}`, { method: 'DELETE' });

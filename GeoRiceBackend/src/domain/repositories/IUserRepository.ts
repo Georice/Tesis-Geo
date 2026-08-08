@@ -30,7 +30,7 @@ export interface IUserRepository {
   findById(id: string): Promise<Usuario | null>;
   findAll(): Promise<Usuario[]>;
   findSoloActivos(): Promise<Usuario[]>;
-  create(data: NuevoUsuarioComando): Promise<Usuario>;
+  create(data: NuevoUsuarioComando, activo?: boolean): Promise<Usuario>;
   update(id: string, data: ActualizarUsuarioComando): Promise<Usuario>;
   activate(id: string): Promise<void>;
   deactivate(id: string): Promise<void>;

@@ -15,6 +15,7 @@ import { CreateActividad } from '../application/usecases/actividad/CreateActivid
 import { UpdateActividad } from '../application/usecases/actividad/UpdateActividad';
 import { DeleteActividad } from '../application/usecases/actividad/DeleteActividad';
 import { apiFetch } from '../infrastructure/repositories/ApiClient';
+import { SyncEngine } from '../infrastructure/sync/SyncEngine';
 import Icon from '../components/Icon';
 
 type Nav   = NativeStackNavigationProp<RootStackParamList, 'Actividades'>;
@@ -571,7 +572,17 @@ const ActividadesScreen: React.FC = () => {
       await UpdateActividad(parcelaId, actividadSel.id, buildPayload() as any);
       await cargar(); setVista('lista');
       Alert.alert('Actividad actualizada');
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) {
+      // OfflineQueuedError NO es un error: la edición sí se guardó
+      // (encolada) y se enviará sola al volver la señal — mostrarla bajo
+      // "Error" haría pensar que se perdió el cambio.
+      if (e instanceof SyncEngine.OfflineQueuedError) {
+        await cargar(); setVista('lista');
+        Alert.alert('Sin conexión', e.message);
+        return;
+      }
+      Alert.alert('Error', e.message);
+    }
     finally { setGuardando(false); }
   };
 
@@ -580,7 +591,14 @@ const ActividadesScreen: React.FC = () => {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: async () => {
         try { await DeleteActividad(parcelaId, a.id); await cargar(); }
-        catch (e: any) { Alert.alert('Error', e.message); }
+        catch (e: any) {
+          if (e instanceof SyncEngine.OfflineQueuedError) {
+            await cargar();
+            Alert.alert('Sin conexión', e.message);
+            return;
+          }
+          Alert.alert('Error', e.message);
+        }
       }},
     ]);
   };
@@ -589,7 +607,14 @@ const ActividadesScreen: React.FC = () => {
     try {
       await UpdateActividad(parcelaId, a.id, { estado: nuevoEstado } as any);
       await cargar();
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) {
+      if (e instanceof SyncEngine.OfflineQueuedError) {
+        await cargar();
+        Alert.alert('Sin conexión', e.message);
+        return;
+      }
+      Alert.alert('Error', e.message);
+    }
   };
 
   const renderInput = (label: string, value: string, onChange: (v: string) => void,

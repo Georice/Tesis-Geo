@@ -8,7 +8,10 @@ export const ZonaRepository = {
     let base: Zona[];
     try {
       const res = await apiFetch('/zonas');
-      if (!res.ok) throw new Error(`GET /zonas falló: ${res.status}`);
+      if (!res.ok) {
+        await res.text().catch(() => {});
+        throw new Error(`GET /zonas falló: ${res.status}`);
+      }
       base = await res.json();
     } catch (err) {
       if (!SyncEngine.isNetworkError(err)) throw err;
@@ -51,6 +54,7 @@ export const ZonaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al crear zona');
+    await SyncEngine.upsertCachedEntity('zonas', json);
     return json;
   },
 
@@ -73,6 +77,7 @@ export const ZonaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al actualizar zona');
+    await SyncEngine.upsertCachedEntity('zonas', json);
     return json;
   },
 
@@ -91,5 +96,6 @@ export const ZonaRepository = {
     }
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Error al eliminar zona');
+    await SyncEngine.removeCachedEntity('zonas', id);
   },
 };

@@ -11,7 +11,7 @@ import Icon from '../components/Icon';
 import IconLabel from '../components/IconLabel';
 import Mapbox from '@rnmapbox/maps';
 import turfArea from '@turf/area';
-import { booleanWithin, booleanIntersects, booleanTouches } from '@turf/turf';
+import { booleanWithin, booleanIntersects, booleanTouches, centroid } from '@turf/turf';
 import { type Polygon } from 'geojson';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { SyncEngine, LoggedOperation } from '../infrastructure/sync/SyncEngine';
@@ -109,6 +109,9 @@ const DashboardScreen = () => {
   const cameraRef  = useRef<any>(null);
   const { user, logout } = useAuth();
 
+  // Icono del zoom en parcelas
+  const ZOOM_MOSTRAR_PINES = 10;
+  const [zoomLevel, setZoomLevel]                 = useState(16);
   const [vertices, setVertices]                   = useState<number[][]>([]);
   const [nombre, setNombre]                       = useState('');
   const [guardandoParcela, setGuardandoParcela]   = useState(false);
@@ -354,6 +357,19 @@ const DashboardScreen = () => {
     }).filter(Boolean) as GeoJSON.Feature[],
   }), [parcelas]);
 
+  // Un punto por parcela (centroide de su polígono) para cuando se aleja
+  // el zoom y el polígono real ya no se distingue bien (ver ZOOM_MOSTRAR_PINES).
+  const parcelasCentroidesGeoJSON = useMemo((): GeoJSON.FeatureCollection => ({
+    type: 'FeatureCollection',
+    features: parcelasGeoJSON.features.map(f => {
+      try {
+        const c = centroid(f as any);
+        c.properties = f.properties;
+        return c;
+      } catch { return null; }
+    }).filter(Boolean) as GeoJSON.Feature[],
+  }), [parcelasGeoJSON]);
+
   const zonasGeoJSON = useMemo((): GeoJSON.FeatureCollection => ({
     type: 'FeatureCollection',
     features: zonas.map(z => {
@@ -495,10 +511,18 @@ const DashboardScreen = () => {
         propietario: editingData.propietario?.trim() || undefined,
         cultivo:     editingData.cultivo?.trim()     || undefined,
       });
-      Alert.alert('Datos actualizados');
+      Alert.alert('Datos actualizados', `${editingData.nombre?.trim() || 'La parcela'} se actualizó correctamente.`);
       setEditingData(null); setSelectedParcela(null); fetchParcelas();
     } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'No se pudo actualizar la parcela');
+      // OfflineQueuedError NO es un error real: la edición sí se guardó
+      // (encolada) y se enviará sola al volver la señal — mostrarla como
+      // "Error" confundiría al usuario haciéndole creer que se perdió.
+      if (e instanceof SyncEngine.OfflineQueuedError) {
+        Alert.alert('Sin conexión', e.message);
+        setEditingData(null); setSelectedParcela(null);
+        return;
+      }
+      Alert.alert('Error', e.message || 'No se pudo actualizar la parcela');
     }
   };
 
@@ -519,15 +543,23 @@ const DashboardScreen = () => {
     const geometria = { type: 'Polygon', coordinates: [[...editingGeometry, editingGeometry[0]]] };
     try {
       const data = await UpdateParcelaGeometry(parcelaEditandoId, geometria);
-      const area = (data as any).area_ha ?? '';
-      Alert.alert('Geometría actualizada', area ? `Área: ${area} ha` : '');
+      // El backend devuelve la Parcela con sus campos en camelCase
+      // (areaHa) — leer area_ha aquí siempre daba undefined y el mensaje
+      // salía sin cuerpo ("Geometría actualizada" en blanco).
+      const area = (data as any).areaHa;
+      Alert.alert('Geometría actualizada', area != null ? `Área: ${Number(area).toFixed(2)} ha` : 'Los vértices se guardaron correctamente.');
       setEditingGeometry([]); setParcelaEditandoId(null); setSelectedParcela(null);
       fetchParcelas();
     } catch (e: any) {
+      if (e instanceof SyncEngine.OfflineQueuedError) {
+        Alert.alert('Sin conexión', e.message);
+        setEditingGeometry([]); setParcelaEditandoId(null); setSelectedParcela(null);
+        return;
+      }
       const msg = e.message ?? '';
       if (msg.includes('zona')) Alert.alert('Fuera de zona', 'La parcela debe estar dentro de una zona.');
       else if (msg.includes('superpone')) Alert.alert('Solapamiento', 'Se superpone con otra parcela.');
-      else Alert.alert('Error de conexión');
+      else Alert.alert('Error', msg || 'No se pudo actualizar la geometría.');
     }
   };
 
@@ -535,8 +567,20 @@ const DashboardScreen = () => {
     Alert.alert('Confirmar eliminación', '¿Estás seguro?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: async () => {
-        try { await DeleteParcela(id); Alert.alert('Parcela eliminada'); clearAll(); fetchParcelas(); }
-        catch { Alert.alert('Error de conexión'); }
+        try {
+          await DeleteParcela(id);
+          Alert.alert('Parcela eliminada', 'La parcela se eliminó correctamente.');
+          clearAll(); fetchParcelas();
+        } catch (e: any) {
+          // Si se encoló offline, la parcela YA se marcó para borrarse al
+          // volver la señal — no es un error, aunque siga apareciendo en
+          // la lista hasta que se sincronice.
+          if (e instanceof SyncEngine.OfflineQueuedError) {
+            Alert.alert('Sin conexión', e.message);
+            return;
+          }
+          Alert.alert('Error', e.message || 'No se pudo eliminar la parcela.');
+        }
       }},
     ]);
   };
@@ -586,18 +630,27 @@ const DashboardScreen = () => {
     if (verticesCapa.length < 3) { Alert.alert('Error', 'Necesitas al menos 3 vértices.'); return; }
     const parcelaId = parcelaParaCapa?.p_id ?? parcelaParaCapa?.id;
     const geometria = { type: 'Polygon', coordinates: [[...verticesCapa, verticesCapa[0]]] };
+    const nombreTipoCapa = tipoCapa === 'activo' ? 'Área activa' : tipoCapa === 'descanso' ? 'Descanso' : 'Lindero';
     try {
       if (editandoCapaId) {
         await UpdateCapa(editandoCapaId, parcelaId, { tipo: tipoCapa, geometria });
-        Alert.alert('Capa actualizada');
+        Alert.alert('Capa actualizada', `${nombreTipoCapa} se actualizó correctamente.`);
       } else {
         await CreateCapa(parcelaId, { tipo: tipoCapa, geometria });
-        Alert.alert('Capa guardada');
+        Alert.alert('Capa guardada', `${nombreTipoCapa} se agregó a la parcela.`);
       }
       setDibujandoCapa(false); setVerticesCapa([]); setParcelaParaCapa(null);
       setEditandoCapaId(null); setSelectedParcela(null);
       fetchCapas(parcelaId);
-    } catch (e: any) { Alert.alert('Error', e.message ?? 'La capa debe estar dentro de la parcela'); }
+    } catch (e: any) {
+      if (e instanceof SyncEngine.OfflineQueuedError) {
+        Alert.alert('Sin conexión', e.message);
+        setDibujandoCapa(false); setVerticesCapa([]); setParcelaParaCapa(null);
+        setEditandoCapaId(null); setSelectedParcela(null);
+        return;
+      }
+      Alert.alert('Error', e.message || 'La capa debe estar dentro de la parcela.');
+    }
   };
 
   const activarDibujoZona = () => { clearAll(); setDibujandoZona(true); };
@@ -657,7 +710,14 @@ const DashboardScreen = () => {
       Alert.alert('Zona actualizada', `${(result as any).parcelasAsignadas ?? 0} parcelas asignadas`);
       setEditandoZonaId(null); setEditandoZonaNombre(''); setVerticesZonaEdit([]);
       fetchZonas(); fetchParcelas();
-    } catch (e: any) { Alert.alert('Error', e.message ?? 'Error al actualizar zona'); }
+    } catch (e: any) {
+      if (e instanceof SyncEngine.OfflineQueuedError) {
+        Alert.alert('Sin conexión', e.message);
+        setEditandoZonaId(null); setEditandoZonaNombre(''); setVerticesZonaEdit([]);
+        return;
+      }
+      Alert.alert('Error', e.message || 'Error al actualizar zona');
+    }
   };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -676,6 +736,12 @@ const DashboardScreen = () => {
           styleURL={Mapbox.StyleURL.SatelliteStreet}
           localizeLabels={{ locale: 'es' }}
           onPress={handleMapPress}
+          onCameraChanged={(state) => {
+            const raw = state?.properties?.zoom;
+            if (typeof raw !== 'number' || Number.isNaN(raw)) return;
+            const z = Math.floor(raw);
+            setZoomLevel(prev => (prev === z ? prev : z));
+          }}
           // @ts-ignore
           maxZoomLevel={18}>
 
@@ -703,7 +769,7 @@ const DashboardScreen = () => {
                 const nc = e.geometry.coordinates;
                 setEditingGeometry(curr => { const u = [...curr]; u[i] = nc; return u; });
               }}>
-              <View style={styles.editMarker}><Text style={styles.markerText}>{i + 1}</Text></View>
+              <View style={styles.editMarker}><Text style={styles.editMarkerText}>{i + 1}</Text></View>
             </Mapbox.PointAnnotation>
           ))}
 
@@ -721,7 +787,7 @@ const DashboardScreen = () => {
                 setVerticesZonaEdit(curr => { const u = [...curr]; u[i] = nc; return u; });
               }}>
               <View style={[styles.editMarker, { backgroundColor: '#FF9500' }]}>
-                <Text style={styles.markerText}>{i + 1}</Text>
+                <Text style={styles.editMarkerText}>{i + 1}</Text>
               </View>
             </Mapbox.PointAnnotation>
           ))}
@@ -789,7 +855,7 @@ const DashboardScreen = () => {
             </Mapbox.ShapeSource>
           )}
 
-          {parcelas.length > 0 && !editingGeometry.length && (
+          {parcelas.length > 0 && !editingGeometry.length && zoomLevel >= ZOOM_MOSTRAR_PINES && (
             <Mapbox.ShapeSource
               id="parcelasGuardadas"
               shape={parcelasGeoJSON}
@@ -817,6 +883,31 @@ const DashboardScreen = () => {
               <Mapbox.LineLayer id="parcelasOutline" style={{ lineColor: 'blue', lineWidth: 2 }} />
             </Mapbox.ShapeSource>
           )}
+
+          {/* Alejado el zoom, el polígono ya no se distingue bien — se
+              muestra un pin de ubicación en su centroide en su lugar (ver
+              ZOOM_MOSTRAR_PINES). Solo selecciona la parcela si no hay
+              otro modo de dibujo/edición activo, igual que el ShapeSource
+              de arriba. */}
+          {parcelas.length > 0 && !editingGeometry.length && zoomLevel < ZOOM_MOSTRAR_PINES &&
+            parcelasCentroidesGeoJSON.features.map((f, i) => (
+              <Mapbox.PointAnnotation
+                key={`parcela-pin-${f.properties?.id ?? i}`}
+                id={`parcela-pin-${f.properties?.id ?? i}`}
+                coordinate={(f.geometry as GeoJSON.Point).coordinates}
+                onSelected={() => {
+                  if (dibujandoCapa || dibujandoZona || editandoZonaId !== null || parcelaEditandoId !== null) return;
+                  const parcelaCompleta = parcelas.find(p => p.p_id === f.properties?.id);
+                  if (!parcelaCompleta) return;
+                  const p = { ...parcelaCompleta, actividades: [] };
+                  parcelaRef.current = p;
+                  setMenuParcela(p);
+                }}>
+                <View style={styles.parcelaPin}>
+                  <Icon name="map-marker" size={28} color="#1a5c2a" />
+                </View>
+              </Mapbox.PointAnnotation>
+            ))}
         </Mapbox.MapView>
 
         <TouchableOpacity style={styles.btnUbicacion}
@@ -1174,9 +1265,24 @@ const styles = StyleSheet.create({
   syncRowError:      { fontSize: 11, color: '#b91c1c', marginTop: 3, fontWeight: '500' },
   marker:       { width: 24, height: 24, borderRadius: 12, backgroundColor: 'red',
                   justifyContent: 'center', alignItems: 'center' },
-  editMarker:   { width: 24, height: 24, borderRadius: 12, backgroundColor: 'orange',
-                  justifyContent: 'center', alignItems: 'center' },
+  // Más grande que `marker`: este es el que se arrastra para editar un
+  // vértice ya existente, así que necesita más área de toque (el hit-area
+  // de Mapbox.PointAnnotation es justo el tamaño de esta vista) para que
+  // sea fácil agarrarlo con el dedo sin fallar el toque.
+  editMarker:   { width: 36, height: 36, borderRadius: 18, backgroundColor: 'orange',
+                  justifyContent: 'center', alignItems: 'center',
+                  borderWidth: 2, borderColor: '#fff',
+                  shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.3, shadowRadius: 2, elevation: 3 },
   markerText:   { color: 'white', fontWeight: 'bold', fontSize: 12 },
+  editMarkerText: { color: 'white', fontWeight: 'bold', fontSize: 13 },
+  // Pin que reemplaza al polígono de una parcela cuando el zoom está muy
+  // alejado (ver ZOOM_MOSTRAR_PINES) — mismo ícono que el botón de
+  // "centrar ubicación", con un fondo blanco para que resalte sobre el
+  // satélite.
+  parcelaPin:   { backgroundColor: '#fff', borderRadius: 16, padding: 3,
+                  shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.3, shadowRadius: 2, elevation: 3 },
   bottomStack:  { position: 'absolute', bottom: 10, left: 10, right: 10 },
   panel:        { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12, padding: 15, marginBottom: 8 },
   infoCard:     { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12, padding: 12, marginBottom: 8 },

@@ -59,12 +59,23 @@ export class ReporteController {
       const ctx     = buildCtx(req);
       const resumen = await new GetResumenReporte(repo).execute(ctx, parseFiltros(req));
 
+      // Se arma el PDF completo en memoria (en vez de doc.pipe(res)) para
+      // poder mandar Content-Length. Sin Content-Length, la respuesta va
+      // con Transfer-Encoding: chunked, y eso causa "Download interrupted"
+      // en react-native-blob-util al descargar a través del túnel de ngrok
+      // (el cliente no puede verificar que la descarga terminó completa).
+      const doc     = buildPdfReport(resumen);
+      const buffer  = await new Promise<Buffer>((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
+        doc.end();
+      });
+
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="reporte_georice_${resumen.filtros.fechaInicio}_${resumen.filtros.fechaFin}.pdf"`);
-
-      const doc = buildPdfReport(resumen);
-      doc.pipe(res);
-      doc.end();
+      res.send(buffer);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al generar el PDF';
       logger.error('Error al exportar reporte a PDF:', message);

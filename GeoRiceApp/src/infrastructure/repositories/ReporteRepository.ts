@@ -24,7 +24,10 @@ export const ReporteRepository = {
       if (!SyncEngine.isNetworkError(err)) throw err;
       throw new Error('Los reportes requieren conexión a internet. Intenta de nuevo cuando tengas señal.');
     }
-    if (!res.ok) throw new Error(`GET /reportes/resumen falló: ${res.status}`);
+    if (!res.ok) {
+      await res.text().catch(() => {});
+      throw new Error(`GET /reportes/resumen falló: ${res.status}`);
+    }
     return res.json();
   },
 };

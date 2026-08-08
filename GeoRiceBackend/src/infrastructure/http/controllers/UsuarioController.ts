@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { CreateUsuario } from '../../../application/usecases/usuarios/CreateUsuario';
+import { RegistrarUsuario } from '../../../application/usecases/usuarios/RegistrarUsuario';
 import { UpdateUsuario } from '../../../application/usecases/usuarios/UpdateUsuario';
 import { GetUsuarios } from '../../../application/usecases/usuarios/GetUsuarios';
 import { ActivateUsuario } from '../../../application/usecases/usuarios/ActivateUsuario';
@@ -28,6 +29,23 @@ export class UsuarioController {
       if (err.code === '23505' || err.message?.includes('duplicate')) {
         res.status(409).json({ error: 'La cédula o email ya existe' });
       } else {
+        logger.error('Error al crear usuario:', err);
+        res.status(400).json({ error: err.message });
+      }
+    }
+  }
+
+  async register(req: Request, res: Response): Promise<void> {
+    try {
+      await new RegistrarUsuario(this.repo).execute(req.body);
+      res.status(201).json({
+        mensaje: 'Cuenta creada correctamente. Solicite al administrador habilitar su usuario.',
+      });
+    } catch (err: any) {
+      if (err.code === '23505' || err.message?.includes('duplicate')) {
+        res.status(409).json({ error: 'La cédula o email ya existe' });
+      } else {
+        logger.error('Error al registrar usuario:', err);
         res.status(400).json({ error: err.message });
       }
     }
@@ -53,7 +71,8 @@ export class UsuarioController {
       await new ActivateUsuario(this.repo).execute(id);
       res.json({ mensaje: 'Usuario activado' });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      logger.error('Error al activar usuario:', err);
+      res.status(500).json({ error: 'No se pudo activar el usuario' });
     }
   }
 
@@ -64,7 +83,12 @@ export class UsuarioController {
       await new DeactivateUsuario(this.repo).execute(id, solicitanteId);
       res.json({ mensaje: 'Usuario desactivado' });
     } catch (err: any) {
-      res.status(err.message?.includes('propia cuenta') ? 400 : 500).json({ error: err.message });
+      if (err.message?.includes('propia cuenta')) {
+        res.status(400).json({ error: err.message });
+      } else {
+        logger.error('Error al desactivar usuario:', err);
+        res.status(500).json({ error: 'No se pudo desactivar el usuario' });
+      }
     }
   }
 }

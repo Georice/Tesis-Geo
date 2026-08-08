@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-//import { Platform }  from 'react-native';
+//import { Platform } from 'react-native';
 
 
-// Parrales — IP local, útil si el túnel ngrok no está activo.
-// export const BASE_URL = Platform.OS === 'android'
+// En desarrollo (Metro/dev build) usa la IP local; en un build de producción
+// (__DEV__ === false) usa siempre el backend público. Reemplazar PROD_URL
+// por la URL real una vez desplegado el backend (ver Railway).
+// const LOCAL_URL = Platform.OS === 'android'
 //   ? 'http://192.168.100.6:3000/api'
 //   : 'http://localhost:3000/api';
 
@@ -12,11 +14,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //produccion en nube
 // export const BASE_URL = 'https://georice-backend-production.up.railway.app';
 export const BASE_URL = 'https://tesis-geo-production.up.railway.app/api';
+//export const BASE_URL = 'https://georice-backend-production.up.railway.app/api';
+
 
 //Brando
 // export const BASE_URL = Platform.OS === 'android'
 //   ? 'http://192.168.1.213:3000/api'
 //   : 'http://localhost:3000/api';
+
+//prox
+// const PROD_URL = 'https://<tu-backend>.up.railway.app/api';
+
+// export const BASE_URL = __DEV__ ? LOCAL_URL : PROD_URL;
 
 
 export const STORAGE_KEYS = {
@@ -133,6 +142,13 @@ async function request(path: string, options: RequestInit = {}): Promise<Respons
   let res = await makeReq(token);
 
   if (res.status === 401) {
+    // Hay que drenar el body de esta respuesta antes de descartarla: si no
+    // se lee, OkHttp deja la conexión "leaked" (nunca la devuelve al pool).
+    // Con el refresh de token pasando esto en cada expiración de sesión
+    // (cada 15 min de uso normal), las conexiones filtradas se acumulan y
+    // terminan agotando el pool hacia el host — eso rompía después la
+    // descarga de reportes (RNBlobUtil no conseguía conexión disponible).
+    await res.text().catch(() => {});
     token = await tryRefresh();
     if (!token) throw new Error('SESSION_EXPIRED');
     res = await makeReq(token);
@@ -145,7 +161,10 @@ export const apiFetch = request;
 
 export async function apiGet<T = any>(path: string): Promise<T> {
   const res = await request(path);
-  if (!res.ok) throw new Error(`GET ${path} falló: ${res.status}`);
+  if (!res.ok) {
+    await res.text().catch(() => {});
+    throw new Error(`GET ${path} falló: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -169,5 +188,6 @@ export async function apiPut<T = any>(path: string, body: unknown): Promise<T> {
 
 export async function apiDelete(path: string): Promise<void> {
   const res = await request(path, { method: 'DELETE' });
+  await res.text().catch(() => {});
   if (!res.ok) throw new Error(`DELETE ${path} falló: ${res.status}`);
 }

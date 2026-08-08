@@ -10,31 +10,27 @@ import {
 } from '../../../domain/repositories/IUserRepository';
 import { UsuarioMapper } from '../mappers/UsuarioMapper';
 
-// ── Credenciales para login (busca por cédula o email) ────────────────────
 const SELECT_CRED = `
   SELECT
-    u.id                                                     AS id,
-    u.cedula                                                 AS cedula,
-    u.password                                               AS "password",
-    u.activo                                                 AS activo,
-    u.nombre                                                 AS nombre,
+    u.id                                                      AS id,
+    u.cedula                                                  AS cedula,
+    u.password                                                AS "password",
+    u.activo                                                  AS activo,
+    u.nombre                                                  AS nombre,
     u.apellido                                                AS apellido
   FROM public.usuarios u
 `;
 
-// ── Datos públicos del usuario, con rol efectivo resuelto vía socios ──────
-// Mismo criterio que AuthService.resolveRol(): PRESIDENTE o nivelAcceso
-// ADMIN en socios (match por cédula) → administrador, si no, socio.
 const SELECT_PUB = `
   SELECT
-    u.id                                                     AS id,
-    u.nombre                                                 AS nombre,
+    u.id                                                      AS id,
+    u.nombre                                                  AS nombre,
     u.apellido                                                AS apellido,
-    u.cedula                                                 AS cedula,
-    u.email                                                  AS email,
-    u.activo                                                 AS activo,
-    u."createdAt"                                            AS "createdAt",
-    u."updatedAt"                                            AS "updatedAt",
+    u.cedula                                                  AS cedula,
+    u.email                                                   AS email,
+    u.activo                                                  AS activo,
+    u."createdAt"                                             AS "createdAt",
+    u."updatedAt"                                             AS "updatedAt",
     CASE
       WHEN s.rol = 'PRESIDENTE' OR s."nivelAcceso" = 'ADMIN' THEN 'administrador'
       ELSE 'socio'
@@ -45,7 +41,6 @@ const SELECT_PUB = `
 
 export class LocalUserRepository implements IUserRepository {
 
-  // Login con cédula o email
   async findByEmail(login: string): Promise<CredencialesLogin | null> {
     const rows = await AppDataSource.query(
       `${SELECT_CRED} WHERE u.cedula = $1 OR u.email = $1 LIMIT 1`,
@@ -76,23 +71,24 @@ export class LocalUserRepository implements IUserRepository {
     return rows.map(UsuarioMapper.fromRow);
   }
 
-  async create(data: NuevoUsuarioComando): Promise<Usuario> {
+  async create(data: NuevoUsuarioComando, activo: boolean = true): Promise<Usuario> {
     const hash = await bcrypt.hash(data.password, 12);
-    const id = crypto.randomUUID();
-    await AppDataSource.query(
+    const rows = await AppDataSource.query(
       `INSERT INTO public.usuarios
         (id, cedula, nombre, apellido, email, password, activo, "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), NOW())`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+       RETURNING id`,
       [
-        id,
+        crypto.randomUUID(),
         data.cedula,
         data.nombre,
         data.apellido,
         data.email ?? null,
         hash,
+        activo,
       ],
     );
-    return (await this.findById(id))!;
+    return (await this.findById(rows[0].id))!;
   }
 
   async update(id: string, data: ActualizarUsuarioComando): Promise<Usuario> {

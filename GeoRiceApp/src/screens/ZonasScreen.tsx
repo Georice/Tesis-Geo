@@ -14,6 +14,7 @@ import { GetZonas } from '../application/usecases/zona/GetZonas';
 import { UpdateZona } from '../application/usecases/zona/UpdateZona';
 import { DeleteZona } from '../application/usecases/zona/DeleteZona';
 import { GetParcelas } from '../application/usecases/parcela/GetParcelas';
+import { SyncEngine } from '../infrastructure/sync/SyncEngine';
 import Icon from '../components/Icon';
 import IconLabel from '../components/IconLabel';
 //import { UpdateParcela } from '../application/usecases/parcela/UpdateParcela';
@@ -71,7 +72,16 @@ const ZonasScreen: React.FC = () => {
       });
       await cargar(); setVista('lista');
       Alert.alert('Zona actualizada');
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) {
+      // OfflineQueuedError NO es un error real: el cambio sí se guardó
+      // (encolado) y se enviará solo al volver la señal.
+      if (e instanceof SyncEngine.OfflineQueuedError) {
+        await cargar(); setVista('lista');
+        Alert.alert('Sin conexión', e.message);
+        return;
+      }
+      Alert.alert('Error', e.message);
+    }
     finally { setGuardando(false); }
   };
 
@@ -83,7 +93,14 @@ const ZonasScreen: React.FC = () => {
           await DeleteZona(zonaId(zona));
           await cargar(); setVista('lista');
           Alert.alert('Zona eliminada');
-        } catch (e: any) { Alert.alert('Error', e.message); }
+        } catch (e: any) {
+          if (e instanceof SyncEngine.OfflineQueuedError) {
+            await cargar(); setVista('lista');
+            Alert.alert('Sin conexión', e.message);
+            return;
+          }
+          Alert.alert('Error', e.message);
+        }
       }},
     ]);
   };
