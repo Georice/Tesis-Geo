@@ -12,7 +12,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //export const BASE_URL = 'https://vacancy-google-explain.ngrok-free.dev/api';
 
 //produccion en nube
-export const BASE_URL = 'https://georice-backend-production.up.railway.app/api';
+// export const BASE_URL = 'https://georice-backend-production.up.railway.app';
+export const BASE_URL = 'https://tesis-geo-production.up.railway.app/api';
+//export const BASE_URL = 'https://georice-backend-production.up.railway.app/api';
 
 
 //Brando

@@ -112,7 +112,6 @@ const ReportesScreen: React.FC = () => {
   };
 
   const descargar = async (tipo: 'pdf' | 'excel') => {
-    console.log('[descargar] INICIO', tipo);
     try {
       setExportando(tipo);
       const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
@@ -121,8 +120,6 @@ const ReportesScreen: React.FC = () => {
       const params = new URLSearchParams({
         fechaInicio: fmt(fechaInicio),
         fechaFin:    fmt(fechaFin),
-        token,
-        'ngrok-skip-browser-warning': 'true',
       });
       if (esAdmin && socioId) params.set('usuarioId', socioId);
 
@@ -132,33 +129,30 @@ const ReportesScreen: React.FC = () => {
         ? 'application/pdf'
         : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       const dest = `${RNBlobUtil.fs.dirs.CacheDir}/reporte_${fmt(fechaInicio)}_${fmt(fechaFin)}.${ext}`;
-      console.log('[descargar] url=', url, 'dest=', dest);
 
-      // No se puede usar Linking.openURL aquí: al abrir la URL en el
-      // navegador del sistema, ngrok (plan free) detecta el User-Agent de
-      // navegador y devuelve su página de aviso HTML en vez de reenviar la
-      // petición al backend — el header ngrok-skip-browser-warning solo
-      // sirve si viaja en la petición saliente, algo que Linking.openURL no
-      // permite. Por eso se descarga con fetch (sí acepta headers) y se
-      // abre el archivo ya guardado con el visor nativo del dispositivo.
-      const res = await RNBlobUtil.config({ path: dest }).fetch('GET', url, {
-        Authorization: `Bearer ${token}`,
-        'ngrok-skip-browser-warning': 'true',
-      });
-      console.log('[descargar] fetch resuelto, info=', JSON.stringify(res.info()));
-
-      const status = res.info().status;
-      if (status !== 200) throw new Error(`No se pudo descargar el reporte (HTTP ${status})`);
+      // El fetch() nativo de RNBlobUtil (vía OkHttp) exige que los bytes
+      // recibidos coincidan EXACTO con el Content-Length declarado
+      // (ReactNativeBlobUtilFileResp.isDownloadComplete) — con el Excel
+      // (~9KB) eso fallaba de forma consistente con "Download interrupted",
+      // aunque el mismo archivo se descargaba bien desde Chrome y por curl
+      // (confirmado que no es un problema de red/servidor). Se evita usando
+      // fetch() normal, que ya es confiable en el resto de la app, para
+      // bajar los bytes; RNBlobUtil solo se usa para escribirlos a disco y
+      // abrir el archivo con el visor nativo.
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        await res.text().catch(() => {});
+        throw new Error(`No se pudo descargar el reporte (HTTP ${res.status})`);
+      }
+      const buffer = await res.arrayBuffer();
+      await RNBlobUtil.fs.writeFile(dest, Array.from(new Uint8Array(buffer)), 'ascii');
 
       if (Platform.OS === 'android') {
-        console.log('[descargar] abriendo con actionViewIntent, mime=', mime);
         await RNBlobUtil.android.actionViewIntent(dest, mime);
-        console.log('[descargar] actionViewIntent OK');
       } else {
         await RNBlobUtil.ios.previewDocument(dest);
       }
     } catch (e: any) {
-      console.log('[descargar] ERROR', tipo, e && e.message, JSON.stringify(e));
       Alert.alert('Error', e.message ?? 'No se pudo descargar el reporte');
     } finally {
       setExportando(null);
