@@ -75,27 +75,49 @@ export class CreateActividad {
       data.productos = data.productos.map((p: ProductoComando) => {
         const prod = { ...p };
 
-        if (data.detalleFumigacion?.numTanques && prod.dosisPorTanque) {
+        if (prod.dosis && (prod.tipo === 'fertilizante' || prod.tipo === 'abono')) {
+          // Sacos propios de este producto — cuando una fertilización mezcla
+          // varios productos (ej. Urea + Mezcla) bajo el mismo total de
+          // sacos de mano de obra, cada uno debe pesar su propia cantidad,
+          // no el total compartido.
+          prod.dosisTotal = Number(prod.dosis);
+        } else if (data.detalleFumigacion?.numTanques && prod.dosisPorTanque) {
           prod.dosisTotal = (Number(prod.dosisPorTanque) / 1000) * Number(data.detalleFumigacion.numTanques);
         } else if (prod.dosisPorUnidadMo && data.detalleManoObra?.cantidadUnidadMo) {
           prod.dosisTotal = Number(prod.dosisPorUnidadMo) * Number(data.detalleManoObra.cantidadUnidadMo);
+        } else if (data.detalleManoObra?.cantidadUnidadMo && (prod.tipo === 'fertilizante' || prod.tipo === 'abono')) {
+          prod.dosisTotal = Number(data.detalleManoObra.cantidadUnidadMo);
         }
 
-        if (prod.presentacionMl && prod.precioPresentacion) {
-          prod.precioUnitario = Number(
-            (Number(prod.precioPresentacion) / (Number(prod.presentacionMl) / 1000)).toFixed(4)
-          );
-          if (prod.dosisTotal) {
-            prod.frascoUsados = Number(
-              (Number(prod.dosisTotal) / (Number(prod.presentacionMl) / 1000)).toFixed(4)
+        // Fertilizantes/abonos se cobran por saco (precio directo, sin
+        // dividir por presentación) — igual que fn_recalcular_costo_producto
+        // en la base de datos. Todo lo demás (líquidos: fumigación, etc.)
+        // se cobra por presentación (ml/L).
+        if (prod.tipo === 'fertilizante' || prod.tipo === 'abono') {
+          if (prod.dosisTotal && prod.precioPresentacion) {
+            prod.precioUnitario = Number(prod.precioPresentacion);
+            prod.frascoUsados   = Number(prod.dosisTotal);
+            prod.costoTotal     = Number(
+              (Number(prod.dosisTotal) * Number(prod.precioPresentacion)).toFixed(2)
             );
           }
-        }
+        } else {
+          if (prod.presentacionMl && prod.precioPresentacion) {
+            prod.precioUnitario = Number(
+              (Number(prod.precioPresentacion) / (Number(prod.presentacionMl) / 1000)).toFixed(4)
+            );
+            if (prod.dosisTotal) {
+              prod.frascoUsados = Number(
+                (Number(prod.dosisTotal) / (Number(prod.presentacionMl) / 1000)).toFixed(4)
+              );
+            }
+          }
 
-        if (prod.dosisTotal && prod.precioUnitario) {
-          prod.costoTotal = Number(
-            (Number(prod.dosisTotal) * Number(prod.precioUnitario)).toFixed(2)
-          );
+          if (prod.dosisTotal && prod.precioUnitario) {
+            prod.costoTotal = Number(
+              (Number(prod.dosisTotal) * Number(prod.precioUnitario)).toFixed(2)
+            );
+          }
         }
 
         return prod;

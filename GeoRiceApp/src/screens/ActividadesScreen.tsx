@@ -412,7 +412,8 @@ const ActividadesScreen: React.FC = () => {
       const cant = p.dosisPorTanque ? (Number(p.dosisPorTanque) / 1000) * Number(numTanques || 0) : 0;
       return sum + (cant * precioUnit);
     }
-    return sum + Number(p.precioPresentacion) * Number(cantidadUnidadMo || 0);
+    const sacosProducto = p.dosis ? Number(p.dosis) : Number(cantidadUnidadMo || 0);
+    return sum + Number(p.precioPresentacion) * sacosProducto;
   }, 0);
 
   const costoManoObraCalc = (() => {
@@ -493,6 +494,10 @@ const ActividadesScreen: React.FC = () => {
           let dosisTotal: number | undefined;
           if (TIPOS_CON_TANQUES.includes(tipo) && p.dosisPorTanque && numTanques) {
             dosisTotal = (Number(p.dosisPorTanque) / 1000) * Number(numTanques);
+          } else if ((tipo === 'fertilizacion' || tipo === 'soca_fertilizacion') && p.dosis) {
+            // Sacos propios de este producto (varios productos comparten
+            // el mismo total de mano de obra, pero cada uno pesa distinto).
+            dosisTotal = Number(p.dosis);
           } else if ((tipo === 'fertilizacion' || tipo === 'soca_fertilizacion') && cantidadUnidadMo) {
             dosisTotal = Number(cantidadUnidadMo);
           } else if (p.dosisPorUnidadMo && cantidadUnidadMo) {
@@ -1385,6 +1390,18 @@ const renderTarjetaActividad = (item: Actividad) => {
                     </View>
                   </View>
 
+                  {!TIPOS_CON_TANQUES.includes(tipo) && productos.length > 1 && (
+                    <View style={{ marginBottom:8 }}>
+                      <Text style={s.labelSmall}>Sacos de este producto</Text>
+                      <TextInput style={s.input} value={prod.dosis}
+                        onChangeText={v => setProductos(p => p.map((x,idx) => idx===i ? {...x,dosis:v} : x))}
+                        placeholder="Ej: 12" placeholderTextColor="#aaa" keyboardType="numeric" />
+                      <Text style={s.noteText}>
+                        Si hay mas de un producto, indica cuantos sacos son de este en particular (deben sumar el total de sacos echados).
+                      </Text>
+                    </View>
+                  )}
+
                   {prod.presentacionMl && prod.precioPresentacion && (
                     <View style={s.calcBox}>
                       <Text style={s.calcLabel}>
@@ -1399,8 +1416,8 @@ const renderTarjetaActividad = (item: Actividad) => {
                   )}
 
                   {prod.precioPresentacion && prod.presentacionMl &&
-                   (prod.dosisPorTanque || prod.dosisPorUnidadMo) &&
-                   (numTanques || cantidadUnidadMo) && (() => {
+                   (prod.dosisPorTanque || prod.dosis || cantidadUnidadMo) &&
+                   (numTanques || cantidadUnidadMo || prod.dosis) && (() => {
                     let cant = 0;
                     let detalleTexto = '';
                     let frascosTxt = '';
@@ -1409,6 +1426,12 @@ const renderTarjetaActividad = (item: Actividad) => {
                       const f = cant/(Number(prod.presentacionMl)/1000);
                       detalleTexto = Number(prod.dosisPorTanque).toFixed(0) + 'cc x ' + numTanques + ' tanq = ' + cant.toFixed(2) + 'L';
                       frascosTxt = ' - ' + f.toFixed(2) + ' frascos';
+                    } else if (prod.dosis) {
+                      // Sacos propios de este producto (cuando hay varios
+                      // productos compartiendo el mismo total de mano de
+                      // obra, cada uno debe usar su propia cantidad).
+                      cant = Number(prod.dosis);
+                      detalleTexto = cant.toFixed(0) + ' sacos';
                     } else if (cantidadUnidadMo) {
                       cant = Number(cantidadUnidadMo);
                       detalleTexto = cant.toFixed(0) + ' sacos';
