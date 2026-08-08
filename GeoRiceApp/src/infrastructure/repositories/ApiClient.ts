@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //export const BASE_URL = 'https://vacancy-google-explain.ngrok-free.dev/api';
 
 //produccion en nube
+
 // export const BASE_URL = Platform.OS === 'android'
 //   ? 'http://192.168.1.213:3000/api'
 //   : 'http://localhost:3000/api';

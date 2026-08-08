@@ -112,7 +112,6 @@ const ReportesScreen: React.FC = () => {
   };
 
   const descargar = async (tipo: 'pdf' | 'excel') => {
-    console.log('[descargar] INICIO', tipo);
     try {
       setExportando(tipo);
       const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
@@ -121,8 +120,6 @@ const ReportesScreen: React.FC = () => {
       const params = new URLSearchParams({
         fechaInicio: fmt(fechaInicio),
         fechaFin:    fmt(fechaFin),
-        token,
-        'ngrok-skip-browser-warning': 'true',
       });
       if (esAdmin && socioId) params.set('usuarioId', socioId);
 
@@ -132,8 +129,8 @@ const ReportesScreen: React.FC = () => {
         ? 'application/pdf'
         : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       const dest = `${RNBlobUtil.fs.dirs.CacheDir}/reporte_${fmt(fechaInicio)}_${fmt(fechaFin)}.${ext}`;
-      console.log('[descargar] url=', url, 'dest=', dest);
-// El fetch() nativo de RNBlobUtil (vía OkHttp) exige que los bytes
+
+      // El fetch() nativo de RNBlobUtil (vía OkHttp) exige que los bytes
       // recibidos coincidan EXACTO con el Content-Length declarado
       // (ReactNativeBlobUtilFileResp.isDownloadComplete) — con el Excel
       // (~9KB) eso fallaba de forma consistente con "Download interrupted",
@@ -151,14 +148,11 @@ const ReportesScreen: React.FC = () => {
       await RNBlobUtil.fs.writeFile(dest, Array.from(new Uint8Array(buffer)), 'ascii');
 
       if (Platform.OS === 'android') {
-        console.log('[descargar] abriendo con actionViewIntent, mime=', mime);
         await RNBlobUtil.android.actionViewIntent(dest, mime);
-        console.log('[descargar] actionViewIntent OK');
       } else {
         await RNBlobUtil.ios.previewDocument(dest);
       }
     } catch (e: any) {
-      console.log('[descargar] ERROR', tipo, e && e.message, JSON.stringify(e));
       Alert.alert('Error', e.message ?? 'No se pudo descargar el reporte');
     } finally {
       setExportando(null);
