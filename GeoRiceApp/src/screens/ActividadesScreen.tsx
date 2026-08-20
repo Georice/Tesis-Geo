@@ -405,6 +405,15 @@ const ActividadesScreen: React.FC = () => {
   const numTareasCalculado = tipo === 'siembra_trasplante' && parcelaAreaHa
     ? (Number(parcelaAreaHa) * 16).toFixed(1) : null;
 
+  // Con mas de un producto de fertilizante/abono, cada uno TIENE que traer
+  // su propia cantidad de sacos (prod.dosis) — si se cae al total
+  // compartido para todos por igual, se vuelve a contar el mismo saco
+  // varias veces (el bug original). Con un solo producto, el total
+  // compartido SI es su cantidad propia, y usarlo de respaldo es correcto.
+  const fertilizantesMultiples = productos.filter(
+    p => p.nombre.trim() && (p.tipo === 'fertilizante' || p.tipo === 'abono')
+  ).length > 1;
+
   const costoInsumosCalc = productos.reduce((sum, p) => {
     if (!p.precioPresentacion) return sum;
     if (TIPOS_CON_TANQUES.includes(tipo)) {
@@ -413,6 +422,7 @@ const ActividadesScreen: React.FC = () => {
       const cant = p.dosisPorTanque ? (Number(p.dosisPorTanque) / 1000) * Number(numTanques || 0) : 0;
       return sum + (cant * precioUnit);
     }
+    if (!p.dosis && fertilizantesMultiples) return sum;
     const sacosProducto = p.dosis ? Number(p.dosis) : Number(cantidadUnidadMo || 0);
     return sum + Number(p.precioPresentacion) * sacosProducto;
   }, 0);
@@ -499,7 +509,11 @@ const ActividadesScreen: React.FC = () => {
             // Sacos propios de este producto (varios productos comparten
             // el mismo total de mano de obra, pero cada uno pesa distinto).
             dosisTotal = Number(p.dosis);
-          } else if ((tipo === 'fertilizacion' || tipo === 'soca_fertilizacion') && cantidadUnidadMo) {
+          } else if ((tipo === 'fertilizacion' || tipo === 'soca_fertilizacion') && cantidadUnidadMo && !fertilizantesMultiples) {
+            // Solo valido como respaldo cuando hay un unico producto — con
+            // varios, cada uno necesita su propio p.dosis (rama de arriba);
+            // si no lo trae, se deja sin dosisTotal y el guardado se bloquea
+            // en validarProductos() en vez de duplicar el total compartido.
             dosisTotal = Number(cantidadUnidadMo);
           } else if (p.dosisPorUnidadMo && cantidadUnidadMo) {
             dosisTotal = Number(p.dosisPorUnidadMo) * Number(cantidadUnidadMo);
@@ -551,7 +565,19 @@ const ActividadesScreen: React.FC = () => {
     };
   };
 
+  const validarProductos = (): string | null => {
+    if (!fertilizantesMultiples) return null;
+    const sinDosis = productos.filter(
+      p => p.nombre.trim() && (p.tipo === 'fertilizante' || p.tipo === 'abono') && !p.dosis
+    );
+    if (sinDosis.length === 0) return null;
+    return `Falta indicar "Sacos de este producto" en: ${sinDosis.map(p => p.nombre).join(', ')}. ` +
+      'Con varios productos, cada uno necesita su propia cantidad para calcular bien el costo.';
+  };
+
   const handleCrear = async () => {
+    const errorValidacion = validarProductos();
+    if (errorValidacion) { Alert.alert('Falta informacion', errorValidacion); return; }
     setGuardando(true);
     try {
       const creada = await CreateActividad(parcelaId, buildPayload() as any);
@@ -567,6 +593,8 @@ const ActividadesScreen: React.FC = () => {
 
   const handleActualizar = async () => {
     if (!actividadSel) return;
+    const errorValidacion = validarProductos();
+    if (errorValidacion) { Alert.alert('Falta informacion', errorValidacion); return; }
     setGuardando(true);
     try {
       await UpdateActividad(parcelaId, actividadSel.id, buildPayload() as any);
@@ -1440,9 +1468,16 @@ const renderTarjetaActividad = (item: Actividad) => {
                     </View>
                   )}
 
+                  {!TIPOS_CON_TANQUES.includes(tipo) && !prod.dosis && fertilizantesMultiples && (
+                    <Text style={[s.noteText,{marginTop:4,color:Colors.rojo}]}>
+                      Falta indicar "Sacos de este producto" — con varios productos no se puede calcular su costo sin eso.
+                    </Text>
+                  )}
+
                   {prod.precioPresentacion && prod.presentacionMl &&
                    (prod.dosisPorTanque || prod.dosis || cantidadUnidadMo) &&
-                   (numTanques || cantidadUnidadMo || prod.dosis) && (() => {
+                   (numTanques || cantidadUnidadMo || prod.dosis) &&
+                   !(!TIPOS_CON_TANQUES.includes(tipo) && !prod.dosis && fertilizantesMultiples) && (() => {
                     let cant = 0;
                     let detalleTexto = '';
                     let frascosTxt = '';

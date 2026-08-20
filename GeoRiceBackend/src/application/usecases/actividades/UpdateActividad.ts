@@ -105,6 +105,12 @@ export class UpdateActividad {
     const cantMoParaProductos = cantidadFinal ?? cantMo;
 
     if (data.productos?.length) {
+      // Ver mismo comentario en CreateActividad.ts: el respaldo por total
+      // compartido solo es valido con un unico producto fertilizante/abono.
+      const fertilizantesEnPayload = data.productos.filter(
+        p => p.tipo === 'fertilizante' || p.tipo === 'abono'
+      ).length;
+
       data.productos = data.productos.map((p: ProductoComando) => {
         const prod = { ...p };
 
@@ -116,7 +122,11 @@ export class UpdateActividad {
           prod.dosisTotal = (Number(prod.dosisPorTanque) / 1000) * Number(tanques);
         } else if (prod.dosisPorUnidadMo && cantMoParaProductos) {
           prod.dosisTotal = Number(prod.dosisPorUnidadMo) * Number(cantMoParaProductos);
-        } else if (cantMoParaProductos && (prod.tipo === 'fertilizante' || prod.tipo === 'abono')) {
+        } else if (
+          cantMoParaProductos &&
+          (prod.tipo === 'fertilizante' || prod.tipo === 'abono') &&
+          fertilizantesEnPayload <= 1
+        ) {
           prod.dosisTotal = Number(cantMoParaProductos);
         }
 

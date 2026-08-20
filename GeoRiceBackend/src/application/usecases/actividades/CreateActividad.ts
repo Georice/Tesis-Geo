@@ -72,6 +72,15 @@ export class CreateActividad {
     }
 
     if (data.productos?.length) {
+      // Si hay mas de un producto fertilizante/abono, el total de sacos de
+      // mano de obra NO puede repartirse solo como respaldo para cada uno
+      // (el mismo total contado varias veces era exactamente el bug que se
+      // corrigio aca) — el respaldo por total compartido solo es valido
+      // cuando hay un unico producto de ese tipo.
+      const fertilizantesEnPayload = data.productos.filter(
+        p => p.tipo === 'fertilizante' || p.tipo === 'abono'
+      ).length;
+
       data.productos = data.productos.map((p: ProductoComando) => {
         const prod = { ...p };
 
@@ -85,7 +94,11 @@ export class CreateActividad {
           prod.dosisTotal = (Number(prod.dosisPorTanque) / 1000) * Number(data.detalleFumigacion.numTanques);
         } else if (prod.dosisPorUnidadMo && data.detalleManoObra?.cantidadUnidadMo) {
           prod.dosisTotal = Number(prod.dosisPorUnidadMo) * Number(data.detalleManoObra.cantidadUnidadMo);
-        } else if (data.detalleManoObra?.cantidadUnidadMo && (prod.tipo === 'fertilizante' || prod.tipo === 'abono')) {
+        } else if (
+          data.detalleManoObra?.cantidadUnidadMo &&
+          (prod.tipo === 'fertilizante' || prod.tipo === 'abono') &&
+          fertilizantesEnPayload <= 1
+        ) {
           prod.dosisTotal = Number(data.detalleManoObra.cantidadUnidadMo);
         }
 
